@@ -1,0 +1,5 @@
+warning: unused import: `std::time::Duration`
+7 | use std::time::Duration;
+                        time:   [3.2746 ms 3.3430 ms 3.3602 ms]
+                        time:   [4.8490 ms 4.8888 ms 5.0482 ms]
+                        time:   [22.327 ms 22.402 ms 22.706 ms]

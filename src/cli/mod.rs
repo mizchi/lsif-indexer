@@ -1,4 +1,7 @@
 pub mod storage;
+pub mod parallel_storage;
+pub mod cached_storage;
+pub mod optimized_incremental;
 pub mod lsp_client;
 pub mod lsp_indexer;
 pub mod call_hierarchy_cmd;

@@ -1,0 +1,5 @@
+Project,Files,TotalTime(ms),AvgTime(ms)
+React-JS,10,4523,452
+React-JSX,10,2982,298
+Deno-CLI,10,952,95
+Deno-Runtime,10,985,98

@@ -1,4 +1,4 @@
-use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::stable_graph::{StableDiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -55,14 +55,14 @@ pub enum EdgeKind {
 
 #[derive(Debug, Clone)]
 pub struct CodeGraph {
-    pub(crate) graph: DiGraph<Symbol, EdgeKind>,
+    pub(crate) graph: StableDiGraph<Symbol, EdgeKind>,
     pub(crate) symbol_index: HashMap<String, NodeIndex>,
 }
 
 impl Default for CodeGraph {
     fn default() -> Self {
         Self {
-            graph: DiGraph::new(),
+            graph: StableDiGraph::new(),
             symbol_index: HashMap::new(),
         }
     }

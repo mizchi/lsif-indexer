@@ -36,6 +36,9 @@ lsp-server = "0.7"
 # 非同期処理
 tokio = { version = "1.0", features = ["full"] }
 
+# 並列処理
+rayon = "1.7"
+
 [dev-dependencies]
 # テスト用
 tempfile = "3.0"
@@ -44,4 +47,20 @@ criterion = "0.5"
 
 [[bench]]
 name = "index_benchmark"
+harness = false
+
+[[bench]]
+name = "parallel_benchmark"
+harness = false
+
+[[bench]]
+name = "index_performance_benchmark"
+harness = false
+
+[[bench]]
+name = "storage_benchmark"
+harness = false
+
+[[bench]]
+name = "cache_benchmark"
 harness = false

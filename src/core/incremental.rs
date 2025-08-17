@@ -72,6 +72,8 @@ impl IncrementalIndex {
         for old_symbol_id in &old_symbols {
             if !new_symbols.iter().any(|s| &s.id == old_symbol_id) {
                 result.removed_symbols.insert(old_symbol_id.clone());
+                self.remove_symbol(old_symbol_id)?;
+                self.symbol_to_file.remove(old_symbol_id);
                 self.mark_as_potentially_dead(old_symbol_id);
             }
         }

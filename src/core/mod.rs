@@ -1,4 +1,5 @@
 pub mod graph;
+pub mod enhanced_graph;
 pub mod graph_serde;
 pub mod lsif;
 pub mod call_hierarchy;
@@ -6,8 +7,11 @@ pub mod incremental;
 pub mod definition_chain;
 pub mod type_relations;
 pub mod graph_query;
+pub mod parallel;
+pub mod parallel_optimized;
 
 pub use graph::{CodeGraph, Symbol, SymbolKind, Range, Position, EdgeKind};
+pub use enhanced_graph::{EnhancedCodeGraph, TypeInfo, CallInfo, CallHierarchy as EnhancedCallHierarchy, CallNode, TypeRelations as EnhancedTypeRelations};
 pub use lsif::{generate_lsif, parse_lsif, write_lsif};
 pub use call_hierarchy::{CallHierarchy, CallHierarchyAnalyzer, format_hierarchy};
 pub use incremental::{IncrementalIndex, FileUpdate, UpdateResult, BatchUpdateResult, calculate_file_hash};
