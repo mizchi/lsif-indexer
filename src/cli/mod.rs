@@ -3,6 +3,7 @@ pub mod lsp_client;
 pub mod lsp_indexer;
 pub mod call_hierarchy_cmd;
 pub mod incremental_storage;
+pub mod lsp_adapter;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -56,6 +57,10 @@ pub enum Commands {
         /// Output index database path
         #[arg(short, long)]
         output: String,
+        
+        /// Language (auto-detect if not specified)
+        #[arg(short, long)]
+        language: Option<String>,
     },
     
     /// Query the index
@@ -153,9 +158,9 @@ impl Cli {
                 info!("Importing LSIF {} to index {}", input, output);
                 import_lsif(&input, &output)?;
             }
-            Commands::Generate { source, output } => {
+            Commands::Generate { source, output, language } => {
                 info!("Generating index from {} to {}", source, output);
-                generate_index(&source, &output)?;
+                generate_index(&source, &output, language.as_deref())?;
             }
             Commands::Query { index, query_type, file, line, column } => {
                 info!("Querying {} for {} at {}:{}:{}", index, query_type, file, line, column);
@@ -224,13 +229,54 @@ fn import_lsif(input_path: &str, output_path: &str) -> Result<()> {
     Ok(())
 }
 
-fn generate_index(source_path: &str, output_path: &str) -> Result<()> {
-    // Get symbols from rust-analyzer
-    let mut lsp_client = LspClient::spawn_rust_analyzer()?;
+fn generate_index(source_path: &str, output_path: &str, language: Option<&str>) -> Result<()> {
+    use self::lsp_adapter::{detect_language, GenericLspClient, RustAnalyzerAdapter};
+    
     let abs_path = fs::canonicalize(source_path)?;
     let file_uri = format!("file://{}", abs_path.display());
-    let symbols = lsp_client.get_document_symbols(&file_uri)?;
-    lsp_client.shutdown()?;
+    
+    // Detect or use specified language
+    let symbols = if let Some(lang) = language {
+        match lang {
+            "rust" => {
+                let mut client = GenericLspClient::new(Box::new(RustAnalyzerAdapter))?;
+                let syms = client.get_document_symbols(&file_uri)?;
+                client.shutdown()?;
+                syms
+            }
+            "typescript" | "ts" => {
+                use self::lsp_adapter::TypeScriptAdapter;
+                let mut client = GenericLspClient::new(Box::new(TypeScriptAdapter))?;
+                let syms = client.get_document_symbols(&file_uri)?;
+                client.shutdown()?;
+                syms
+            }
+            "python" | "py" => {
+                use self::lsp_adapter::PythonAdapter;
+                let mut client = GenericLspClient::new(Box::new(PythonAdapter))?;
+                let syms = client.get_document_symbols(&file_uri)?;
+                client.shutdown()?;
+                syms
+            }
+            _ => {
+                anyhow::bail!("Unsupported language: {}", lang);
+            }
+        }
+    } else {
+        // Auto-detect language from file extension
+        if let Some(adapter) = detect_language(source_path) {
+            let mut client = GenericLspClient::new(adapter)?;
+            let syms = client.get_document_symbols(&file_uri)?;
+            client.shutdown()?;
+            syms
+        } else {
+            // Fallback to rust-analyzer for backward compatibility
+            let mut lsp_client = LspClient::spawn_rust_analyzer()?;
+            let syms = lsp_client.get_document_symbols(&file_uri)?;
+            lsp_client.shutdown()?;
+            syms
+        }
+    };
     
     // Create index from symbols
     let mut indexer = LspIndexer::new(source_path.to_string());

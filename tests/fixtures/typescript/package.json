@@ -1,0 +1,13 @@
+{
+  "name": "test-typescript-project",
+  "version": "1.0.0",
+  "description": "Test TypeScript project for LSP indexing",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"No test specified\""
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
