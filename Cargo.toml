@@ -39,3 +39,9 @@ tokio = { version = "1.0", features = ["full"] }
 [dev-dependencies]
 # テスト用
 tempfile = "3.0"
+# ベンチマーク用
+criterion = "0.5"
+
+[[bench]]
+name = "index_benchmark"
+harness = false

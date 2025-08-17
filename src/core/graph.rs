@@ -117,4 +117,8 @@ impl CodeGraph {
     pub fn get_node_index(&self, symbol_id: &str) -> Option<NodeIndex> {
         self.symbol_index.get(symbol_id).copied()
     }
+    
+    pub fn get_all_symbols(&self) -> impl Iterator<Item = &Symbol> {
+        self.graph.node_weights()
+    }
 }

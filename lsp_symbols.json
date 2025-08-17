@@ -1,0 +1,571 @@
+[
+  {
+    "name": "graph",
+    "kind": 2,
+    "tags": [],
+    "deprecated": false,
+    "range": {
+      "start": {
+        "line": 4,
+        "character": 0
+      },
+      "end": {
+        "line": 4,
+        "character": 10
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 4,
+        "character": 4
+      },
+      "end": {
+        "line": 4,
+        "character": 9
+      }
+    }
+  },
+  {
+    "name": "lsif",
+    "kind": 2,
+    "tags": [],
+    "deprecated": false,
+    "range": {
+      "start": {
+        "line": 5,
+        "character": 0
+      },
+      "end": {
+        "line": 5,
+        "character": 9
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 5,
+        "character": 4
+      },
+      "end": {
+        "line": 5,
+        "character": 8
+      }
+    }
+  },
+  {
+    "name": "scip",
+    "kind": 2,
+    "tags": [],
+    "deprecated": false,
+    "range": {
+      "start": {
+        "line": 6,
+        "character": 0
+      },
+      "end": {
+        "line": 6,
+        "character": 9
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 6,
+        "character": 4
+      },
+      "end": {
+        "line": 6,
+        "character": 8
+      }
+    }
+  },
+  {
+    "name": "storage",
+    "kind": 2,
+    "tags": [],
+    "deprecated": false,
+    "range": {
+      "start": {
+        "line": 7,
+        "character": 0
+      },
+      "end": {
+        "line": 7,
+        "character": 12
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 7,
+        "character": 4
+      },
+      "end": {
+        "line": 7,
+        "character": 11
+      }
+    }
+  },
+  {
+    "name": "Cli",
+    "kind": 23,
+    "tags": [],
+    "deprecated": false,
+    "range": {
+      "start": {
+        "line": 9,
+        "character": 0
+      },
+      "end": {
+        "line": 15,
+        "character": 1
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 12,
+        "character": 7
+      },
+      "end": {
+        "line": 12,
+        "character": 10
+      }
+    },
+    "children": [
+      {
+        "name": "command",
+        "detail": "Commands",
+        "kind": 8,
+        "tags": [],
+        "deprecated": false,
+        "range": {
+          "start": {
+            "line": 13,
+            "character": 4
+          },
+          "end": {
+            "line": 14,
+            "character": 21
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 14,
+            "character": 4
+          },
+          "end": {
+            "line": 14,
+            "character": 11
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "Commands",
+    "kind": 10,
+    "tags": [],
+    "deprecated": false,
+    "range": {
+      "start": {
+        "line": 17,
+        "character": 0
+      },
+      "end": {
+        "line": 63,
+        "character": 1
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 18,
+        "character": 5
+      },
+      "end": {
+        "line": 18,
+        "character": 13
+      }
+    },
+    "children": [
+      {
+        "name": "IndexLsif",
+        "kind": 22,
+        "tags": [],
+        "deprecated": false,
+        "range": {
+          "start": {
+            "line": 19,
+            "character": 4
+          },
+          "end": {
+            "line": 28,
+            "character": 5
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 20,
+            "character": 4
+          },
+          "end": {
+            "line": 20,
+            "character": 13
+          }
+        },
+        "children": [
+          {
+            "name": "path",
+            "detail": "String",
+            "kind": 8,
+            "tags": [],
+            "deprecated": false,
+            "range": {
+              "start": {
+                "line": 21,
+                "character": 8
+              },
+              "end": {
+                "line": 23,
+                "character": 20
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 23,
+                "character": 8
+              },
+              "end": {
+                "line": 23,
+                "character": 12
+              }
+            }
+          },
+          {
+            "name": "output",
+            "detail": "String",
+            "kind": 8,
+            "tags": [],
+            "deprecated": false,
+            "range": {
+              "start": {
+                "line": 25,
+                "character": 8
+              },
+              "end": {
+                "line": 27,
+                "character": 22
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 27,
+                "character": 8
+              },
+              "end": {
+                "line": 27,
+                "character": 14
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "IndexScip",
+        "kind": 22,
+        "tags": [],
+        "deprecated": false,
+        "range": {
+          "start": {
+            "line": 30,
+            "character": 4
+          },
+          "end": {
+            "line": 39,
+            "character": 5
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 31,
+            "character": 4
+          },
+          "end": {
+            "line": 31,
+            "character": 13
+          }
+        },
+        "children": [
+          {
+            "name": "path",
+            "detail": "String",
+            "kind": 8,
+            "tags": [],
+            "deprecated": false,
+            "range": {
+              "start": {
+                "line": 32,
+                "character": 8
+              },
+              "end": {
+                "line": 34,
+                "character": 20
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 34,
+                "character": 8
+              },
+              "end": {
+                "line": 34,
+                "character": 12
+              }
+            }
+          },
+          {
+            "name": "output",
+            "detail": "String",
+            "kind": 8,
+            "tags": [],
+            "deprecated": false,
+            "range": {
+              "start": {
+                "line": 36,
+                "character": 8
+              },
+              "end": {
+                "line": 38,
+                "character": 22
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 38,
+                "character": 8
+              },
+              "end": {
+                "line": 38,
+                "character": 14
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "Query",
+        "kind": 22,
+        "tags": [],
+        "deprecated": false,
+        "range": {
+          "start": {
+            "line": 41,
+            "character": 4
+          },
+          "end": {
+            "line": 62,
+            "character": 5
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 42,
+            "character": 4
+          },
+          "end": {
+            "line": 42,
+            "character": 9
+          }
+        },
+        "children": [
+          {
+            "name": "index",
+            "detail": "String",
+            "kind": 8,
+            "tags": [],
+            "deprecated": false,
+            "range": {
+              "start": {
+                "line": 43,
+                "character": 8
+              },
+              "end": {
+                "line": 45,
+                "character": 21
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 45,
+                "character": 8
+              },
+              "end": {
+                "line": 45,
+                "character": 13
+              }
+            }
+          },
+          {
+            "name": "query_type",
+            "detail": "String",
+            "kind": 8,
+            "tags": [],
+            "deprecated": false,
+            "range": {
+              "start": {
+                "line": 47,
+                "character": 8
+              },
+              "end": {
+                "line": 49,
+                "character": 26
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 49,
+                "character": 8
+              },
+              "end": {
+                "line": 49,
+                "character": 18
+              }
+            }
+          },
+          {
+            "name": "file",
+            "detail": "String",
+            "kind": 8,
+            "tags": [],
+            "deprecated": false,
+            "range": {
+              "start": {
+                "line": 51,
+                "character": 8
+              },
+              "end": {
+                "line": 53,
+                "character": 20
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 53,
+                "character": 8
+              },
+              "end": {
+                "line": 53,
+                "character": 12
+              }
+            }
+          },
+          {
+            "name": "line",
+            "detail": "u32",
+            "kind": 8,
+            "tags": [],
+            "deprecated": false,
+            "range": {
+              "start": {
+                "line": 55,
+                "character": 8
+              },
+              "end": {
+                "line": 57,
+                "character": 17
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 57,
+                "character": 8
+              },
+              "end": {
+                "line": 57,
+                "character": 12
+              }
+            }
+          },
+          {
+            "name": "column",
+            "detail": "u32",
+            "kind": 8,
+            "tags": [],
+            "deprecated": false,
+            "range": {
+              "start": {
+                "line": 59,
+                "character": 8
+              },
+              "end": {
+                "line": 61,
+                "character": 19
+              }
+            },
+            "selectionRange": {
+              "start": {
+                "line": 61,
+                "character": 8
+              },
+              "end": {
+                "line": 61,
+                "character": 14
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "main",
+    "detail": "fn() -> Result<()>",
+    "kind": 12,
+    "tags": [],
+    "deprecated": false,
+    "range": {
+      "start": {
+        "line": 65,
+        "character": 0
+      },
+      "end": {
+        "line": 86,
+        "character": 1
+      }
+    },
+    "selectionRange": {
+      "start": {
+        "line": 65,
+        "character": 3
+      },
+      "end": {
+        "line": 65,
+        "character": 7
+      }
+    },
+    "children": [
+      {
+        "name": "cli",
+        "kind": 13,
+        "tags": [],
+        "deprecated": false,
+        "range": {
+          "start": {
+            "line": 68,
+            "character": 4
+          },
+          "end": {
+            "line": 68,
+            "character": 27
+          }
+        },
+        "selectionRange": {
+          "start": {
+            "line": 68,
+            "character": 8
+          },
+          "end": {
+            "line": 68,
+            "character": 11
+          }
+        }
+      }
+    ]
+  }
+]

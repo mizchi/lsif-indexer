@@ -1,0 +1,14 @@
+{"id":"1","type":"vertex","label":"metaData","version":"0.5.0","toolInfo":{"name":"lsif-indexer","version":"1.0.0"},"projectRoot":"file:///","positionEncoding":"utf-16"}
+{"id":"2","type":"vertex","label":"project","kind":"rust"}
+{"id":"3","type":"vertex","label":"document","uri":"file://src/main.rs","languageId":"rust"}
+{"id":"4","type":"edge","label":"contains","outV":"2","inV":"3"}
+{"id":"5","type":"vertex","label":"range","start":{"character":0,"line":4},"end":{"character":1,"line":11}}
+{"id":"6","type":"edge","label":"contains","outV":"3","inV":"5"}
+{"id":"7","type":"vertex","label":"resultSet"}
+{"id":"8","type":"edge","label":"next","outV":"5","inV":"7"}
+{"id":"9","type":"vertex","label":"hoverResult","result":{"contents":{"kind":"markdown","value":"fn() -> Result<()>"}}}
+{"id":"10","type":"edge","label":"textDocument/hover","outV":"7","inV":"9"}
+{"id":"11","type":"vertex","label":"range","start":{"character":4,"line":7},"end":{"character":27,"line":7}}
+{"id":"12","type":"edge","label":"contains","outV":"3","inV":"11"}
+{"id":"13","type":"vertex","label":"resultSet"}
+{"id":"14","type":"edge","label":"next","outV":"11","inV":"13"}

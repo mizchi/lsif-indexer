@@ -1,6 +1,8 @@
 pub mod storage;
 pub mod lsp_client;
 pub mod lsp_indexer;
+pub mod call_hierarchy_cmd;
+pub mod incremental_storage;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -78,6 +80,66 @@ pub enum Commands {
         #[arg(short, long)]
         column: u32,
     },
+    
+    /// Show call hierarchy for a function
+    CallHierarchy {
+        /// Index file path
+        #[arg(short, long)]
+        index: String,
+        
+        /// Symbol ID
+        #[arg(short, long)]
+        symbol: String,
+        
+        /// Direction (incoming, outgoing, full)
+        #[arg(short, long, default_value = "full")]
+        direction: String,
+        
+        /// Maximum depth
+        #[arg(short = 'm', long, default_value = "3")]
+        max_depth: usize,
+    },
+    
+    /// Find call paths between two functions
+    CallPaths {
+        /// Index file path
+        #[arg(short, long)]
+        index: String,
+        
+        /// From symbol ID
+        #[arg(short, long)]
+        from: String,
+        
+        /// To symbol ID
+        #[arg(short, long)]
+        to: String,
+        
+        /// Maximum depth
+        #[arg(short = 'm', long, default_value = "5")]
+        max_depth: usize,
+    },
+    
+    /// Update index incrementally
+    UpdateIncremental {
+        /// Index database path
+        #[arg(short, long)]
+        index: String,
+        
+        /// Source file path to update
+        #[arg(short, long)]
+        source: String,
+        
+        /// Show dead code detection results
+        #[arg(short, long)]
+        detect_dead: bool,
+    },
+    
+    /// Show dead code in the index
+    ShowDeadCode {
+        /// Index database path
+        #[arg(short, long)]
+        index: String,
+    },
 }
 
 impl Cli {
@@ -98,6 +160,22 @@ impl Cli {
             Commands::Query { index, query_type, file, line, column } => {
                 info!("Querying {} for {} at {}:{}:{}", index, query_type, file, line, column);
                 query_index(&index, &query_type, &file, line, column)?;
+            }
+            Commands::CallHierarchy { index, symbol, direction, max_depth } => {
+                info!("Showing {} call hierarchy for {} (depth: {})", direction, symbol, max_depth);
+                call_hierarchy_cmd::show_call_hierarchy(&index, &symbol, &direction, max_depth)?;
+            }
+            Commands::CallPaths { index, from, to, max_depth } => {
+                info!("Finding paths from {} to {} (max depth: {})", from, to, max_depth);
+                call_hierarchy_cmd::find_paths(&index, &from, &to, max_depth)?;
+            }
+            Commands::UpdateIncremental { index, source, detect_dead } => {
+                info!("Updating index {} incrementally with {}", index, source);
+                update_incremental(&index, &source, detect_dead)?;
+            }
+            Commands::ShowDeadCode { index } => {
+                info!("Showing dead code in index {}", index);
+                show_dead_code(&index)?;
             }
         }
         Ok(())
@@ -213,6 +291,108 @@ fn query_index(index_path: &str, query_type: &str, file: &str, line: u32, _colum
         }
         _ => {
             anyhow::bail!("Unknown query type: {}", query_type);
+        }
+    }
+    
+    Ok(())
+}
+
+fn update_incremental(index_path: &str, source_path: &str, detect_dead: bool) -> Result<()> {
+    use crate::core::calculate_file_hash;
+    use self::incremental_storage::IncrementalStorage;
+    
+    // Open incremental storage
+    let storage = IncrementalStorage::open(index_path)?;
+    
+    // Load or create index
+    let mut index = storage.load_or_create_index()?;
+    
+    // Read source file
+    let content = fs::read_to_string(source_path)?;
+    let file_hash = calculate_file_hash(&content);
+    
+    // Check if update is needed
+    let path = std::path::Path::new(source_path);
+    if !index.needs_update(path, &file_hash) {
+        println!("File {} is up to date", source_path);
+        return Ok(());
+    }
+    
+    // Get symbols from LSP
+    let mut lsp_client = LspClient::spawn_rust_analyzer()?;
+    let abs_path = fs::canonicalize(source_path)?;
+    let file_uri = format!("file://{}", abs_path.display());
+    let lsp_symbols = lsp_client.get_document_symbols(&file_uri)?;
+    lsp_client.shutdown()?;
+    
+    // Convert LSP symbols to our Symbol format
+    let mut indexer = LspIndexer::new(source_path.to_string());
+    indexer.index_from_symbols(lsp_symbols)?;
+    let graph = indexer.into_graph();
+    let symbols: Vec<_> = graph.get_all_symbols().cloned().collect();
+    
+    // Update index
+    let result = index.update_file(path, symbols, file_hash)?;
+    
+    // Save incremental changes
+    let metrics = storage.save_incremental(&index, &result)?;
+    
+    println!("Update complete: {}", metrics.summary());
+    println!("  Added: {} symbols", result.added_symbols.len());
+    println!("  Updated: {} symbols", result.updated_symbols.len());
+    println!("  Removed: {} symbols", result.removed_symbols.len());
+    
+    if detect_dead {
+        println!("\nDead code detected: {} symbols", result.dead_symbols.len());
+        for symbol_id in result.dead_symbols.iter().take(10) {
+            println!("  - {}", symbol_id);
+        }
+        if result.dead_symbols.len() > 10 {
+            println!("  ... and {} more", result.dead_symbols.len() - 10);
+        }
+    }
+    
+    // Show storage stats
+    let stats = storage.get_stats()?;
+    println!("\nStorage stats:");
+    println!("  Total symbols: {}", stats.total_symbols);
+    println!("  Total files: {}", stats.total_files);
+    println!("  DB size: {} KB", stats.db_size_bytes / 1024);
+    
+    Ok(())
+}
+
+fn show_dead_code(index_path: &str) -> Result<()> {
+    use self::incremental_storage::IncrementalStorage;
+    
+    let storage = IncrementalStorage::open(index_path)?;
+    let index = storage.load_or_create_index()?;
+    
+    let dead_symbols = index.get_dead_symbols();
+    
+    if dead_symbols.is_empty() {
+        println!("No dead code detected.");
+    } else {
+        println!("Dead code found: {} symbols", dead_symbols.len());
+        
+        // Group by file
+        let mut by_file: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        for symbol_id in dead_symbols {
+            if let Some(path) = index.symbol_to_file.get(symbol_id) {
+                by_file.entry(path.to_string_lossy().to_string())
+                    .or_insert_with(Vec::new)
+                    .push(symbol_id.clone());
+            }
+        }
+        
+        for (file, symbols) in by_file {
+            println!("\n{}:", file);
+            for symbol in symbols.iter().take(5) {
+                println!("  - {}", symbol);
+            }
+            if symbols.len() > 5 {
+                println!("  ... and {} more", symbols.len() - 5);
+            }
         }
     }
     
