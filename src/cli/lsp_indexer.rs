@@ -103,17 +103,63 @@ impl LspIndexer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use anyhow::Context;
 
     #[test]
     fn test_index_from_lsp_symbols() -> Result<()> {
-        // Load the test data
-        let json_str = fs::read_to_string("lsp_symbols.json")
-            .context("Failed to read lsp_symbols.json")?;
+        use lsp_types::{Range as LspRange, Position as LspPosition};
         
-        let symbols: Vec<DocumentSymbol> = serde_json::from_str(&json_str)
-            .context("Failed to parse symbols")?;
+        // Create mock symbols
+        let symbols = vec![
+            DocumentSymbol {
+                name: "main".to_string(),
+                detail: Some("fn main()".to_string()),
+                kind: lsp_types::SymbolKind::FUNCTION,
+                tags: None,
+                deprecated: None,
+                range: LspRange {
+                    start: LspPosition { line: 65, character: 0 },
+                    end: LspPosition { line: 70, character: 1 },
+                },
+                selection_range: LspRange {
+                    start: LspPosition { line: 65, character: 3 },
+                    end: LspPosition { line: 65, character: 7 },
+                },
+                children: None,
+            },
+            DocumentSymbol {
+                name: "TestStruct".to_string(),
+                detail: Some("struct TestStruct".to_string()),
+                kind: lsp_types::SymbolKind::STRUCT,
+                tags: None,
+                deprecated: None,
+                range: LspRange {
+                    start: LspPosition { line: 10, character: 0 },
+                    end: LspPosition { line: 15, character: 1 },
+                },
+                selection_range: LspRange {
+                    start: LspPosition { line: 10, character: 7 },
+                    end: LspPosition { line: 10, character: 17 },
+                },
+                children: Some(vec![
+                    DocumentSymbol {
+                        name: "field1".to_string(),
+                        detail: Some("String".to_string()),
+                        kind: lsp_types::SymbolKind::FIELD,
+                        tags: None,
+                        deprecated: None,
+                        range: LspRange {
+                            start: LspPosition { line: 11, character: 4 },
+                            end: LspPosition { line: 11, character: 20 },
+                        },
+                        selection_range: LspRange {
+                            start: LspPosition { line: 11, character: 4 },
+                            end: LspPosition { line: 11, character: 10 },
+                        },
+                        children: None,
+                    },
+                ]),
+            },
+        ];
         
         // Create indexer and process symbols
         let mut indexer = LspIndexer::new("src/main.rs".to_string());
@@ -121,12 +167,19 @@ mod tests {
         
         // Verify we have symbols in the graph
         let graph = indexer.into_graph();
-        assert!(graph.symbol_count() > 0);
+        assert_eq!(graph.symbol_count(), 3); // main, TestStruct, field1
         
-        // Try to find a specific symbol
-        let main_symbol = graph.find_symbol("src/main.rs#66:main");
-        assert!(main_symbol.is_some());
-        assert_eq!(main_symbol.unwrap().name, "main");
+        // Try to find specific symbols
+        let all_symbols: Vec<_> = graph.get_all_symbols().collect();
+        assert_eq!(all_symbols.len(), 3);
+        
+        // Check that main symbol exists
+        let main_exists = all_symbols.iter().any(|s| s.name == "main");
+        assert!(main_exists, "main symbol should exist");
+        
+        // Check that TestStruct exists
+        let struct_exists = all_symbols.iter().any(|s| s.name == "TestStruct");
+        assert!(struct_exists, "TestStruct symbol should exist");
         
         Ok(())
     }

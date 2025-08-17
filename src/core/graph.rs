@@ -26,6 +26,7 @@ pub enum SymbolKind {
     Namespace,
     Property,
     Parameter,
+    Field,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,13 +35,13 @@ pub struct Range {
     pub end: Position,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Position {
     pub line: u32,
     pub character: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum EdgeKind {
     Definition,
     Reference,

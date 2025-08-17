@@ -4,6 +4,7 @@ pub mod lsp_indexer;
 pub mod call_hierarchy_cmd;
 pub mod incremental_storage;
 pub mod lsp_adapter;
+pub mod enhanced_indexer;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -14,6 +15,7 @@ use crate::core::{
 use self::storage::{IndexStorage, IndexMetadata, IndexFormat};
 use self::lsp_client::LspClient;
 use self::lsp_indexer::LspIndexer;
+use self::lsp_adapter::LspAdapter;
 use tracing::info;
 
 #[derive(Parser)]
@@ -145,6 +147,74 @@ pub enum Commands {
         #[arg(short, long)]
         index: String,
     },
+    
+    /// Trace definition chain for a symbol
+    DefinitionChain {
+        /// Index database path
+        #[arg(short, long)]
+        index: String,
+        
+        /// Symbol ID to trace
+        #[arg(short, long)]
+        symbol: String,
+        
+        /// Show all possible chains (for multiple definitions)
+        #[arg(short, long)]
+        all: bool,
+    },
+    
+    /// Collect type-related symbols recursively
+    TypeRelations {
+        /// Index database path
+        #[arg(short, long)]
+        index: String,
+        
+        /// Type symbol ID to analyze
+        #[arg(short, long)]
+        type_symbol: String,
+        
+        /// Maximum recursion depth
+        #[arg(short = 'd', long, default_value = "3")]
+        max_depth: usize,
+        
+        /// Show type hierarchy (parents, children, siblings)
+        #[arg(short = 'h', long)]
+        hierarchy: bool,
+        
+        /// Group relations by type
+        #[arg(short, long)]
+        group: bool,
+    },
+    
+    /// Execute a graph query pattern
+    QueryPattern {
+        /// Index database path
+        #[arg(short, long)]
+        index: String,
+        
+        /// Query pattern (Cypher-like syntax)
+        #[arg(short, long)]
+        pattern: String,
+        
+        /// Maximum results to show
+        #[arg(short = 'l', long, default_value = "10")]
+        limit: usize,
+    },
+    
+    /// Index an entire project with enhanced reference tracking
+    IndexProject {
+        /// Project root directory
+        #[arg(short, long, default_value = ".")]
+        project: String,
+        
+        /// Output index database path
+        #[arg(short, long)]
+        output: String,
+        
+        /// Language (rust, typescript, python)
+        #[arg(short, long, default_value = "rust")]
+        language: String,
+    },
 }
 
 impl Cli {
@@ -181,6 +251,22 @@ impl Cli {
             Commands::ShowDeadCode { index } => {
                 info!("Showing dead code in index {}", index);
                 show_dead_code(&index)?;
+            }
+            Commands::DefinitionChain { index, symbol, all } => {
+                info!("Tracing definition chain for {} in index {}", symbol, index);
+                show_definition_chain(&index, &symbol, all)?;
+            }
+            Commands::TypeRelations { index, type_symbol, max_depth, hierarchy, group } => {
+                info!("Collecting type relations for {} in index {} (depth: {})", type_symbol, index, max_depth);
+                show_type_relations(&index, &type_symbol, max_depth, hierarchy, group)?;
+            }
+            Commands::QueryPattern { index, pattern, limit } => {
+                info!("Executing query pattern: {}", pattern);
+                execute_query_pattern(&index, &pattern, limit)?;
+            }
+            Commands::IndexProject { project, output, language } => {
+                info!("Indexing project {} with language {}", project, language);
+                index_project(&project, &output, &language)?;
             }
         }
         Ok(())
@@ -441,6 +527,230 @@ fn show_dead_code(index_path: &str) -> Result<()> {
             }
         }
     }
+    
+    Ok(())
+}
+
+fn show_definition_chain(index_path: &str, symbol_id: &str, show_all: bool) -> Result<()> {
+    use crate::core::{DefinitionChainAnalyzer, format_definition_chain};
+    
+    let storage = IndexStorage::open(index_path)?;
+    let graph: CodeGraph = storage.load_data("graph")?
+        .ok_or_else(|| anyhow::anyhow!("No graph found in index"))?;
+    
+    let analyzer = DefinitionChainAnalyzer::new(&graph);
+    
+    if show_all {
+        // Show all possible definition chains
+        let chains = analyzer.get_all_definition_chains(symbol_id);
+        
+        if chains.is_empty() {
+            println!("No definition chains found for symbol: {}", symbol_id);
+        } else {
+            println!("All definition chains for {}:", symbol_id);
+            for (i, chain) in chains.iter().enumerate() {
+                println!("\n  Chain {}:", i + 1);
+                println!("    {}", format_definition_chain(chain));
+            }
+            println!("\nTotal chains found: {}", chains.len());
+        }
+    } else {
+        // Show single definition chain
+        match analyzer.get_definition_chain(symbol_id) {
+            Some(chain) => {
+                println!("Definition chain for {}:", symbol_id);
+                println!("  {}", format_definition_chain(&chain));
+                
+                if chain.has_cycle {
+                    println!("\n⚠️  Circular dependency detected!");
+                }
+                
+                // Show ultimate source
+                if let Some(ultimate) = analyzer.find_ultimate_source(symbol_id) {
+                    println!("\nUltimate source:");
+                    println!("  {} ({}:{})", 
+                        ultimate.name, 
+                        ultimate.file_path, 
+                        ultimate.range.start.line + 1
+                    );
+                    
+                    if let Some(doc) = &ultimate.documentation {
+                        println!("  Documentation: {}", doc);
+                    }
+                }
+            }
+            None => {
+                println!("Symbol not found: {}", symbol_id);
+            }
+        }
+    }
+    
+    Ok(())
+}
+
+fn show_type_relations(index_path: &str, type_symbol_id: &str, max_depth: usize, show_hierarchy: bool, group_by_type: bool) -> Result<()> {
+    use crate::core::{TypeRelationsAnalyzer, format_type_relations};
+    
+    let storage = IndexStorage::open(index_path)?;
+    let graph: CodeGraph = storage.load_data("graph")?
+        .ok_or_else(|| anyhow::anyhow!("No graph found in index"))?;
+    
+    let analyzer = TypeRelationsAnalyzer::new(&graph);
+    
+    // Collect type relations
+    if let Some(relations) = analyzer.collect_type_relations(type_symbol_id, max_depth) {
+        println!("{}", format_type_relations(&relations));
+        
+        // Show hierarchy if requested
+        if show_hierarchy {
+            let hierarchy = analyzer.find_type_hierarchy(type_symbol_id);
+            
+            println!("\nType Hierarchy:");
+            if !hierarchy.parents.is_empty() {
+                println!("  Parents ({}):", hierarchy.parents.len());
+                for parent in hierarchy.parents.iter().take(5) {
+                    println!("    - {} ({})", parent.name, parent.file_path);
+                }
+            }
+            
+            if !hierarchy.children.is_empty() {
+                println!("  Children ({}):", hierarchy.children.len());
+                for child in hierarchy.children.iter().take(5) {
+                    println!("    - {} ({})", child.name, child.file_path);
+                }
+            }
+            
+            if !hierarchy.siblings.is_empty() {
+                println!("  Siblings ({}):", hierarchy.siblings.len());
+                for sibling in hierarchy.siblings.iter().take(5) {
+                    println!("    - {} ({})", sibling.name, sibling.file_path);
+                }
+            }
+        }
+        
+        // Group by relation type if requested
+        if group_by_type {
+            let groups = analyzer.group_relations_by_type(type_symbol_id);
+            
+            println!("\nRelations grouped by type:");
+            
+            if !groups.definitions.is_empty() {
+                println!("  Definitions ({}):", groups.definitions.len());
+                for def in groups.definitions.iter().take(3) {
+                    println!("    - {} ({})", def.name, def.file_path);
+                }
+            }
+            
+            if !groups.references.is_empty() {
+                println!("  References ({}):", groups.references.len());
+                for reference in groups.references.iter().take(3) {
+                    println!("    - {} ({})", reference.name, reference.file_path);
+                }
+            }
+            
+            if !groups.variables_of_type.is_empty() {
+                println!("  Variables of this type ({}):", groups.variables_of_type.len());
+                for var in groups.variables_of_type.iter().take(3) {
+                    println!("    - {} ({})", var.name, var.file_path);
+                }
+            }
+            
+            if !groups.functions_returning_type.is_empty() {
+                println!("  Functions returning this type ({}):", groups.functions_returning_type.len());
+                for func in groups.functions_returning_type.iter().take(3) {
+                    println!("    - {} ({})", func.name, func.file_path);
+                }
+            }
+            
+            if !groups.fields_of_type.is_empty() {
+                println!("  Fields of this type ({}):", groups.fields_of_type.len());
+                for field in groups.fields_of_type.iter().take(3) {
+                    println!("    - {} ({})", field.name, field.file_path);
+                }
+            }
+        }
+        
+        // Find all references recursively
+        let all_refs = analyzer.find_all_type_references(type_symbol_id, max_depth);
+        println!("\nTotal references found (recursive): {}", all_refs.len());
+        
+    } else {
+        println!("Symbol not found or not a type: {}", type_symbol_id);
+    }
+    
+    Ok(())
+}
+
+fn execute_query_pattern(index_path: &str, pattern: &str, limit: usize) -> Result<()> {
+    use crate::core::{QueryParser, QueryEngine, format_query_results};
+    
+    let storage = IndexStorage::open(index_path)?;
+    let graph: CodeGraph = storage.load_data("graph")?
+        .ok_or_else(|| anyhow::anyhow!("No graph found in index"))?;
+    
+    // Parse the query pattern
+    let query_pattern = QueryParser::parse(pattern)
+        .map_err(|e| anyhow::anyhow!("Failed to parse query: {}", e))?;
+    
+    // Execute the query
+    let engine = QueryEngine::new(&graph);
+    let results = engine.execute(&query_pattern);
+    
+    // Format and display results
+    if results.matches.is_empty() {
+        println!("No matches found for pattern: {}", pattern);
+    } else {
+        let total_matches = results.matches.len();
+        let mut limited_results = results;
+        if limited_results.matches.len() > limit {
+            limited_results.matches.truncate(limit);
+            println!("Showing first {} of {} matches\n", limit, total_matches);
+        }
+        
+        println!("{}", format_query_results(&limited_results));
+    }
+    
+    Ok(())
+}
+
+fn index_project(project_path: &str, output_path: &str, language: &str) -> Result<()> {
+    use self::enhanced_indexer::EnhancedIndexer;
+    use self::lsp_adapter::{RustAnalyzerAdapter, TypeScriptAdapter, PythonAdapter};
+    use std::path::Path;
+    
+    let project_root = Path::new(project_path);
+    
+    // Create appropriate language adapter
+    let adapter: Box<dyn LspAdapter> = match language {
+        "rust" => Box::new(RustAnalyzerAdapter),
+        "typescript" | "ts" => Box::new(TypeScriptAdapter),
+        "python" | "py" => Box::new(PythonAdapter),
+        _ => {
+            return Err(anyhow::anyhow!("Unsupported language: {}", language));
+        }
+    };
+    
+    // Create enhanced indexer and index the project
+    let mut indexer = EnhancedIndexer::new();
+    indexer.index_project(project_root, adapter)?;
+    
+    // Save the graph
+    let graph = indexer.into_graph();
+    let storage = IndexStorage::open(output_path)?;
+    
+    let metadata = IndexMetadata {
+        format: IndexFormat::Lsif,
+        version: "2.0.0".to_string(),  // Version 2 with references
+        created_at: chrono::Utc::now(),
+        project_root: project_root.canonicalize()?.to_string_lossy().to_string(),
+        files_count: 0,  // TODO: Track actual file count
+        symbols_count: graph.symbol_count(),
+    };
+    
+    storage.save_metadata(&metadata)?;
+    storage.save_data("graph", &graph)?;
+    
+    info!("Project indexed at {} with {} symbols", output_path, graph.symbol_count());
     
     Ok(())
 }

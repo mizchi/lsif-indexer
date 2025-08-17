@@ -2,7 +2,8 @@ use anyhow::{Result, anyhow};
 use lsp_types::{
     DocumentSymbol, InitializeParams, InitializeResult, 
     DocumentSymbolParams, TextDocumentIdentifier, WorkDoneProgressParams, PartialResultParams,
-    Url, InitializedParams, DidOpenTextDocumentParams, TextDocumentItem
+    Url, InitializedParams, DidOpenTextDocumentParams, TextDocumentItem,
+    ReferenceParams, Location, GotoDefinitionParams, GotoDefinitionResponse,
 };
 use serde::{Deserialize, Serialize};
 use std::process::{Command, Stdio, Child};
@@ -202,6 +203,35 @@ impl GenericLspClient {
                 }).collect())
             }
             None => Ok(Vec::new()),
+        }
+    }
+    
+    pub fn find_references(&mut self, params: ReferenceParams) -> Result<Vec<Location>> {
+        let response: Option<Vec<Location>> = 
+            self.send_request("textDocument/references", params)?;
+        
+        Ok(response.unwrap_or_default())
+    }
+    
+    pub fn goto_definition(&mut self, params: GotoDefinitionParams) -> Result<Location> {
+        let response: Option<GotoDefinitionResponse> = 
+            self.send_request("textDocument/definition", params)?;
+        
+        match response {
+            Some(GotoDefinitionResponse::Scalar(location)) => Ok(location),
+            Some(GotoDefinitionResponse::Array(locations)) => {
+                locations.into_iter().next()
+                    .ok_or_else(|| anyhow!("No definition found"))
+            }
+            Some(GotoDefinitionResponse::Link(links)) => {
+                links.into_iter().next()
+                    .map(|link| Location {
+                        uri: link.target_uri,
+                        range: link.target_selection_range,
+                    })
+                    .ok_or_else(|| anyhow!("No definition found"))
+            }
+            None => Err(anyhow!("No definition found")),
         }
     }
     
