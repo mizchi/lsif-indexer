@@ -96,8 +96,13 @@ impl DifferentialIndexer {
             .as_ref()
             .and_then(|m| m.last_commit.as_deref());
 
-        // 変更ファイルを検出
-        let changes = self.git_detector.detect_changes_since(last_commit)?;
+        // 変更ファイルを検出（初回の場合は全ファイル）
+        let changes = if self.metadata.is_none() {
+            info!("Initial indexing - scanning all files");
+            self.scan_all_files()?
+        } else {
+            self.git_detector.detect_changes_since(last_commit)?
+        };
         info!("Detected {} file changes", changes.len());
 
         let mut result = DifferentialIndexResult {
@@ -495,6 +500,49 @@ impl DifferentialIndexer {
 
         // 全ファイルを変更として扱う
         self.index_differential()
+    }
+
+    /// プロジェクト内の全ファイルをスキャン
+    fn scan_all_files(&self) -> Result<Vec<FileChange>> {
+        let mut changes = Vec::new();
+        
+        for entry in walkdir::WalkDir::new(&self.project_root)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+        {
+            let path = entry.path();
+            
+            // .gitディレクトリ、targetディレクトリなどを除外
+            if self.should_exclude(path) {
+                continue;
+            }
+            
+            // 対象ファイルのみ処理
+            let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+            if matches!(ext, "rs" | "ts" | "tsx" | "js" | "jsx") {
+                let content_hash = self.git_detector.calculate_file_hash(path).ok();
+                changes.push(FileChange {
+                    path: path.to_path_buf(),
+                    status: FileChangeStatus::Added,
+                    content_hash,
+                });
+            }
+        }
+        
+        Ok(changes)
+    }
+
+    /// 除外すべきパスかどうかを判定
+    fn should_exclude(&self, path: &Path) -> bool {
+        for component in path.components() {
+            if let Some(name) = component.as_os_str().to_str() {
+                if matches!(name, ".git" | "target" | "node_modules" | ".idea" | ".vscode" | "tmp") {
+                    return true;
+                }
+            }
+        }
+        false
     }
 }
 
