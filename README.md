@@ -103,6 +103,29 @@ def find_references(file, line):
     return result.stdout
 ```
 
+## 曖昧検索機能
+
+汎用的な曖昧検索機能を提供：
+
+```rust
+use lsif_indexer::cli::fuzzy_search::{fuzzy_search_strings, fuzzy_search_paths};
+
+// 文字列リストの曖昧検索
+let items = vec!["definition", "references", "workspace-symbols"];
+let results = fuzzy_search_strings("def", &items);
+
+// ファイルパスの曖昧検索（ファイル名でもマッチ）
+let paths = vec!["src/core/graph.rs", "src/cli/fuzzy_search.rs"];
+let results = fuzzy_search_paths("fuzzy", &paths);
+```
+
+マッチングアルゴリズム：
+- 完全一致（スコア: 1.0）
+- 前方一致（スコア: 0.9）
+- 部分文字列（スコア: 0.7）
+- 文字順序保持（スコア: 0.5）
+- 略語マッチ（スコア: 0.6）
+
 ## 制限事項
 
 - **参照検索**: 現在の実装では同名のシンボルを検索する簡易版です。完全な参照追跡にはLSPサーバーとの統合が必要です。
