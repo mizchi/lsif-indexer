@@ -36,24 +36,22 @@ pub struct SimpleCli {
 pub enum SimpleCommands {
     /// Go to definition (LSP: textDocument/definition)
     Definition {
-        /// File path
+        /// File path or file:line:column
         file: String,
-        /// Line number (1-based)
-        line: u32,
+        /// Line number (1-based, optional if included in file)
+        line: Option<u32>,
         /// Column number (1-based, optional)
-        #[arg(default_value = "1")]
-        column: u32,
+        column: Option<u32>,
     },
 
     /// Find all references (LSP: textDocument/references)
     References {
-        /// File path
+        /// File path or file:line:column
         file: String,
-        /// Line number (1-based)
-        line: u32,
+        /// Line number (1-based, optional if included in file)
+        line: Option<u32>,
         /// Column number (1-based, optional)
-        #[arg(default_value = "1")]
-        column: u32,
+        column: Option<u32>,
         /// Maximum depth for recursive search
         #[arg(short, long, default_value = "1")]
         depth: usize,
@@ -73,13 +71,12 @@ pub enum SimpleCommands {
 
     /// Go to type definition (LSP: textDocument/typeDefinition)
     TypeDefinition {
-        /// File path
+        /// File path or file:line:column
         file: String,
-        /// Line number (1-based)
-        line: u32,
+        /// Line number (1-based, optional if included in file)
+        line: Option<u32>,
         /// Column number (1-based, optional)
-        #[arg(default_value = "1")]
-        column: u32,
+        column: Option<u32>,
         /// Maximum depth for type hierarchy
         #[arg(short, long, default_value = "2")]
         depth: usize,
@@ -171,6 +168,36 @@ pub enum SimpleCommands {
     },
 }
 
+/// VSCode形式 (file:line:column) をパース
+fn parse_location(file: &str, line: Option<u32>, column: Option<u32>) -> (String, u32, u32) {
+    // file:line:column 形式をチェック
+    if file.contains(':') && line.is_none() {
+        // 最後の2つのコロンで分割（ファイルパスにコロンが含まれる可能性を考慮）
+        let parts: Vec<&str> = file.rsplitn(3, ':').collect();
+        
+        if parts.len() == 3 {
+            // file:line:column形式
+            // rsplitnは逆順なので、parts[0]がcolumn、parts[1]がline、parts[2]がfile
+            if let (Ok(col), Ok(line)) = (parts[0].parse::<u32>(), parts[1].parse::<u32>()) {
+                return (parts[2].to_string(), line, col);
+            }
+        } else if parts.len() == 2 {
+            // file:line形式
+            // parts[0]がline、parts[1]がfile
+            if let Ok(line) = parts[0].parse::<u32>() {
+                return (parts[1].to_string(), line, 1);
+            }
+        }
+    }
+    
+    // 通常の引数形式
+    (
+        file.to_string(),
+        line.unwrap_or(1),
+        column.unwrap_or(1),
+    )
+}
+
 impl SimpleCli {
     pub fn execute(self) -> Result<()> {
         // デフォルト値の設定
@@ -185,16 +212,19 @@ impl SimpleCli {
         // コマンドの実行
         match self.command {
             SimpleCommands::Definition { file, line, column } => {
-                find_definition(&db_path, &file, line, column)?;
+                let (file_path, line_num, col_num) = parse_location(&file, line, column);
+                find_definition(&db_path, &file_path, line_num, col_num)?;
             }
             SimpleCommands::References { file, line, column, depth } => {
-                find_references_recursive(&db_path, &file, line, column, depth)?;
+                let (file_path, line_num, col_num) = parse_location(&file, line, column);
+                find_references_recursive(&db_path, &file_path, line_num, col_num, depth)?;
             }
             SimpleCommands::CallHierarchy { symbol, depth, direction } => {
                 show_call_hierarchy(&db_path, &symbol, depth, &direction)?;
             }
             SimpleCommands::TypeDefinition { file, line, column, depth } => {
-                find_type_definition(&db_path, &file, line, column, depth)?;
+                let (file_path, line_num, col_num) = parse_location(&file, line, column);
+                find_type_definition(&db_path, &file_path, line_num, col_num, depth)?;
             }
             SimpleCommands::Implementation { type_name, depth } => {
                 find_implementations(&db_path, &type_name, depth)?;
