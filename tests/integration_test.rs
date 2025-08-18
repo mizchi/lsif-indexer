@@ -1,6 +1,8 @@
+use anyhow::Result;
+use std::process::Command;
+use tempfile::TempDir;
 use lsif_indexer::core::graph::{CodeGraph, Symbol, SymbolKind, Range, Position, EdgeKind};
 use lsif_indexer::cli::storage::IndexStorage;
-use tempfile::TempDir;
 
 #[test]
 fn test_symbol_storage_and_retrieval() {

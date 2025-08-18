@@ -4,7 +4,7 @@ use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 use serde::{Deserialize, Serialize};
 
-use super::{Symbol, SymbolKind, EdgeKind, Range, Position};
+use super::{Symbol, SymbolKind, EdgeKind, Range};
 
 /// 拡張されたコードグラフ（高度な解析機能付き）
 #[derive(Debug, Clone)]
@@ -314,10 +314,11 @@ impl EnhancedCodeGraph {
     pub fn analyze_cross_file_dependencies(&self) -> HashMap<String, Vec<String>> {
         let mut dependencies: HashMap<String, Vec<String>> = HashMap::new();
         
-        for edge in self.graph.edge_references() {
-            if let (Some(from_symbol), Some(to_symbol)) = 
-                (self.graph.node_weight(edge.source()), 
-                 self.graph.node_weight(edge.target())) {
+        for edge in self.graph.edge_indices() {
+            if let Some((source, target)) = self.graph.edge_endpoints(edge) {
+                if let (Some(from_symbol), Some(to_symbol)) = 
+                    (self.graph.node_weight(source), 
+                     self.graph.node_weight(target)) {
                 
                 if from_symbol.file_path != to_symbol.file_path {
                     dependencies
@@ -327,6 +328,7 @@ impl EnhancedCodeGraph {
                 }
             }
         }
+    }
         
         // 重複を削除
         for deps in dependencies.values_mut() {
@@ -404,4 +406,27 @@ impl Default for EnhancedCodeGraph {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Enhanced index structure for LSP integration
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct EnhancedIndex {
+    pub symbols: HashMap<String, Symbol>,
+    pub references: HashMap<String, Vec<Reference>>,
+    pub definitions: HashMap<String, Vec<String>>,
+    pub call_graph: Vec<CallEdge>,
+    pub type_relations: Vec<TypeRelations>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Reference {
+    pub location: String,
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CallEdge {
+    pub from: String,
+    pub to: String,
+    pub call_site: String,
 }

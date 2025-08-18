@@ -8,6 +8,14 @@ pub mod call_hierarchy_cmd;
 pub mod incremental_storage;
 pub mod lsp_adapter;
 pub mod enhanced_indexer;
+pub mod advanced_lsp_client;
+pub mod lsp_integration;
+pub mod advanced_lsp_features;
+pub mod lsp_commands;
+pub mod ultra_fast_storage;
+
+// Re-export commonly used types
+pub use ultra_fast_storage::{UltraFastStorage, MemoryPoolStorage};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -218,6 +226,110 @@ pub enum Commands {
         #[arg(short, long, default_value = "rust")]
         language: String,
     },
+    
+    /// Enhanced LSP commands
+    #[command(subcommand)]
+    Lsp(LspCommands),
+}
+
+#[derive(Subcommand)]
+pub enum LspCommands {
+    /// Get hover information at a specific location
+    Hover {
+        /// File path
+        #[arg(short, long)]
+        file: String,
+        
+        /// Line number
+        #[arg(short, long)]
+        line: u32,
+        
+        /// Column number
+        #[arg(short, long)]
+        column: u32,
+    },
+    
+    /// Get completions at a specific location
+    Complete {
+        /// File path
+        #[arg(short, long)]
+        file: String,
+        
+        /// Line number
+        #[arg(short, long)]
+        line: u32,
+        
+        /// Column number
+        #[arg(short, long)]
+        column: u32,
+    },
+    
+    /// Find implementations of a symbol
+    Implementations {
+        /// File path
+        #[arg(short, long)]
+        file: String,
+        
+        /// Line number
+        #[arg(short, long)]
+        line: u32,
+        
+        /// Column number
+        #[arg(short, long)]
+        column: u32,
+    },
+    
+    /// Find type definition of a symbol
+    TypeDefinition {
+        /// File path
+        #[arg(short, long)]
+        file: String,
+        
+        /// Line number
+        #[arg(short, long)]
+        line: u32,
+        
+        /// Column number
+        #[arg(short, long)]
+        column: u32,
+    },
+    
+    /// Rename a symbol
+    Rename {
+        /// File path
+        #[arg(short, long)]
+        file: String,
+        
+        /// Line number
+        #[arg(short, long)]
+        line: u32,
+        
+        /// Column number
+        #[arg(short, long)]
+        column: u32,
+        
+        /// New name
+        #[arg(short, long)]
+        new_name: String,
+    },
+    
+    /// Get diagnostics for a file
+    Diagnostics {
+        /// File path
+        #[arg(short, long)]
+        file: String,
+    },
+    
+    /// Index project with LSP integration
+    IndexWithLsp {
+        /// Project root directory
+        #[arg(short, long, default_value = ".")]
+        project: String,
+        
+        /// Output index database path
+        #[arg(short, long)]
+        output: String,
+    },
 }
 
 impl Cli {
@@ -270,6 +382,9 @@ impl Cli {
             Commands::IndexProject { project, output, language } => {
                 info!("Indexing project {} with language {}", project, language);
                 index_project(&project, &output, &language)?;
+            }
+            Commands::Lsp(lsp_cmd) => {
+                execute_lsp_command(lsp_cmd)?;
             }
         }
         Ok(())
@@ -754,6 +869,145 @@ fn index_project(project_path: &str, output_path: &str, language: &str) -> Resul
     storage.save_data("graph", &graph)?;
     
     info!("Project indexed at {} with {} symbols", output_path, graph.symbol_count());
+    
+    Ok(())
+}
+
+fn execute_lsp_command(command: LspCommands) -> Result<()> {
+    use self::lsp_integration::LspIntegration;
+    use std::path::PathBuf;
+    
+    match command {
+        LspCommands::Hover { file, line, column } => {
+            let mut lsp = LspIntegration::new(PathBuf::from("."))?;
+            let runtime = tokio::runtime::Runtime::new()?;
+            let hover_info = runtime.block_on(
+                lsp.get_hover_info(&PathBuf::from(&file), line, column)
+            )?;
+            println!("{}", hover_info);
+        }
+        LspCommands::Complete { file, line, column } => {
+            let mut lsp = LspIntegration::new(PathBuf::from("."))?;
+            let runtime = tokio::runtime::Runtime::new()?;
+            let completions = runtime.block_on(
+                lsp.get_completions(&PathBuf::from(&file), line, column)
+            )?;
+            
+            println!("Completions:");
+            for (i, item) in completions.iter().take(20).enumerate() {
+                println!("  {}. {} - {}", 
+                    i + 1, 
+                    item.label,
+                    item.detail.as_deref().unwrap_or("")
+                );
+            }
+            if completions.len() > 20 {
+                println!("  ... and {} more", completions.len() - 20);
+            }
+        }
+        LspCommands::Implementations { file, line, column } => {
+            let mut lsp = LspIntegration::new(PathBuf::from("."))?;
+            let runtime = tokio::runtime::Runtime::new()?;
+            let implementations = runtime.block_on(
+                lsp.find_implementations(&PathBuf::from(&file), line, column)
+            )?;
+            
+            println!("Implementations:");
+            for impl_loc in implementations {
+                println!("  - {}:{}:{}", 
+                    impl_loc.uri.path(),
+                    impl_loc.range.start.line + 1,
+                    impl_loc.range.start.character + 1
+                );
+            }
+        }
+        LspCommands::TypeDefinition { file, line, column } => {
+            let mut lsp = LspIntegration::new(PathBuf::from("."))?;
+            let runtime = tokio::runtime::Runtime::new()?;
+            let type_defs = runtime.block_on(
+                lsp.find_type_definition(&PathBuf::from(&file), line, column)
+            )?;
+            
+            println!("Type Definitions:");
+            for type_def in type_defs {
+                println!("  - {}:{}:{}", 
+                    type_def.uri.path(),
+                    type_def.range.start.line + 1,
+                    type_def.range.start.character + 1
+                );
+            }
+        }
+        LspCommands::Rename { file, line, column, new_name } => {
+            let mut lsp = LspIntegration::new(PathBuf::from("."))?;
+            let runtime = tokio::runtime::Runtime::new()?;
+            let workspace_edit = runtime.block_on(
+                lsp.rename_symbol(&PathBuf::from(&file), line, column, new_name)
+            )?;
+            
+            println!("Rename edits:");
+            if let Some(changes) = workspace_edit.changes {
+                for (uri, edits) in changes {
+                    println!("  File: {}", uri.path());
+                    for edit in edits {
+                        println!("    - Line {}: {} -> {}", 
+                            edit.range.start.line + 1,
+                            "...",
+                            edit.new_text
+                        );
+                    }
+                }
+            }
+        }
+        LspCommands::Diagnostics { file } => {
+            let mut lsp = LspIntegration::new(PathBuf::from("."))?;
+            let runtime = tokio::runtime::Runtime::new()?;
+            let diagnostics = runtime.block_on(
+                lsp.get_diagnostics(&PathBuf::from(&file))
+            )?;
+            
+            if diagnostics.is_empty() {
+                println!("No diagnostics found.");
+            } else {
+                println!("Diagnostics:");
+                for diag in diagnostics {
+                    println!("  - [{}] Line {}: {}", 
+                        format!("{:?}", diag.severity.unwrap_or(lsp_types::DiagnosticSeverity::INFORMATION)).to_lowercase(),
+                        diag.range.start.line + 1,
+                        diag.message
+                    );
+                }
+            }
+        }
+        LspCommands::IndexWithLsp { project, output } => {
+            let mut lsp = LspIntegration::new(PathBuf::from(&project))?;
+            let runtime = tokio::runtime::Runtime::new()?;
+            
+            // Create enhanced index
+            let mut enhanced_index = crate::core::enhanced_graph::EnhancedIndex::default();
+            
+            runtime.block_on(lsp.enhance_index(&mut enhanced_index))?;
+            
+            // Save to storage
+            let storage = IndexStorage::open(&output)?;
+            let metadata = IndexMetadata {
+                format: IndexFormat::Lsif,
+                version: "3.0.0".to_string(),  // Version 3 with LSP integration
+                created_at: chrono::Utc::now(),
+                project_root: std::fs::canonicalize(&project)?.to_string_lossy().to_string(),
+                files_count: 0,  // TODO: Track actual file count
+                symbols_count: enhanced_index.symbols.len(),
+            };
+            
+            storage.save_metadata(&metadata)?;
+            storage.save_data("enhanced_index", &enhanced_index)?;
+            
+            println!("Project indexed with LSP integration:");
+            println!("  Symbols: {}", enhanced_index.symbols.len());
+            println!("  References: {}", enhanced_index.references.len());
+            println!("  Call graph edges: {}", enhanced_index.call_graph.len());
+            println!("  Type relations: {}", enhanced_index.type_relations.len());
+        }
+    }
     
     Ok(())
 }

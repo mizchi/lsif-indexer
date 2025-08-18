@@ -196,6 +196,7 @@ impl GenericLspClient {
                     detail: None,
                     kind: s.kind,
                     tags: s.tags,
+                    #[allow(deprecated)]
                     deprecated: None,
                     range: s.location.range,
                     selection_range: s.location.range,
@@ -235,7 +236,7 @@ impl GenericLspClient {
         }
     }
     
-    fn send_request<P: Serialize, R: for<'de> Deserialize<'de>>(
+    pub fn send_request<P: Serialize, R: for<'de> Deserialize<'de>>(
         &mut self,
         method: &str,
         params: P,
@@ -272,7 +273,7 @@ impl GenericLspClient {
         }
     }
     
-    fn send_notification<P: Serialize>(&mut self, method: &str, params: P) -> Result<()> {
+    pub fn send_notification<P: Serialize>(&mut self, method: &str, params: P) -> Result<()> {
         let notification = JsonRpcNotification {
             jsonrpc: "2.0".to_string(),
             method: method.to_string(),

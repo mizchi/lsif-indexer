@@ -2,6 +2,20 @@
 name = "lsif-indexer"
 version = "0.1.0"
 edition = "2021"
+authors = ["Your Name"]
+description = "High-performance code indexing tool with LSP support"
+license = "MIT"
+repository = "https://github.com/yourusername/lsif-indexer"
+keywords = ["lsif", "lsp", "indexing", "code-analysis"]
+categories = ["development-tools", "command-line-utilities"]
+
+[[bin]]
+name = "lsif"
+path = "src/bin/lsif.rs"
+
+[[bin]]
+name = "lsif-indexer"
+path = "src/bin/main.rs"
 
 [dependencies]
 # グラフデータ構造
@@ -24,7 +38,7 @@ clap = { version = "4.0", features = ["derive"] }
 
 # ログ
 tracing = "0.1"
-tracing-subscriber = "0.3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # 日時
 chrono = { version = "0.4", features = ["serde"] }
@@ -38,12 +52,27 @@ tokio = { version = "1.0", features = ["full"] }
 
 # 並列処理
 rayon = "1.7"
+parking_lot = "0.12"
+
+# ファイル操作
+glob = "0.3"
+notify = "6.0"
+walkdir = "2.4"
+
+# プログレスバー
+indicatif = "0.17"
+
+# 圧縮（オプション）
+lz4 = { version = "1.24", optional = true }
+zstd = { version = "0.13", optional = true }
 
 [dev-dependencies]
 # テスト用
 tempfile = "3.0"
 # ベンチマーク用
 criterion = "0.5"
+# ランダム数生成
+rand = "0.8"
 
 [[bench]]
 name = "index_benchmark"
@@ -63,4 +92,8 @@ harness = false
 
 [[bench]]
 name = "cache_benchmark"
+harness = false
+
+[[bench]]
+name = "ultra_bench"
 harness = false

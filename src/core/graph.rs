@@ -13,20 +13,36 @@ pub struct Symbol {
     pub documentation: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SymbolKind {
-    Function,
-    Class,
-    Method,
-    Variable,
-    Constant,
-    Interface,
-    Enum,
+    File,
     Module,
     Namespace,
+    Package,
+    Class,
+    Method,
     Property,
-    Parameter,
     Field,
+    Constructor,
+    Enum,
+    Interface,
+    Function,
+    Variable,
+    Constant,
+    String,
+    Number,
+    Boolean,
+    Array,
+    Object,
+    Key,
+    Null,
+    EnumMember,
+    Struct,
+    Event,
+    Operator,
+    TypeParameter,
+    Parameter,
+    Unknown,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
