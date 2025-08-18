@@ -330,11 +330,11 @@ mod tests {
 
     #[test]
     fn test_detect_language() {
-        assert!(matches!(detect_language("main.rs"), Some(_)));
-        assert!(matches!(detect_language("index.ts"), Some(_)));
-        assert!(matches!(detect_language("app.tsx"), Some(_)));
-        assert!(matches!(detect_language("script.js"), Some(_)));
-        assert!(matches!(detect_language("component.jsx"), Some(_)));
+        assert!(detect_language("main.rs").is_some());
+        assert!(detect_language("index.ts").is_some());
+        assert!(detect_language("app.tsx").is_some());
+        assert!(detect_language("script.js").is_some());
+        assert!(detect_language("component.jsx").is_some());
         assert!(detect_language("unknown.xyz").is_none());
     }
 }

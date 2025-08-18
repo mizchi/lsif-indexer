@@ -18,7 +18,7 @@ fn test_call_hierarchy_with_sample_code() {
     let formatted = format_hierarchy(&main_hierarchy, "", true);
 
     println!("=== Outgoing calls from main ===");
-    println!("{}", formatted);
+    println!("{formatted}");
 
     assert!(formatted.contains("main"));
     assert!(formatted.contains("calculate"));
@@ -30,7 +30,7 @@ fn test_call_hierarchy_with_sample_code() {
     let formatted_incoming = format_hierarchy(&add_hierarchy, "", true);
 
     println!("\n=== Incoming calls to add ===");
-    println!("{}", formatted_incoming);
+    println!("{formatted_incoming}");
 
     assert!(formatted_incoming.contains("add"));
     assert!(formatted_incoming.contains("calculate"));
@@ -73,7 +73,7 @@ main
     └── DataProcessor::output
 "#;
 
-    println!("Expected hierarchy:{}", expected_hierarchy);
+    println!("Expected hierarchy:{expected_hierarchy}");
 }
 
 fn create_sample_graph() -> CodeGraph {

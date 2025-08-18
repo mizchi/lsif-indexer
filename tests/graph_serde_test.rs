@@ -1,6 +1,4 @@
-use bincode;
 use lsif_indexer::core::graph::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
-use serde_json;
 
 fn create_test_symbol(id: &str, name: &str, kind: SymbolKind, file_path: &str) -> Symbol {
     Symbol {
@@ -100,7 +98,7 @@ fn test_round_trip_json() {
 fn test_serialize_empty_graph_bincode() {
     let graph = CodeGraph::new();
     let bytes = bincode::serialize(&graph).unwrap();
-    assert!(bytes.len() > 0);
+    assert!(!bytes.is_empty());
 }
 
 #[test]
@@ -195,8 +193,8 @@ fn test_all_edge_kinds() {
     let symbols: Vec<_> = (0..9)
         .map(|i| {
             create_test_symbol(
-                &format!("s{}", i),
-                &format!("symbol{}", i),
+                &format!("s{i}"),
+                &format!("symbol{i}"),
                 SymbolKind::Function,
                 "/test.rs",
             )
@@ -225,7 +223,7 @@ fn test_all_edge_kinds() {
     assert_eq!(deserialized.symbol_count(), 9);
 
     for kind in edge_kinds {
-        let kind_str = format!("{:?}", kind);
+        let kind_str = format!("{kind:?}");
         assert!(json.contains(&kind_str));
     }
 }
@@ -237,8 +235,8 @@ fn test_large_graph_performance() {
     let symbols: Vec<_> = (0..100)
         .map(|i| {
             create_test_symbol(
-                &format!("sym{}", i),
-                &format!("symbol{}", i),
+                &format!("sym{i}"),
+                &format!("symbol{i}"),
                 SymbolKind::Function,
                 "/large.rs",
             )
@@ -259,8 +257,7 @@ fn test_large_graph_performance() {
     let deserialize_time = start.elapsed();
 
     println!(
-        "Serialize time: {:?}, Deserialize time: {:?}",
-        serialize_time, deserialize_time
+        "Serialize time: {serialize_time:?}, Deserialize time: {deserialize_time:?}"
     );
     assert!(serialize_time.as_millis() < 100);
     assert!(deserialize_time.as_millis() < 100);

@@ -1,9 +1,8 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use lsif_indexer::core::parallel_optimized::{OptimizedParallelGraph, OptimizedParallelIndex};
 use lsif_indexer::core::{
-    CodeGraph, EdgeKind, IncrementalIndex, Position, Range, Symbol, SymbolKind,
+    CodeGraph, IncrementalIndex, Position, Range, Symbol, SymbolKind,
 };
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -15,7 +14,7 @@ fn generate_test_project(base_dir: &Path, num_files: usize, symbols_per_file: us
         let module_dir = base_dir.join(format!("module_{}", file_idx / 10));
         fs::create_dir_all(&module_dir).unwrap();
 
-        let file_path = module_dir.join(format!("file_{}.rs", file_idx));
+        let file_path = module_dir.join(format!("file_{file_idx}.rs"));
         let mut content = String::new();
 
         // ファイル内容を生成
@@ -28,13 +27,11 @@ fn generate_test_project(base_dir: &Path, num_files: usize, symbols_per_file: us
         for sym_idx in 0..symbols_per_file {
             if sym_idx % 3 == 0 {
                 content.push_str(&format!(
-                    "pub fn function_{}_{} (x: i32) -> i32 {{\n    x + {}\n}}\n\n",
-                    file_idx, sym_idx, sym_idx
+                    "pub fn function_{file_idx}_{sym_idx} (x: i32) -> i32 {{\n    x + {sym_idx}\n}}\n\n"
                 ));
             } else if sym_idx % 3 == 1 {
                 content.push_str(&format!(
-                    "pub struct Struct{}_{} {{\n    field: i32,\n}}\n\n",
-                    file_idx, sym_idx
+                    "pub struct Struct{file_idx}_{sym_idx} {{\n    field: i32,\n}}\n\n"
                 ));
             } else {
                 content.push_str(&format!(
@@ -62,7 +59,7 @@ fn extract_symbols_from_file(file_path: &Path) -> Vec<Symbol> {
                 if let Some(name_end) = line[name_start..].find('(').map(|i| i + name_start) {
                     let name = &line[name_start..name_end].trim();
                     symbols.push(Symbol {
-                        id: format!("{}:{}", file_path_str, name),
+                        id: format!("{file_path_str}:{name}"),
                         name: name.to_string(),
                         kind: SymbolKind::Function,
                         file_path: file_path_str.clone(),
@@ -76,7 +73,7 @@ fn extract_symbols_from_file(file_path: &Path) -> Vec<Symbol> {
                                 character: 0,
                             },
                         },
-                        documentation: Some(format!("Function {}", name)),
+                        documentation: Some(format!("Function {name}")),
                     });
                 }
             }
@@ -85,7 +82,7 @@ fn extract_symbols_from_file(file_path: &Path) -> Vec<Symbol> {
                 if let Some(name_end) = line[name_start..].find(' ').map(|i| i + name_start) {
                     let name = &line[name_start..name_end].trim();
                     symbols.push(Symbol {
-                        id: format!("{}:{}", file_path_str, name),
+                        id: format!("{file_path_str}:{name}"),
                         name: name.to_string(),
                         kind: SymbolKind::Class,
                         file_path: file_path_str.clone(),
@@ -99,7 +96,7 @@ fn extract_symbols_from_file(file_path: &Path) -> Vec<Symbol> {
                                 character: 0,
                             },
                         },
-                        documentation: Some(format!("Struct {}", name)),
+                        documentation: Some(format!("Struct {name}")),
                     });
                 }
             }
@@ -108,7 +105,7 @@ fn extract_symbols_from_file(file_path: &Path) -> Vec<Symbol> {
                 if let Some(name_end) = line[name_start..].find(':').map(|i| i + name_start) {
                     let name = &line[name_start..name_end].trim();
                     symbols.push(Symbol {
-                        id: format!("{}:{}", file_path_str, name),
+                        id: format!("{file_path_str}:{name}"),
                         name: name.to_string(),
                         kind: SymbolKind::Constant,
                         file_path: file_path_str.clone(),
@@ -122,7 +119,7 @@ fn extract_symbols_from_file(file_path: &Path) -> Vec<Symbol> {
                                 character: line.len() as u32,
                             },
                         },
-                        documentation: Some(format!("Constant {}", name)),
+                        documentation: Some(format!("Constant {name}")),
                     });
                 }
             }
@@ -141,7 +138,7 @@ fn collect_rust_files(dir: &Path) -> Vec<PathBuf> {
             let path = entry.path();
             if path.is_dir() {
                 files.extend(collect_rust_files(&path));
-            } else if path.extension().map_or(false, |ext| ext == "rs") {
+            } else if path.extension().is_some_and(|ext| ext == "rs") {
                 files.push(path);
             }
         }
@@ -257,7 +254,7 @@ fn benchmark_incremental_indexing(c: &mut Criterion) {
                     let file = &files[i];
                     // ファイルにシンボルを追加
                     let mut content = fs::read_to_string(file).unwrap();
-                    content.push_str(&format!("\npub fn new_function_{}() {{}}\n", i));
+                    content.push_str(&format!("\npub fn new_function_{i}() {{}}\n"));
                     fs::write(file, content).unwrap();
 
                     let symbols = extract_symbols_from_file(file);
@@ -265,8 +262,8 @@ fn benchmark_incremental_indexing(c: &mut Criterion) {
                     index.update_file(file, symbols, hash).unwrap();
                 }
 
-                let elapsed = start.elapsed();
-                elapsed
+                
+                start.elapsed()
             },
             BatchSize::LargeInput,
         )
@@ -314,7 +311,7 @@ fn benchmark_incremental_indexing(c: &mut Criterion) {
                         let file = &files[i];
                         // ファイルにシンボルを追加
                         let mut content = fs::read_to_string(file).unwrap();
-                        content.push_str(&format!("\npub fn new_function_{}() {{}}\n", i));
+                        content.push_str(&format!("\npub fn new_function_{i}() {{}}\n"));
                         fs::write(file, content).unwrap();
 
                         let symbols = extract_symbols_from_file(file);
@@ -330,8 +327,8 @@ fn benchmark_incremental_indexing(c: &mut Criterion) {
 
                 parallel_index.batch_update_files(file_updates).unwrap();
 
-                let elapsed = start.elapsed();
-                elapsed
+                
+                start.elapsed()
             },
             BatchSize::LargeInput,
         )

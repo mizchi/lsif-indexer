@@ -51,6 +51,12 @@ pub struct ExampleStruct {
     pub field2: i32,
 }
 
+impl Default for ExampleStruct {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ExampleStruct {
     /// 新しいインスタンスを作成
     pub fn new() -> Self {

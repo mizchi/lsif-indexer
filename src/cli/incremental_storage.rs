@@ -340,8 +340,8 @@ mod tests {
         let mut symbols = Vec::new();
         for i in 0..100 {
             symbols.push(Symbol {
-                id: format!("func{}", i),
-                name: format!("function_{}", i),
+                id: format!("func{i}"),
+                name: format!("function_{i}"),
                 kind: SymbolKind::Function,
                 file_path: format!("file{}.rs", i / 10),
                 range: Range {
@@ -354,7 +354,7 @@ mod tests {
                         character: 0,
                     },
                 },
-                documentation: Some(format!("Doc for func{}", i)),
+                documentation: Some(format!("Doc for func{i}")),
             });
         }
 

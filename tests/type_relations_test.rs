@@ -455,7 +455,7 @@ fn test_type_hierarchy_analysis() {
     assert_eq!(hierarchy.root.unwrap().name, "UserModel");
 
     // Should have BaseModel as parent (plus ISerializable through recursion)
-    assert!(hierarchy.parents.len() >= 1);
+    assert!(!hierarchy.parents.is_empty());
     assert!(hierarchy.parents.iter().any(|p| p.name == "BaseModel"));
 
     // Should have AdminModel as child

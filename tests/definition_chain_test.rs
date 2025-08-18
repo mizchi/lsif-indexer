@@ -420,8 +420,8 @@ fn test_shortest_definition_path() {
     // Create a graph with multiple paths of different lengths
     let symbols: Vec<Symbol> = (0..6)
         .map(|i| Symbol {
-            id: format!("type:T{}", i),
-            name: format!("Type{}", i),
+            id: format!("type:T{i}"),
+            name: format!("Type{i}"),
             kind: SymbolKind::Class,
             file_path: "types.rs".to_string(),
             range: Range {

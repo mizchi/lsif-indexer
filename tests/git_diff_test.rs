@@ -1,9 +1,8 @@
 use anyhow::Result;
 use git2::{Oid, Repository, Signature};
 use lsif_indexer::cli::git_diff::{FileChange, FileChangeStatus, GitDiffDetector};
-use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tempfile::TempDir;
 
 /// テスト用のGitリポジトリを作成
@@ -219,8 +218,7 @@ fn test_xxhash_performance() -> Result<()> {
     // xxHash3は非常に高速なので、1MBでも1ms未満であるべき
     assert!(
         duration.as_millis() < 10,
-        "Hash calculation took too long: {:?}",
-        duration
+        "Hash calculation took too long: {duration:?}"
     );
 
     // 同じ内容なら同じハッシュ

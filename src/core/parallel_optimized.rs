@@ -306,7 +306,7 @@ mod tests {
         let mut graph = CodeGraph::new();
 
         let symbols: Vec<Symbol> = (0..2000)
-            .map(|i| create_test_symbol(&format!("sym_{}", i)))
+            .map(|i| create_test_symbol(&format!("sym_{i}")))
             .collect();
 
         let indices = OptimizedParallelGraph::add_symbols_batch(&mut graph, symbols);
@@ -320,7 +320,7 @@ mod tests {
         let mut graph = CodeGraph::new();
 
         let symbols: Vec<Symbol> = (0..50)
-            .map(|i| create_test_symbol(&format!("small_{}", i)))
+            .map(|i| create_test_symbol(&format!("small_{i}")))
             .collect();
 
         let indices = OptimizedParallelGraph::add_symbols_batch(&mut graph, symbols);

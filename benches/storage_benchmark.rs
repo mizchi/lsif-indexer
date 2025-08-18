@@ -1,15 +1,13 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use lsif_indexer::cli::cached_storage::CachedIndexStorage;
 use lsif_indexer::cli::parallel_storage::ParallelIndexStorage;
 use lsif_indexer::cli::storage::{IndexFormat, IndexMetadata, IndexStorage};
 use lsif_indexer::core::graph::{CodeGraph, Position, Range, Symbol, SymbolKind};
-use std::time::Duration;
 use tempfile::TempDir;
 
 fn generate_test_symbols(count: usize) -> Vec<Symbol> {
     (0..count)
         .map(|i| Symbol {
-            id: format!("symbol_{}", i),
+            id: format!("symbol_{i}"),
             kind: match i % 5 {
                 0 => SymbolKind::Function,
                 1 => SymbolKind::Class,
@@ -17,7 +15,7 @@ fn generate_test_symbols(count: usize) -> Vec<Symbol> {
                 3 => SymbolKind::Variable,
                 _ => SymbolKind::Constant,
             },
-            name: format!("test_symbol_{}", i),
+            name: format!("test_symbol_{i}"),
             file_path: format!("src/test/file_{}.rs", i % 10),
             range: Range {
                 start: Position {
@@ -30,7 +28,7 @@ fn generate_test_symbols(count: usize) -> Vec<Symbol> {
                 },
             },
             documentation: if i % 3 == 0 {
-                Some(format!("Documentation for symbol {}", i))
+                Some(format!("Documentation for symbol {i}"))
             } else {
                 None
             },
@@ -182,7 +180,7 @@ fn benchmark_symbol_load(c: &mut Criterion) {
                 b.iter(|| {
                     for i in 0..symbol_count {
                         let _: Option<Symbol> =
-                            storage.load_data(&format!("symbol_{}", i)).unwrap();
+                            storage.load_data(&format!("symbol_{i}")).unwrap();
                     }
                 });
             },

@@ -872,7 +872,7 @@ mod tests {
         ];
 
         for (name, expected) in edge_types {
-            let query = format!("(a)-[:{}]->(b)", name);
+            let query = format!("(a)-[:{name}]->(b)");
             let pattern = QueryParser::parse(&query).unwrap();
             assert_eq!(pattern.relationships[0].edge_type, Some(expected));
         }

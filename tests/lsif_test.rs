@@ -86,12 +86,12 @@ fn test_lsif_element_structure() {
 
     let lsif = result.unwrap();
     let lines: Vec<&str> = lsif.lines().collect();
-    assert!(lines.len() > 0);
+    assert!(!lines.is_empty());
 
     for line in lines {
         if !line.is_empty() {
             let parsed: Result<serde_json::Value, _> = serde_json::from_str(line);
-            assert!(parsed.is_ok(), "Invalid JSON: {}", line);
+            assert!(parsed.is_ok(), "Invalid JSON: {line}");
 
             let value = parsed.unwrap();
             assert!(value.get("id").is_some());

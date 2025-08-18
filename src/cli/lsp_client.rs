@@ -8,6 +8,7 @@ use super::lsp_adapter::{GenericLspClient, LspAdapter};
 #[derive(Clone)]
 pub struct LspClient {
     inner: Arc<Mutex<GenericLspClient>>,
+    #[allow(dead_code)]
     capabilities: Arc<ServerCapabilities>,
     open_documents: Arc<Mutex<HashMap<Url, i32>>>,
 }

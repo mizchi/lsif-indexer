@@ -2,7 +2,6 @@ use anyhow::Result;
 use lsif_indexer::cli::{
     lsp_adapter::{detect_language, LspAdapter, RustAnalyzerAdapter, TypeScriptAdapter},
     lsp_client::LspClient,
-    lsp_commands::*,
     lsp_features::{DependencyGraph, LspClient as FeatureClient, LspCodeAnalyzer},
     lsp_integration::LspIntegration,
 };
@@ -153,7 +152,7 @@ fn test_lsp_cli_commands() -> Result<()> {
 
     // Test that LSP commands are available in the CLI
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "lsif", "--", "lsp", "--help"])
+        .args(["run", "--bin", "lsif", "--", "lsp", "--help"])
         .output()?;
 
     let help_text = String::from_utf8_lossy(&output.stdout);
@@ -281,7 +280,7 @@ fn function_{}() -> i32 {{
             let duration = start.elapsed();
 
             assert!(symbols.is_ok());
-            println!("Large file indexing took: {:?}", duration);
+            println!("Large file indexing took: {duration:?}");
 
             // 10秒以内に完了することを確認
             assert!(duration.as_secs() < 10);
@@ -297,7 +296,7 @@ fn function_{}() -> i32 {{
         // 大規模な依存関係グラフを構築
         for i in 0..500 {
             for j in 0..20 {
-                graph.add_dependency(&format!("module_{}.rs", i), &format!("dep_{}_{}.rs", i, j));
+                graph.add_dependency(&format!("module_{i}.rs"), &format!("dep_{i}_{j}.rs"));
             }
         }
 
@@ -306,13 +305,13 @@ fn function_{}() -> i32 {{
         // 検索性能をテスト
         let search_start = Instant::now();
         for i in 0..100 {
-            let deps = graph.get_dependencies(&format!("module_{}.rs", i));
+            let deps = graph.get_dependencies(&format!("module_{i}.rs"));
             assert!(deps.is_some());
         }
         let search_duration = search_start.elapsed();
 
-        println!("Built graph with 10000 edges in {:?}", build_duration);
-        println!("Searched 100 nodes in {:?}", search_duration);
+        println!("Built graph with 10000 edges in {build_duration:?}");
+        println!("Searched 100 nodes in {search_duration:?}");
 
         // 妥当な時間内に完了することを確認
         assert!(build_duration.as_secs() < 5);

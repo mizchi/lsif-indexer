@@ -335,7 +335,7 @@ mod tests {
 
         // キャッシュサイズを超える数のアイテムを保存
         for i in 0..5 {
-            storage.save_data_cached(&format!("key_{}", i), &i).unwrap();
+            storage.save_data_cached(&format!("key_{i}"), &i).unwrap();
         }
 
         // キャッシュサイズが制限内であることを確認

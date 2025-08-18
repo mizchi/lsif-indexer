@@ -93,19 +93,19 @@ fn test_rapid_sequential_updates() {
     for i in 0..10 {
         let symbols = vec![
             create_test_symbol(
-                &format!("func_{}", i),
-                &format!("function_{}", i),
+                &format!("func_{i}"),
+                &format!("function_{i}"),
                 "rapid_update.rs",
             ),
             create_test_symbol(
-                &format!("var_{}", i),
-                &format!("variable_{}", i),
+                &format!("var_{i}"),
+                &format!("variable_{i}"),
                 "rapid_update.rs",
             ),
         ];
 
         let result = index
-            .update_file(file_path, symbols, format!("hash_{}", i))
+            .update_file(file_path, symbols, format!("hash_{i}"))
             .unwrap();
 
         // 最初の更新以外は、前回のシンボルが削除され、新しいシンボルが追加される
@@ -119,7 +119,7 @@ fn test_rapid_sequential_updates() {
 
         // symbol_to_fileの整合性
         assert_eq!(index.symbol_to_file.len(), 2);
-        for (_, path) in &index.symbol_to_file {
+        for path in index.symbol_to_file.values() {
             assert_eq!(path, &PathBuf::from("rapid_update.rs"));
         }
     }
@@ -180,10 +180,10 @@ fn test_bulk_update_consistency() {
         let mut symbols = Vec::new();
         for sym_idx in 0..symbols_per_file {
             symbols.push(Symbol {
-                id: format!("f{}_s{}", file_idx, sym_idx),
-                name: format!("symbol_{}_{}", file_idx, sym_idx),
+                id: format!("f{file_idx}_s{sym_idx}"),
+                name: format!("symbol_{file_idx}_{sym_idx}"),
                 kind: SymbolKind::Function,
-                file_path: format!("file_{}.rs", file_idx),
+                file_path: format!("file_{file_idx}.rs"),
                 range: Range {
                     start: Position {
                         line: (sym_idx * 10) as u32,
@@ -200,9 +200,9 @@ fn test_bulk_update_consistency() {
 
         index
             .update_file(
-                Path::new(&format!("file_{}.rs", file_idx)),
+                Path::new(&format!("file_{file_idx}.rs")),
                 symbols,
-                format!("initial_hash_{}", file_idx),
+                format!("initial_hash_{file_idx}"),
             )
             .unwrap();
     }
@@ -219,10 +219,10 @@ fn test_bulk_update_consistency() {
         // 半分を保持、半分を新規
         for sym_idx in 0..symbols_per_file / 2 {
             new_symbols.push(Symbol {
-                id: format!("f{}_s{}", file_idx, sym_idx),
-                name: format!("updated_symbol_{}_{}", file_idx, sym_idx),
+                id: format!("f{file_idx}_s{sym_idx}"),
+                name: format!("updated_symbol_{file_idx}_{sym_idx}"),
                 kind: SymbolKind::Function,
-                file_path: format!("file_{}.rs", file_idx),
+                file_path: format!("file_{file_idx}.rs"),
                 range: Range {
                     start: Position {
                         line: (sym_idx * 10) as u32,
@@ -238,10 +238,10 @@ fn test_bulk_update_consistency() {
         }
         for sym_idx in 0..symbols_per_file / 2 {
             new_symbols.push(Symbol {
-                id: format!("f{}_new_s{}", file_idx, sym_idx),
-                name: format!("new_symbol_{}_{}", file_idx, sym_idx),
+                id: format!("f{file_idx}_new_s{sym_idx}"),
+                name: format!("new_symbol_{file_idx}_{sym_idx}"),
                 kind: SymbolKind::Function,
-                file_path: format!("file_{}.rs", file_idx),
+                file_path: format!("file_{file_idx}.rs"),
                 range: Range {
                     start: Position {
                         line: ((sym_idx + symbols_per_file / 2) * 10) as u32,
@@ -257,9 +257,9 @@ fn test_bulk_update_consistency() {
         }
 
         updates.push(FileUpdate::Modified {
-            path: PathBuf::from(format!("file_{}.rs", file_idx)),
+            path: PathBuf::from(format!("file_{file_idx}.rs")),
             symbols: new_symbols,
-            hash: format!("updated_hash_{}", file_idx),
+            hash: format!("updated_hash_{file_idx}"),
         });
     }
 
@@ -292,21 +292,21 @@ fn test_mixed_update_operations() {
     for i in 0..5 {
         let symbols = vec![
             create_test_symbol(
-                &format!("init_s{}_1", i),
-                &format!("symbol_{}_1", i),
-                &format!("file_{}.rs", i),
+                &format!("init_s{i}_1"),
+                &format!("symbol_{i}_1"),
+                &format!("file_{i}.rs"),
             ),
             create_test_symbol(
-                &format!("init_s{}_2", i),
-                &format!("symbol_{}_2", i),
-                &format!("file_{}.rs", i),
+                &format!("init_s{i}_2"),
+                &format!("symbol_{i}_2"),
+                &format!("file_{i}.rs"),
             ),
         ];
         index
             .update_file(
-                Path::new(&format!("file_{}.rs", i)),
+                Path::new(&format!("file_{i}.rs")),
                 symbols,
-                format!("hash_{}", i),
+                format!("hash_{i}"),
             )
             .unwrap();
     }
@@ -362,7 +362,7 @@ fn test_mixed_update_operations() {
     // - file_4: 2つ削除、1つ追加（計1シンボル）
     // - file_5: 新規（1シンボル）
 
-    let expected_symbol_count = 2 + 2 + 2 + 0 + 1 + 1;
+    let expected_symbol_count = (2 + 2 + 2) + 1 + 1;
     assert_eq!(index.graph.symbol_count(), expected_symbol_count);
 
     // ファイルメタデータの確認

@@ -9,10 +9,10 @@ fn test_lsif_basic_indexing() -> Result<()> {
 
     // Test basic indexing
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "lsif", "--"])
-        .args(&["--files", "src/**/*.rs"])
-        .args(&["--output", db_path.to_str().unwrap()])
-        .args(&["--verbose"])
+        .args(["run", "--bin", "lsif", "--"])
+        .args(["--files", "src/**/*.rs"])
+        .args(["--output", db_path.to_str().unwrap()])
+        .args(["--verbose"])
         .output()?;
 
     assert!(
@@ -30,7 +30,7 @@ fn test_lsif_basic_indexing() -> Result<()> {
 #[test]
 fn test_lsif_list_command() -> Result<()> {
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "lsif", "--", "list"])
+        .args(["run", "--bin", "lsif", "--", "list"])
         .output()?;
 
     assert!(output.status.success());
@@ -49,15 +49,15 @@ fn test_lsif_stats_command() -> Result<()> {
 
     // Create index first
     Command::new("cargo")
-        .args(&["run", "--bin", "lsif", "--"])
-        .args(&["--files", "src/core/*.rs"])
-        .args(&["--output", db_path.to_str().unwrap()])
+        .args(["run", "--bin", "lsif", "--"])
+        .args(["--files", "src/core/*.rs"])
+        .args(["--output", db_path.to_str().unwrap()])
         .output()?;
 
     // Test stats command
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "lsif", "--", "stats"])
-        .args(&["--db", db_path.to_str().unwrap()])
+        .args(["run", "--bin", "lsif", "--", "stats"])
+        .args(["--db", db_path.to_str().unwrap()])
         .output()?;
 
     assert!(output.status.success());
@@ -70,7 +70,7 @@ fn test_lsif_stats_command() -> Result<()> {
 #[test]
 fn test_lsif_indexer_help() -> Result<()> {
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "lsif-indexer", "--", "--help"])
+        .args(["run", "--bin", "lsif-indexer", "--", "--help"])
         .output()?;
 
     assert!(output.status.success());
@@ -87,16 +87,16 @@ fn test_lsif_query_definition() -> Result<()> {
 
     // Create index
     Command::new("cargo")
-        .args(&["run", "--bin", "lsif", "--"])
-        .args(&["--files", "src/core/*.rs"])
-        .args(&["--output", db_path.to_str().unwrap()])
+        .args(["run", "--bin", "lsif", "--"])
+        .args(["--files", "src/core/*.rs"])
+        .args(["--output", db_path.to_str().unwrap()])
         .output()?;
 
     // Test query definition
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "lsif", "--", "query"])
-        .args(&["--db", db_path.to_str().unwrap()])
-        .args(&["definition", "src/core/mod.rs", "1", "1"])
+        .args(["run", "--bin", "lsif", "--", "query"])
+        .args(["--db", db_path.to_str().unwrap()])
+        .args(["definition", "src/core/mod.rs", "1", "1"])
         .output()?;
 
     assert!(output.status.success());
@@ -111,11 +111,11 @@ fn test_lsif_with_exclude() -> Result<()> {
 
     // Test with exclude patterns
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "lsif", "--"])
-        .args(&["--files", "**/*.rs"])
-        .args(&["--exclude", "target"])
-        .args(&["--exclude", "tests"])
-        .args(&["--output", db_path.to_str().unwrap()])
+        .args(["run", "--bin", "lsif", "--"])
+        .args(["--files", "**/*.rs"])
+        .args(["--exclude", "target"])
+        .args(["--exclude", "tests"])
+        .args(["--output", db_path.to_str().unwrap()])
         .output()?;
 
     assert!(output.status.success());
@@ -130,13 +130,13 @@ fn test_parallel_and_cache_flags() -> Result<()> {
 
     // Test parallel and cache flags
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "lsif", "--"])
-        .args(&["--files", "src/**/*.rs"])
-        .args(&["--parallel"])
-        .args(&["--cache"])
-        .args(&["--threads", "4"])
-        .args(&["--batch-size", "50"])
-        .args(&["--output", db_path.to_str().unwrap()])
+        .args(["run", "--bin", "lsif", "--"])
+        .args(["--files", "src/**/*.rs"])
+        .args(["--parallel"])
+        .args(["--cache"])
+        .args(["--threads", "4"])
+        .args(["--batch-size", "50"])
+        .args(["--output", db_path.to_str().unwrap()])
         .output()?;
 
     assert!(output.status.success());
@@ -182,10 +182,10 @@ impl User {
 
     // 実際のrust-analyzerを使用してインデックス化
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "lsif", "--"])
-        .args(&["--files", &format!("{}/**/*.rs", project_dir.display())])
-        .args(&["--bin", "rust-analyzer"])
-        .args(&["--output", db_path.to_str().unwrap()])
+        .args(["run", "--bin", "lsif", "--"])
+        .args(["--files", &format!("{}/**/*.rs", project_dir.display())])
+        .args(["--bin", "rust-analyzer"])
+        .args(["--output", db_path.to_str().unwrap()])
         .output()?;
 
     if output.status.success() {

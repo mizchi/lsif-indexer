@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use lsif_indexer::cli::cached_storage::CachedIndexStorage;
 use lsif_indexer::cli::storage::IndexStorage;
 use lsif_indexer::core::graph::{Position, Range, Symbol, SymbolKind};
@@ -8,7 +8,7 @@ use tempfile::TempDir;
 fn generate_test_symbols(count: usize) -> Vec<Symbol> {
     (0..count)
         .map(|i| Symbol {
-            id: format!("symbol_{}", i),
+            id: format!("symbol_{i}"),
             kind: match i % 5 {
                 0 => SymbolKind::Function,
                 1 => SymbolKind::Class,
@@ -16,7 +16,7 @@ fn generate_test_symbols(count: usize) -> Vec<Symbol> {
                 3 => SymbolKind::Variable,
                 _ => SymbolKind::Constant,
             },
-            name: format!("test_symbol_{}", i),
+            name: format!("test_symbol_{i}"),
             file_path: format!("src/test/file_{}.rs", i % 10),
             range: Range {
                 start: Position {
@@ -29,7 +29,7 @@ fn generate_test_symbols(count: usize) -> Vec<Symbol> {
                 },
             },
             documentation: if i % 3 == 0 {
-                Some(format!("Documentation for symbol {}", i))
+                Some(format!("Documentation for symbol {i}"))
             } else {
                 None
             },
@@ -56,7 +56,7 @@ fn benchmark_cache_performance(c: &mut Criterion) {
         b.iter(|| {
             // 同じデータを繰り返し読み込み（キャッシュヒット）
             for i in 0..10 {
-                let _: Option<Symbol> = storage.load_data_cached(&format!("symbol_{}", i)).unwrap();
+                let _: Option<Symbol> = storage.load_data_cached(&format!("symbol_{i}")).unwrap();
             }
         });
     });
@@ -74,7 +74,7 @@ fn benchmark_cache_performance(c: &mut Criterion) {
 
         b.iter(|| {
             for i in 0..10 {
-                let _: Option<Symbol> = storage.load_data(&format!("symbol_{}", i)).unwrap();
+                let _: Option<Symbol> = storage.load_data(&format!("symbol_{i}")).unwrap();
             }
         });
     });
@@ -99,7 +99,7 @@ fn benchmark_cache_performance(c: &mut Criterion) {
                     storage.save_data_cached(&symbol.id, symbol).unwrap();
                 }
 
-                let keys: Vec<String> = (0..batch_size).map(|i| format!("symbol_{}", i)).collect();
+                let keys: Vec<String> = (0..batch_size).map(|i| format!("symbol_{i}")).collect();
 
                 b.iter(|| {
                     let _: Vec<Option<Symbol>> = storage.load_batch_cached(&keys).unwrap();
@@ -131,13 +131,13 @@ fn benchmark_cache_performance(c: &mut Criterion) {
             },
             |(storage, _temp_dir)| {
                 // プリフェッチ
-                let prefetch_keys: Vec<String> = (0..20).map(|i| format!("symbol_{}", i)).collect();
+                let prefetch_keys: Vec<String> = (0..20).map(|i| format!("symbol_{i}")).collect();
                 storage.prefetch(&prefetch_keys).unwrap();
 
                 // プリフェッチしたデータを読み込み
                 for i in 0..20 {
                     let _: Option<Symbol> =
-                        storage.load_data_cached(&format!("symbol_{}", i)).unwrap();
+                        storage.load_data_cached(&format!("symbol_{i}")).unwrap();
                 }
             },
             BatchSize::SmallInput,
@@ -175,7 +175,7 @@ fn benchmark_cache_memory(c: &mut Criterion) {
                     for _ in 0..100 {
                         let idx = (rand::random::<usize>() % (size * 2)) as usize;
                         let _: Option<Symbol> = storage
-                            .load_data_cached(&format!("symbol_{}", idx))
+                            .load_data_cached(&format!("symbol_{idx}"))
                             .unwrap();
                     }
                 });
@@ -208,7 +208,7 @@ fn benchmark_warmup(c: &mut Criterion) {
                 // コールドスタート（キャッシュなし）
                 for i in 0..50 {
                     let _: Option<Symbol> =
-                        storage.load_data_cached(&format!("symbol_{}", i)).unwrap();
+                        storage.load_data_cached(&format!("symbol_{i}")).unwrap();
                 }
             },
             BatchSize::SmallInput,
@@ -226,13 +226,13 @@ fn benchmark_warmup(c: &mut Criterion) {
         }
 
         // ウォームアップ
-        let hot_keys: Vec<String> = (0..50).map(|i| format!("symbol_{}", i)).collect();
+        let hot_keys: Vec<String> = (0..50).map(|i| format!("symbol_{i}")).collect();
         storage.warmup(&hot_keys).unwrap();
 
         b.iter(|| {
             // ウォームスタート（プリロード済み）
             for i in 0..50 {
-                let _: Option<Symbol> = storage.load_data_cached(&format!("symbol_{}", i)).unwrap();
+                let _: Option<Symbol> = storage.load_data_cached(&format!("symbol_{i}")).unwrap();
             }
         });
     });

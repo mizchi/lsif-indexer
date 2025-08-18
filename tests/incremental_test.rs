@@ -28,7 +28,7 @@ fn create_public_symbol(id: &str, file_path: &str) -> Symbol {
     Symbol {
         id: id.to_string(),
         kind: SymbolKind::Function,
-        name: format!("pub {}", id),
+        name: format!("pub {id}"),
         file_path: file_path.to_string(),
         range: Range {
             start: Position {

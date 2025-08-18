@@ -184,12 +184,12 @@ mod tests {
         let storage = ParallelIndexStorage::open(temp_dir.path()).unwrap();
 
         let symbols: Vec<(String, String)> = (0..1000)
-            .map(|i| (format!("key_{}", i), format!("value_{}", i)))
+            .map(|i| (format!("key_{i}"), format!("value_{i}")))
             .collect();
 
         storage.save_symbols_parallel(&symbols).unwrap();
 
-        let keys: Vec<String> = (0..1000).map(|i| format!("key_{}", i)).collect();
+        let keys: Vec<String> = (0..1000).map(|i| format!("key_{i}")).collect();
         let loaded: Vec<Option<String>> = storage.load_symbols_parallel(&keys).unwrap();
 
         assert_eq!(loaded.len(), 1000);
@@ -201,7 +201,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let storage = ParallelIndexStorage::open(temp_dir.path()).unwrap();
 
-        let symbols: Vec<(String, i32)> = (0..10000).map(|i| (format!("chunk_{}", i), i)).collect();
+        let symbols: Vec<(String, i32)> = (0..10000).map(|i| (format!("chunk_{i}"), i)).collect();
 
         storage.save_symbols_chunked(&symbols, 100).unwrap();
 

@@ -4,10 +4,10 @@ use lsif_indexer::core::parallel::{
     ParallelIncrementalIndex,
 };
 use lsif_indexer::core::parallel_optimized::{
-    OptimizedDeadCodeDetector, OptimizedParallelGraph, OptimizedParallelIndex,
+    OptimizedDeadCodeDetector, OptimizedParallelGraph,
 };
 use lsif_indexer::core::{
-    CodeGraph, EdgeKind, FileUpdate, IncrementalIndex, Position, Range, Symbol, SymbolKind,
+    CodeGraph, EdgeKind, IncrementalIndex, Position, Range, Symbol, SymbolKind,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -15,8 +15,8 @@ use std::path::PathBuf;
 fn create_symbols(count: usize) -> Vec<Symbol> {
     (0..count)
         .map(|i| Symbol {
-            id: format!("symbol_{}", i),
-            name: format!("function_{}", i),
+            id: format!("symbol_{i}"),
+            name: format!("function_{i}"),
             kind: match i % 5 {
                 0 => SymbolKind::Function,
                 1 => SymbolKind::Class,
@@ -36,7 +36,7 @@ fn create_symbols(count: usize) -> Vec<Symbol> {
                 },
             },
             documentation: if i % 2 == 0 {
-                Some(format!("Documentation for symbol_{}", i))
+                Some(format!("Documentation for symbol_{i}"))
             } else {
                 None
             },
@@ -56,7 +56,7 @@ fn benchmark_symbol_addition(c: &mut Criterion) {
             &symbols,
             |b, symbols| {
                 b.iter_batched(
-                    || CodeGraph::new(),
+                    CodeGraph::new,
                     |mut graph| {
                         for symbol in symbols {
                             graph.add_symbol(symbol.clone());
@@ -74,7 +74,7 @@ fn benchmark_symbol_addition(c: &mut Criterion) {
             &symbols,
             |b, symbols| {
                 b.iter_batched(
-                    || ParallelCodeGraph::new(),
+                    ParallelCodeGraph::new,
                     |graph| {
                         graph.add_symbols_parallel(symbols.clone());
                         graph
@@ -90,7 +90,7 @@ fn benchmark_symbol_addition(c: &mut Criterion) {
             &symbols,
             |b, symbols| {
                 b.iter_batched(
-                    || CodeGraph::new(),
+                    CodeGraph::new,
                     |mut graph| {
                         OptimizedParallelGraph::add_symbols_batch(&mut graph, symbols.clone());
                         graph
@@ -116,7 +116,7 @@ fn benchmark_symbol_search(c: &mut Criterion) {
 
         let search_ids: Vec<String> = (0..*size)
             .step_by(10)
-            .map(|i| format!("symbol_{}", i))
+            .map(|i| format!("symbol_{i}"))
             .collect();
 
         let parallel_graph = ParallelCodeGraph::from_graph(graph.clone());
@@ -154,13 +154,13 @@ fn benchmark_file_updates(c: &mut Criterion) {
     for num_files in [10, 50, 100].iter() {
         let updates: Vec<(PathBuf, Vec<Symbol>, String)> = (0..*num_files)
             .map(|i| {
-                let path = PathBuf::from(format!("file_{}.rs", i));
+                let path = PathBuf::from(format!("file_{i}.rs"));
                 let symbols = vec![
                     Symbol {
-                        id: format!("file{}_sym1", i),
-                        name: format!("function1_{}", i),
+                        id: format!("file{i}_sym1"),
+                        name: format!("function1_{i}"),
                         kind: SymbolKind::Function,
-                        file_path: format!("file_{}.rs", i),
+                        file_path: format!("file_{i}.rs"),
                         range: Range {
                             start: Position {
                                 line: 0,
@@ -174,10 +174,10 @@ fn benchmark_file_updates(c: &mut Criterion) {
                         documentation: None,
                     },
                     Symbol {
-                        id: format!("file{}_sym2", i),
-                        name: format!("function2_{}", i),
+                        id: format!("file{i}_sym2"),
+                        name: format!("function2_{i}"),
                         kind: SymbolKind::Function,
-                        file_path: format!("file_{}.rs", i),
+                        file_path: format!("file_{i}.rs"),
                         range: Range {
                             start: Position {
                                 line: 10,
@@ -191,7 +191,7 @@ fn benchmark_file_updates(c: &mut Criterion) {
                         documentation: None,
                     },
                 ];
-                let hash = format!("hash_{}", i);
+                let hash = format!("hash_{i}");
                 (path, symbols, hash)
             })
             .collect();
@@ -202,7 +202,7 @@ fn benchmark_file_updates(c: &mut Criterion) {
             &updates,
             |b, updates| {
                 b.iter_batched(
-                    || IncrementalIndex::new(),
+                    IncrementalIndex::new,
                     |mut index| {
                         for (path, symbols, hash) in updates {
                             index
@@ -222,7 +222,7 @@ fn benchmark_file_updates(c: &mut Criterion) {
             &updates,
             |b, updates| {
                 b.iter_batched(
-                    || ParallelIncrementalIndex::new(),
+                    ParallelIncrementalIndex::new,
                     |index| {
                         index.update_files_parallel(updates.clone()).unwrap();
                         index
@@ -269,8 +269,8 @@ fn benchmark_dead_code_detection(c: &mut Criterion) {
         // Add connected symbols (live)
         for i in 0..(*size / 2) {
             let symbol = Symbol {
-                id: format!("live_{}", i),
-                name: format!("live_function_{}", i),
+                id: format!("live_{i}"),
+                name: format!("live_function_{i}"),
                 kind: SymbolKind::Function,
                 file_path: format!("file_{}.rs", i / 10),
                 range: Range {
@@ -287,7 +287,7 @@ fn benchmark_dead_code_detection(c: &mut Criterion) {
             };
             let idx = index.graph.add_symbol(symbol.clone());
             index.symbol_to_file.insert(
-                format!("live_{}", i),
+                format!("live_{i}"),
                 PathBuf::from(format!("file_{}.rs", i / 10)),
             );
 
@@ -306,8 +306,8 @@ fn benchmark_dead_code_detection(c: &mut Criterion) {
         // Add unconnected symbols (dead)
         for i in 0..(*size / 2) {
             let symbol = Symbol {
-                id: format!("dead_{}", i),
-                name: format!("dead_function_{}", i),
+                id: format!("dead_{i}"),
+                name: format!("dead_function_{i}"),
                 kind: SymbolKind::Function,
                 file_path: format!("dead_file_{}.rs", i / 10),
                 range: Range {
@@ -376,7 +376,7 @@ fn benchmark_lsif_generation(c: &mut Criterion) {
         // Add some edges
         for i in 0..(*size - 1) {
             if let (Some(from), Some(to)) = (
-                graph.get_node_index(&format!("symbol_{}", i)),
+                graph.get_node_index(&format!("symbol_{i}")),
                 graph.get_node_index(&format!("symbol_{}", i + 1)),
             ) {
                 graph.add_edge(from, to, EdgeKind::Reference);
@@ -412,19 +412,18 @@ fn benchmark_file_hash_calculation(c: &mut Criterion) {
     for num_files in [10, 50, 100].iter() {
         let files: Vec<(PathBuf, String)> = (0..*num_files)
             .map(|i| {
-                let path = PathBuf::from(format!("file_{}.rs", i));
+                let path = PathBuf::from(format!("file_{i}.rs"));
                 let content = format!(
-                    "// File {}\n\
-                    fn function_{}() {{\n\
-                    \tprintln!(\"Hello from file {}\");\n\
+                    "// File {i}\n\
+                    fn function_{i}() {{\n\
+                    \tprintln!(\"Hello from file {i}\");\n\
                     \t// Some more content to make it realistic\n\
-                    \tlet x = {};\n\
+                    \tlet x = {i};\n\
                     \tlet y = x * 2;\n\
                     \tfor i in 0..10 {{\n\
                     \t\tprintln!(\"{{}}\", i + y);\n\
                     \t}}\n\
-                    }}\n",
-                    i, i, i, i
+                    }}\n"
                 );
                 (path, content)
             })

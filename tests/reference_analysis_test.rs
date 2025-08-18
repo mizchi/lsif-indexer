@@ -1,8 +1,5 @@
 use anyhow::Result;
-use lsif_indexer::cli::lsp_indexer::LspIndexer;
-use lsif_indexer::cli::storage::IndexStorage;
 use lsif_indexer::core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
-use std::path::Path;
 use tempfile::TempDir;
 
 #[cfg(test)]
@@ -73,7 +70,7 @@ mod tests {
 
         // Calculator構造体を追加
         let calc_symbol = Symbol {
-            id: format!("{}#2:Calculator", test_file),
+            id: format!("{test_file}#2:Calculator"),
             kind: SymbolKind::Class,
             name: "Calculator".to_string(),
             file_path: test_file.clone(),
@@ -93,7 +90,7 @@ mod tests {
 
         // Calculator::new()の定義を追加
         let new_symbol = Symbol {
-            id: format!("{}#7:new", test_file),
+            id: format!("{test_file}#7:new"),
             kind: SymbolKind::Method,
             name: "new".to_string(),
             file_path: test_file.clone(),
@@ -113,7 +110,7 @@ mod tests {
 
         // Calculator::new()への参照を追加（create_calculator関数内）
         let ref1_symbol = Symbol {
-            id: format!("{}#22:Calculator::new", test_file),
+            id: format!("{test_file}#22:Calculator::new"),
             kind: SymbolKind::Function,
             name: "Calculator::new".to_string(),
             file_path: test_file.clone(),
@@ -133,7 +130,7 @@ mod tests {
 
         // Calculator::new()への参照を追加（test関数内）
         let ref2_symbol = Symbol {
-            id: format!("{}#31:Calculator::new", test_file),
+            id: format!("{test_file}#31:Calculator::new"),
             kind: SymbolKind::Function,
             name: "Calculator::new".to_string(),
             file_path: test_file.clone(),
@@ -156,7 +153,7 @@ mod tests {
         graph.add_edge(ref2_idx, new_idx, EdgeKind::Reference);
 
         // 参照を検索
-        let references = graph.find_references(&format!("{}#7:new", test_file));
+        let references = graph.find_references(&format!("{test_file}#7:new"));
         assert_eq!(
             references.len(),
             2,
@@ -189,7 +186,7 @@ mod tests {
 
         // add()メソッドの定義
         let add_method = Symbol {
-            id: format!("{}#11:add", test_file),
+            id: format!("{test_file}#11:add"),
             kind: SymbolKind::Method,
             name: "add".to_string(),
             file_path: test_file.clone(),
@@ -209,7 +206,7 @@ mod tests {
 
         // get_value()メソッドの定義
         let get_value_method = Symbol {
-            id: format!("{}#16:get_value", test_file),
+            id: format!("{test_file}#16:get_value"),
             kind: SymbolKind::Method,
             name: "get_value".to_string(),
             file_path: test_file.clone(),
@@ -229,7 +226,7 @@ mod tests {
 
         // test内でのadd()呼び出し
         let add_call = Symbol {
-            id: format!("{}#32:calc.add", test_file),
+            id: format!("{test_file}#32:calc.add"),
             kind: SymbolKind::Function,
             name: "calc.add".to_string(),
             file_path: test_file.clone(),
@@ -250,7 +247,7 @@ mod tests {
 
         // test内でのget_value()呼び出し（2箇所）
         let get_value_call1 = Symbol {
-            id: format!("{}#33:calc.get_value", test_file),
+            id: format!("{test_file}#33:calc.get_value"),
             kind: SymbolKind::Function,
             name: "calc.get_value".to_string(),
             file_path: test_file.clone(),
@@ -270,7 +267,7 @@ mod tests {
         graph.add_edge(get_value_call1_idx, get_value_idx, EdgeKind::Reference);
 
         let get_value_call2 = Symbol {
-            id: format!("{}#39:calc.get_value", test_file),
+            id: format!("{test_file}#39:calc.get_value"),
             kind: SymbolKind::Function,
             name: "calc.get_value".to_string(),
             file_path: test_file.clone(),
@@ -290,11 +287,11 @@ mod tests {
         graph.add_edge(get_value_call2_idx, get_value_idx, EdgeKind::Reference);
 
         // add()メソッドへの参照を検索
-        let add_refs = graph.find_references(&format!("{}#11:add", test_file));
+        let add_refs = graph.find_references(&format!("{test_file}#11:add"));
         assert_eq!(add_refs.len(), 1, "add()メソッドへの参照が1つ見つかるべき");
 
         // get_value()メソッドへの参照を検索
-        let get_value_refs = graph.find_references(&format!("{}#16:get_value", test_file));
+        let get_value_refs = graph.find_references(&format!("{test_file}#16:get_value"));
         assert_eq!(
             get_value_refs.len(),
             2,
@@ -312,7 +309,7 @@ mod tests {
 
         // 定義を追加
         let definition = Symbol {
-            id: format!("{}#21:create_calculator", test_file),
+            id: format!("{test_file}#21:create_calculator"),
             kind: SymbolKind::Function,
             name: "create_calculator".to_string(),
             file_path: test_file.clone(),
@@ -332,7 +329,7 @@ mod tests {
 
         // 参照を追加
         let reference = Symbol {
-            id: format!("{}#38:create_calculator", test_file),
+            id: format!("{test_file}#38:create_calculator"),
             kind: SymbolKind::Function,
             name: "create_calculator".to_string(),
             file_path: test_file.clone(),
@@ -444,7 +441,7 @@ class AdvancedCalculator implements CalculatorInterface {
 
         // Calculatorクラスの定義
         let calc_class = Symbol {
-            id: format!("{}#2:Calculator", test_file),
+            id: format!("{test_file}#2:Calculator"),
             kind: SymbolKind::Class,
             name: "Calculator".to_string(),
             file_path: test_file.clone(),
@@ -464,7 +461,7 @@ class AdvancedCalculator implements CalculatorInterface {
 
         // new Calculator()の参照（2箇所）
         let new_calc1 = Symbol {
-            id: format!("{}#24:new Calculator", test_file),
+            id: format!("{test_file}#24:new Calculator"),
             kind: SymbolKind::Class,
             name: "new Calculator".to_string(),
             file_path: test_file.clone(),
@@ -484,7 +481,7 @@ class AdvancedCalculator implements CalculatorInterface {
         graph.add_edge(new_calc1_idx, calc_idx, EdgeKind::Reference);
 
         let new_calc2 = Symbol {
-            id: format!("{}#20:new Calculator", test_file),
+            id: format!("{test_file}#20:new Calculator"),
             kind: SymbolKind::Class,
             name: "new Calculator".to_string(),
             file_path: test_file.clone(),
@@ -504,7 +501,7 @@ class AdvancedCalculator implements CalculatorInterface {
         graph.add_edge(new_calc2_idx, calc_idx, EdgeKind::Reference);
 
         // Calculatorクラスへの参照を検索
-        let refs = graph.find_references(&format!("{}#2:Calculator", test_file));
+        let refs = graph.find_references(&format!("{test_file}#2:Calculator"));
         assert_eq!(refs.len(), 2, "Calculatorクラスへの参照が2つ見つかるべき");
 
         Ok(())
@@ -518,7 +515,7 @@ class AdvancedCalculator implements CalculatorInterface {
 
         // インターフェースの定義
         let interface = Symbol {
-            id: format!("{}#33:CalculatorInterface", test_file),
+            id: format!("{test_file}#33:CalculatorInterface"),
             kind: SymbolKind::Interface,
             name: "CalculatorInterface".to_string(),
             file_path: test_file.clone(),
@@ -538,7 +535,7 @@ class AdvancedCalculator implements CalculatorInterface {
 
         // 実装クラス
         let impl_class = Symbol {
-            id: format!("{}#38:AdvancedCalculator", test_file),
+            id: format!("{test_file}#38:AdvancedCalculator"),
             kind: SymbolKind::Class,
             name: "AdvancedCalculator".to_string(),
             file_path: test_file.clone(),
@@ -561,7 +558,7 @@ class AdvancedCalculator implements CalculatorInterface {
 
         // インターフェースの実装を検索
         let implementations =
-            graph.find_implementations(&format!("{}#33:CalculatorInterface", test_file));
+            graph.find_implementations(&format!("{test_file}#33:CalculatorInterface"));
         assert_eq!(
             implementations.len(),
             1,
@@ -580,7 +577,7 @@ class AdvancedCalculator implements CalculatorInterface {
 
         // インターフェースのメソッド定義
         let interface_add = Symbol {
-            id: format!("{}#34:add", test_file),
+            id: format!("{test_file}#34:add"),
             kind: SymbolKind::Method,
             name: "add".to_string(),
             file_path: test_file.clone(),
@@ -600,7 +597,7 @@ class AdvancedCalculator implements CalculatorInterface {
 
         // 実装クラスのメソッド
         let impl_add = Symbol {
-            id: format!("{}#41:add", test_file),
+            id: format!("{test_file}#41:add"),
             kind: SymbolKind::Method,
             name: "add".to_string(),
             file_path: test_file.clone(),
@@ -622,7 +619,7 @@ class AdvancedCalculator implements CalculatorInterface {
         graph.add_edge(impl_add_idx, interface_add_idx, EdgeKind::Override);
 
         // メソッドのオーバーライドを検索
-        let overrides = graph.find_overrides(&format!("{}#34:add", test_file));
+        let overrides = graph.find_overrides(&format!("{test_file}#34:add"));
         assert_eq!(
             overrides.len(),
             1,

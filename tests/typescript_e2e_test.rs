@@ -17,13 +17,13 @@ fn test_typescript_lsp_indexing() {
     // Get the test file path
     let test_file = PathBuf::from("tests/fixtures/typescript/sample.ts");
     if !test_file.exists() {
-        panic!("Test file not found: {:?}", test_file);
+        panic!("Test file not found: {test_file:?}");
     }
 
     let abs_path = std::fs::canonicalize(&test_file).unwrap();
     let file_uri = format!("file://{}", abs_path.display());
 
-    println!("Testing file: {}", file_uri);
+    println!("Testing file: {file_uri}");
 
     // Create TypeScript LSP client
     let adapter = TypeScriptAdapter;
@@ -55,7 +55,7 @@ fn test_typescript_lsp_indexing() {
 
     // Count symbols
     let symbol_count = graph.symbol_count();
-    println!("\nTotal symbols: {}", symbol_count);
+    println!("\nTotal symbols: {symbol_count}");
 
     // Verify expected symbols exist
     let expected_symbols = vec![
@@ -68,8 +68,8 @@ fn test_typescript_lsp_indexing() {
 
     for expected in &expected_symbols {
         let found = graph.get_all_symbols().any(|s| s.name.contains(expected));
-        assert!(found, "Expected symbol '{}' not found", expected);
-        println!("✓ Found symbol: {}", expected);
+        assert!(found, "Expected symbol '{expected}' not found");
+        println!("✓ Found symbol: {expected}");
     }
 
     // Shutdown client
@@ -132,7 +132,7 @@ fn test_typescript_incremental_update() {
     let mut updated_symbols = symbols.clone();
     updated_symbols.pop(); // Remove last symbol
 
-    let hash2 = format!("{}_modified", hash1);
+    let hash2 = format!("{hash1}_modified");
     let update_result = index
         .update_file(&test_file, updated_symbols, hash2)
         .unwrap();
@@ -170,7 +170,7 @@ fn install_typescript_lsp() {
     println!("Installing TypeScript language server...");
 
     let output = Command::new("npm")
-        .args(&["install", "-g", "typescript-language-server", "typescript"])
+        .args(["install", "-g", "typescript-language-server", "typescript"])
         .output();
 
     match output {
@@ -183,7 +183,7 @@ fn install_typescript_lsp() {
             println!("You may need to install it manually: npm install -g typescript-language-server typescript");
         }
         Err(e) => {
-            println!("Warning: npm not found: {}", e);
+            println!("Warning: npm not found: {e}");
             println!("Please install Node.js and run: npm install -g typescript-language-server typescript");
         }
     }

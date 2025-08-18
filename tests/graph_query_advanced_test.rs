@@ -411,7 +411,6 @@ fn test_backward_traversal() {
 
     // For now, skip backward traversal test as it's not fully implemented
     // TODO: Implement proper backward arrow parsing
-    return;
 
     // Find what references UserModel (backward traversal)
     // let pattern = QueryParser::parse("(source)<-[:Reference]-(user:Class)").unwrap();
@@ -539,10 +538,10 @@ fn test_large_graph_performance() {
     let mut symbols = Vec::new();
     for i in 0..100 {
         let symbol = Symbol {
-            id: format!("class:Class{}", i),
-            name: format!("Class{}", i),
+            id: format!("class:Class{i}"),
+            name: format!("Class{i}"),
             kind: SymbolKind::Class,
-            file_path: format!("class{}.rs", i),
+            file_path: format!("class{i}.rs"),
             range: Range {
                 start: Position {
                     line: 0,

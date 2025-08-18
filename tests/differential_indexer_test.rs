@@ -1,7 +1,7 @@
 use anyhow::Result;
 use git2::{Repository, Signature};
-use lsif_indexer::cli::differential_indexer::{DifferentialIndexResult, DifferentialIndexer};
-use lsif_indexer::cli::storage::{IndexMetadata, IndexStorage};
+use lsif_indexer::cli::differential_indexer::DifferentialIndexer;
+use lsif_indexer::cli::storage::IndexStorage;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
@@ -343,7 +343,7 @@ fn test_metadata_persistence() -> Result<()> {
     assert!(metadata.symbols_count > 0);
 
     // ファイルハッシュが正しく保存されていることを確認
-    for (file_path, _hash) in &metadata.file_hashes {
+    for file_path in metadata.file_hashes.keys() {
         let path = Path::new(file_path);
         let file_name = path.file_name().unwrap().to_str().unwrap();
         assert!(

@@ -9,7 +9,7 @@ use tempfile::TempDir;
 fn generate_test_symbols(count: usize) -> Vec<Symbol> {
     (0..count)
         .map(|i| Symbol {
-            id: format!("symbol_{}", i),
+            id: format!("symbol_{i}"),
             kind: match i % 5 {
                 0 => SymbolKind::Function,
                 1 => SymbolKind::Class,
@@ -17,7 +17,7 @@ fn generate_test_symbols(count: usize) -> Vec<Symbol> {
                 3 => SymbolKind::Variable,
                 _ => SymbolKind::Constant,
             },
-            name: format!("test_symbol_{}", i),
+            name: format!("test_symbol_{i}"),
             file_path: format!("src/test/file_{}.rs", i % 10),
             range: Range {
                 start: Position {
@@ -30,7 +30,7 @@ fn generate_test_symbols(count: usize) -> Vec<Symbol> {
                 },
             },
             documentation: if i % 3 == 0 {
-                Some(format!("Documentation for symbol {}", i))
+                Some(format!("Documentation for symbol {i}"))
             } else {
                 None
             },
@@ -137,9 +137,9 @@ fn benchmark_memory_efficiency(c: &mut Criterion) {
                 // ストリーミング保存（メモリ効率重視）
                 for i in 0..1000 {
                     let symbol = Symbol {
-                        id: format!("stream_{}", i),
+                        id: format!("stream_{i}"),
                         kind: SymbolKind::Function,
-                        name: format!("func_{}", i),
+                        name: format!("func_{i}"),
                         file_path: "stream.rs".to_string(),
                         range: Range {
                             start: Position {
@@ -190,7 +190,7 @@ fn benchmark_concurrent_access(c: &mut Criterion) {
                 if i % 2 == 0 {
                     // 読み込み
                     let _: Option<Symbol> = storage
-                        .load_symbols_parallel(&[format!("symbol_{}", i)])
+                        .load_symbols_parallel(&[format!("symbol_{i}")])
                         .unwrap()
                         .into_iter()
                         .next()
@@ -198,9 +198,9 @@ fn benchmark_concurrent_access(c: &mut Criterion) {
                 } else {
                     // 書き込み
                     let symbol = Symbol {
-                        id: format!("concurrent_{}", i),
+                        id: format!("concurrent_{i}"),
                         kind: SymbolKind::Variable,
-                        name: format!("var_{}", i),
+                        name: format!("var_{i}"),
                         file_path: "concurrent.rs".to_string(),
                         range: Range {
                             start: Position {
@@ -240,14 +240,14 @@ fn benchmark_concurrent_access(c: &mut Criterion) {
                 let storage = Arc::clone(&storage);
                 if i % 2 == 0 {
                     // 読み込み
-                    let key = format!("symbol_{}", i);
+                    let key = format!("symbol_{i}");
                     let _: Option<Symbol> = storage.load_mmap(key.as_bytes()).unwrap();
                 } else {
                     // 書き込み
                     let symbol = Symbol {
-                        id: format!("concurrent_{}", i),
+                        id: format!("concurrent_{i}"),
                         kind: SymbolKind::Variable,
-                        name: format!("var_{}", i),
+                        name: format!("var_{i}"),
                         file_path: "concurrent.rs".to_string(),
                         range: Range {
                             start: Position {

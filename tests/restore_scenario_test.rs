@@ -309,9 +309,9 @@ fn test_performance_with_many_files() -> Result<()> {
 
     // 多数のファイルを作成
     for i in 0..50 {
-        let content = format!("fn func_{}() {{ /* content */ }}", i);
+        let content = format!("fn func_{i}() {{ /* content */ }}");
         fs::write(
-            project.temp_dir.path().join(format!("file_{}.rs", i)),
+            project.temp_dir.path().join(format!("file_{i}.rs")),
             content,
         )?;
     }
@@ -323,7 +323,7 @@ fn test_performance_with_many_files() -> Result<()> {
     let initial_duration = start.elapsed();
 
     assert_eq!(result.files_added, 50);
-    println!("Initial indexing of 50 files: {:?}", initial_duration);
+    println!("Initial indexing of 50 files: {initial_duration:?}");
 
     // 1ファイルだけ変更
     fs::write(
@@ -339,8 +339,7 @@ fn test_performance_with_many_files() -> Result<()> {
 
     assert_eq!(result.files_modified, 1);
     println!(
-        "Differential indexing of 1 changed file: {:?}",
-        diff_duration
+        "Differential indexing of 1 changed file: {diff_duration:?}"
     );
 
     // 差分インデックスの方が圧倒的に速いことを確認

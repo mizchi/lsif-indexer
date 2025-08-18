@@ -340,10 +340,10 @@ fn find_definition(db_path: &str, file: &str, line: u32, column: u32) -> Result<
             symbol.range.start.character + 1
         );
         if let Some(doc) = &symbol.documentation {
-            println!("   📖 {}", doc);
+            println!("   📖 {doc}");
         }
     } else {
-        println!("❌ No symbol found at {}:{}:{}", file, line, column);
+        println!("❌ No symbol found at {file}:{line}:{column}");
     }
 
     Ok(())
@@ -395,7 +395,7 @@ fn find_references_recursive(db_path: &str, file: &str, line: u32, column: u32, 
             }
         }
     } else {
-        println!("❌ No symbol found at {}:{}:{}", file, line, column);
+        println!("❌ No symbol found at {file}:{line}:{column}");
     }
 
     Ok(())
@@ -411,7 +411,7 @@ fn show_call_hierarchy(db_path: &str, symbol: &str, max_depth: usize, direction:
         _ => "↔️",
     };
     
-    println!("{} Call hierarchy for '{}' ({})", dir_symbol, symbol, direction);
+    println!("{dir_symbol} Call hierarchy for '{symbol}' ({direction})");
     call_hierarchy_cmd::show_call_hierarchy(db_path, symbol, direction, max_depth)?;
     
     Ok(())
@@ -431,7 +431,7 @@ fn show_type_info(db_path: &str, type_name: &str, show_hierarchy: bool) -> Resul
     if show_hierarchy {
         let hierarchy = analyzer.find_type_hierarchy(type_name);
         
-        println!("🔺 Type hierarchy for '{}':", type_name);
+        println!("🔺 Type hierarchy for '{type_name}':");
         if !hierarchy.parents.is_empty() {
             println!("  Parents:");
             for p in hierarchy.parents.iter().take(5) {
@@ -444,14 +444,12 @@ fn show_type_info(db_path: &str, type_name: &str, show_hierarchy: bool) -> Resul
                 println!("    - {}", c.name);
             }
         }
+    } else if let Some(_relations) = analyzer.collect_type_relations(type_name, 3) {
+        println!("🔷 Type relations for '{type_name}':");
+        // Note: TypeRelations struct fields may vary
+        println!("  Relations found");
     } else {
-        if let Some(_relations) = analyzer.collect_type_relations(type_name, 3) {
-            println!("🔷 Type relations for '{}':", type_name);
-            // Note: TypeRelations struct fields may vary
-            println!("  Relations found");
-        } else {
-            println!("❌ Type '{}' not found", type_name);
-        }
+        println!("❌ Type '{type_name}' not found");
     }
     
     Ok(())
@@ -473,7 +471,7 @@ fn execute_graph_query(db_path: &str, pattern: &str, limit: usize, _depth: usize
     let results = engine.execute(&query_pattern);
     
     if results.matches.is_empty() {
-        println!("❌ No matches found for pattern: {}", pattern);
+        println!("❌ No matches found for pattern: {pattern}");
     } else {
         println!("🔍 Found {} matches:", results.matches.len());
         for (i, match_result) in results.matches.iter().take(limit).enumerate() {
@@ -493,7 +491,7 @@ fn execute_graph_query(db_path: &str, pattern: &str, limit: usize, _depth: usize
 /// 診断情報を表示
 fn show_diagnostics(db_path: &str, project_root: &str) -> Result<()> {
     if !Path::new(db_path).exists() {
-        println!("❌ No index found at {}", db_path);
+        println!("❌ No index found at {db_path}");
         println!("   Run any command to create an initial index");
         return Ok(());
     }
@@ -503,8 +501,8 @@ fn show_diagnostics(db_path: &str, project_root: &str) -> Result<()> {
     
     if let Some(meta) = metadata {
         println!("📊 Index Status:");
-        println!("  Database: {}", db_path);
-        println!("  Project: {}", project_root);
+        println!("  Database: {db_path}");
+        println!("  Project: {project_root}");
         println!("  Created: {}", meta.created_at.format("%Y-%m-%d %H:%M:%S"));
         println!("  Files: {}", meta.files_count);
         println!("  Symbols: {}", meta.symbols_count);
@@ -530,7 +528,7 @@ fn show_diagnostics(db_path: &str, project_root: &str) -> Result<()> {
     // ディスク使用量
     if let Ok(file_meta) = std::fs::metadata(db_path) {
         let size_mb = file_meta.len() as f64 / (1024.0 * 1024.0);
-        println!("  Disk usage: {:.2} MB", size_mb);
+        println!("  Disk usage: {size_mb:.2} MB");
     }
     
     Ok(())
@@ -561,7 +559,7 @@ fn export_index(db_path: &str, format: &str, output: &str) -> Result<()> {
         }
     }
     
-    println!("✅ Exported to {}", output);
+    println!("✅ Exported to {output}");
     
     Ok(())
 }
@@ -573,9 +571,9 @@ fn find_type_definition(db_path: &str, file: &str, line: u32, column: u32, depth
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif index' first."))?;
 
-    let symbol_id = format!("{}#{}:{}", file, line, column);
+    let symbol_id = format!("{file}#{line}:{column}");
     
-    println!("🔷 Type definition for {}:{}:{} (depth: {})", file, line, column, depth);
+    println!("🔷 Type definition for {file}:{line}:{column} (depth: {depth})");
     
     // Find the symbol and its type
     if let Some(symbol) = graph.find_symbol(&symbol_id) {
@@ -584,10 +582,10 @@ fn find_type_definition(db_path: &str, file: &str, line: u32, column: u32, depth
         println!("  Symbol: {}", symbol.name);
         println!("  Kind: {:?}", symbol.kind);
         if let Some(doc) = &symbol.documentation {
-            println!("  Documentation: {}", doc);
+            println!("  Documentation: {doc}");
         }
     } else {
-        println!("❌ No symbol found at {}:{}:{}", file, line, column);
+        println!("❌ No symbol found at {file}:{line}:{column}");
     }
     
     Ok(())
@@ -600,7 +598,7 @@ fn find_implementations(db_path: &str, type_name: &str, depth: usize) -> Result<
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif index' first."))?;
     
-    println!("🔨 Implementations of '{}' (depth: {})", type_name, depth);
+    println!("🔨 Implementations of '{type_name}' (depth: {depth})");
     
     // Find all implementations
     // Note: implements field might not exist in current Symbol struct
@@ -640,7 +638,7 @@ fn show_document_symbols(db_path: &str, file: Option<&str>, kind: Option<&str>) 
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif index' first."))?;
     
     let target_file = file.unwrap_or(".");
-    println!("📄 Document symbols in '{}'", target_file);
+    println!("📄 Document symbols in '{target_file}'");
     
     let mut symbols: Vec<_> = graph.get_all_symbols()
         .filter(|s| file.is_none() || s.file_path.contains(target_file))
@@ -663,7 +661,7 @@ fn show_document_symbols(db_path: &str, file: Option<&str>, kind: Option<&str>) 
         }
         
         for (file_path, file_symbols) in by_file.iter().take(5) {
-            println!("\n  {}:", file_path);
+            println!("\n  {file_path}:");
             for symbol in file_symbols.iter().take(10) {
                 println!("    {:?} {}", symbol.kind, symbol.name);
             }
@@ -687,7 +685,7 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize) -> Result<
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif index' first."))?;
     
-    println!("🔍 Searching workspace for '{}'", query);
+    println!("🔍 Searching workspace for '{query}'");
     
     let query_lower = query.to_lowercase();
     let matches: Vec<_> = graph.get_all_symbols()
@@ -696,7 +694,7 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize) -> Result<
         .collect();
     
     if matches.is_empty() {
-        println!("  No symbols found matching '{}'", query);
+        println!("  No symbols found matching '{query}'");
     } else {
         println!("  Found {} symbols:", matches.len());
         for (i, symbol) in matches.iter().enumerate() {
@@ -722,8 +720,8 @@ fn rebuild_index(db_path: &str, project_root: &str, force: bool, verbose: bool) 
     
     if verbose {
         println!("🔍 Starting index rebuild...");
-        println!("  Database: {}", db_path);
-        println!("  Project: {}", project_root);
+        println!("  Database: {db_path}");
+        println!("  Project: {project_root}");
     }
     
     let result = if force {
@@ -797,9 +795,9 @@ fn show_unused_code(db_path: &str, public_only: bool) -> Result<()> {
         }
         
         for (file, symbols) in by_file.iter().take(10) {
-            println!("\n  {}:", file);
+            println!("\n  {file}:");
             for symbol in symbols.iter().take(3) {
-                println!("    - {}", symbol);
+                println!("    - {symbol}");
             }
             if symbols.len() > 3 {
                 println!("    ... and {} more", symbols.len() - 3);

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use lsif_indexer::cli::lsp_adapter::*;
-    use lsif_indexer::cli::lsp_commands::{LspCommand, LspSubcommand};
+    
     use lsif_indexer::cli::lsp_features::*;
     use lsp_types::*;
     use std::fs;
@@ -42,11 +42,11 @@ mod tests {
 
     #[test]
     fn test_language_detection() {
-        assert!(matches!(detect_language("main.rs"), Some(_)));
-        assert!(matches!(detect_language("index.ts"), Some(_)));
-        assert!(matches!(detect_language("app.tsx"), Some(_)));
-        assert!(matches!(detect_language("script.js"), Some(_)));
-        assert!(matches!(detect_language("component.jsx"), Some(_)));
+        assert!(detect_language("main.rs").is_some());
+        assert!(detect_language("index.ts").is_some());
+        assert!(detect_language("app.tsx").is_some());
+        assert!(detect_language("script.js").is_some());
+        assert!(detect_language("component.jsx").is_some());
         assert!(detect_language("unknown.xyz").is_none());
     }
 

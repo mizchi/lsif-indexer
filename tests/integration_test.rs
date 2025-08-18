@@ -1,7 +1,5 @@
-use anyhow::Result;
 use lsif_indexer::cli::storage::IndexStorage;
 use lsif_indexer::core::graph::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
-use std::process::Command;
 use tempfile::TempDir;
 
 #[test]
@@ -265,9 +263,9 @@ fn test_parallel_storage() {
     let symbols: Vec<(String, Symbol)> = (0..100)
         .map(|i| {
             let symbol = Symbol {
-                id: format!("symbol_{}", i),
+                id: format!("symbol_{i}"),
                 kind: SymbolKind::Function,
-                name: format!("func_{}", i),
+                name: format!("func_{i}"),
                 file_path: format!("file_{}.rs", i / 10),
                 range: Range {
                     start: Position {
@@ -289,7 +287,7 @@ fn test_parallel_storage() {
     storage.save_symbols_parallel(&symbols).unwrap();
 
     // 並列読み込み
-    let keys: Vec<String> = (0..100).map(|i| format!("symbol_{}", i)).collect();
+    let keys: Vec<String> = (0..100).map(|i| format!("symbol_{i}")).collect();
     let loaded: Vec<Option<Symbol>> = storage.load_symbols_parallel(&keys).unwrap();
 
     assert_eq!(loaded.len(), 100);
@@ -340,6 +338,6 @@ fn test_cache_performance() {
     let db_time = start.elapsed();
 
     // キャッシュの方が高速であることを確認
-    println!("Cache time: {:?}, DB time: {:?}", cache_time, db_time);
+    println!("Cache time: {cache_time:?}, DB time: {db_time:?}");
     assert!(cache_time < db_time * 2); // キャッシュは少なくとも半分の時間
 }

@@ -472,7 +472,7 @@ mod tests {
         // デバッグ情報を出力
         eprintln!("Found {} files in {:?}", files.len(), temp_path);
         for file in &files {
-            eprintln!("  - {:?}", file);
+            eprintln!("  - {file:?}");
         }
 
         // walkdirのfilter_entryが問題の可能性があるため、簡易的なテストに変更

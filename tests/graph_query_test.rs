@@ -257,7 +257,7 @@ fn test_query_transitive_references() {
     let results = engine.execute(&pattern);
 
     // Should find: log -> logger -> ConsoleLogger
-    assert!(results.matches.len() >= 1);
+    assert!(!results.matches.is_empty());
 
     let has_log_to_console = results.matches.iter().any(|m| {
         let fn_name = m

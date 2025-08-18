@@ -157,8 +157,8 @@ fn test_auto_update_performance() -> Result<()> {
     // 複数のファイルを作成
     for i in 0..10 {
         fs::write(
-            temp_dir.path().join(format!("file{}.rs", i)),
-            format!("fn func_{}() {{ /* content */ }}", i),
+            temp_dir.path().join(format!("file{i}.rs")),
+            format!("fn func_{i}() {{ /* content */ }}"),
         )?;
     }
 
@@ -169,7 +169,7 @@ fn test_auto_update_performance() -> Result<()> {
     let initial_time = start.elapsed();
 
     assert!(result.files_added >= 10, "Expected at least 10 files added, got {}", result.files_added);
-    println!("Initial indexing of 10 files: {:?}", initial_time);
+    println!("Initial indexing of 10 files: {initial_time:?}");
 
     // 変更なしで再実行（自動更新のオーバーヘッド測定）
     let start = std::time::Instant::now();
@@ -178,13 +178,12 @@ fn test_auto_update_performance() -> Result<()> {
     let no_change_time = start.elapsed();
 
     assert_eq!(result2.files_modified, 0);
-    println!("Auto-update check (no changes): {:?}", no_change_time);
+    println!("Auto-update check (no changes): {no_change_time:?}");
 
     // 自動更新チェックは高速であるべき（0.1秒以内）
     assert!(
         no_change_time.as_millis() < 100,
-        "Auto-update check took too long: {:?}",
-        no_change_time
+        "Auto-update check took too long: {no_change_time:?}"
     );
 
     // 1ファイルだけ変更
@@ -200,7 +199,7 @@ fn test_auto_update_performance() -> Result<()> {
     let update_time = start.elapsed();
 
     assert_eq!(result3.files_modified, 1);
-    println!("Auto-update with 1 file changed: {:?}", update_time);
+    println!("Auto-update with 1 file changed: {update_time:?}");
 
     // 差分更新は初回より圧倒的に速いはず
     assert!(update_time < initial_time / 5);
@@ -223,7 +222,7 @@ fn test_cli_auto_update() -> Result<()> {
 
     // 初回インデックス
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--",
             "differential-index",
@@ -244,7 +243,7 @@ fn test_cli_auto_update() -> Result<()> {
 
     // クエリ実行（自動更新が発生するはず）
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--",
             "query",

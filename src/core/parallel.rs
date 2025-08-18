@@ -512,7 +512,7 @@ mod tests {
         let graph = ParallelCodeGraph::new();
 
         let symbols: Vec<Symbol> = (0..100)
-            .map(|i| create_test_symbol(&format!("sym_{}", i), "test.rs"))
+            .map(|i| create_test_symbol(&format!("sym_{i}"), "test.rs"))
             .collect();
 
         let indices = graph.add_symbols_parallel(symbols);
@@ -526,19 +526,19 @@ mod tests {
     fn test_parallel_symbol_search() {
         let mut base_graph = CodeGraph::new();
         for i in 0..50 {
-            base_graph.add_symbol(create_test_symbol(&format!("sym_{}", i), "test.rs"));
+            base_graph.add_symbol(create_test_symbol(&format!("sym_{i}"), "test.rs"));
         }
 
         let graph = ParallelCodeGraph::from_graph(base_graph);
         let ids: Vec<&str> = (0..50)
-            .map(|i| Box::leak(format!("sym_{}", i).into_boxed_str()) as &str)
+            .map(|i| Box::leak(format!("sym_{i}").into_boxed_str()) as &str)
             .collect();
 
         let results = graph.find_symbols_parallel(ids);
         assert_eq!(results.len(), 50);
 
         for i in 0..50 {
-            assert!(results.get(&format!("sym_{}", i)).unwrap().is_some());
+            assert!(results.get(&format!("sym_{i}")).unwrap().is_some());
         }
     }
 
@@ -548,12 +548,12 @@ mod tests {
 
         let updates: Vec<(PathBuf, Vec<Symbol>, String)> = (0..10)
             .map(|i| {
-                let path = PathBuf::from(format!("file_{}.rs", i));
+                let path = PathBuf::from(format!("file_{i}.rs"));
                 let symbols = vec![
-                    create_test_symbol(&format!("file{}_sym1", i), &format!("file_{}.rs", i)),
-                    create_test_symbol(&format!("file{}_sym2", i), &format!("file_{}.rs", i)),
+                    create_test_symbol(&format!("file{i}_sym1"), &format!("file_{i}.rs")),
+                    create_test_symbol(&format!("file{i}_sym2"), &format!("file_{i}.rs")),
                 ];
-                let hash = format!("hash_{}", i);
+                let hash = format!("hash_{i}");
                 (path, symbols, hash)
             })
             .collect();

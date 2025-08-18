@@ -173,8 +173,7 @@ impl GitDiffDetector {
             &mut |delta, _progress| {
                 let file_path = delta
                     .new_file()
-                    .path()
-                    .and_then(|p| Some(self.project_root.join(p)));
+                    .path().map(|p| self.project_root.join(p));
 
                 if let Some(path) = file_path {
                     if !processed_paths.contains(&path) {
@@ -273,7 +272,7 @@ impl GitDiffDetector {
 
         // xxHash3は非常に高速で、ファイルの変更検知には十分な品質
         let hash = xxh3_64(&content);
-        Ok(format!("{:016x}", hash))
+        Ok(format!("{hash:016x}"))
     }
 
     /// 除外すべきパスかどうかを判定
