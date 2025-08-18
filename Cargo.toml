@@ -78,7 +78,7 @@ tempfile = "3.0"
 # ベンチマーク用
 criterion = "0.5"
 # ランダム数生成
-rand = "0.8"
+rand = "0.9"
 
 [[bench]]
 name = "index_benchmark"
