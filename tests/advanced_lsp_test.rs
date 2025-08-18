@@ -45,7 +45,8 @@ mod tests {
         assert!(matches!(detect_language("main.rs"), Some(_)));
         assert!(matches!(detect_language("index.ts"), Some(_)));
         assert!(matches!(detect_language("app.tsx"), Some(_)));
-        assert!(matches!(detect_language("script.py"), Some(_)));
+        assert!(matches!(detect_language("script.js"), Some(_)));
+        assert!(matches!(detect_language("component.jsx"), Some(_)));
         assert!(detect_language("unknown.xyz").is_none());
     }
     

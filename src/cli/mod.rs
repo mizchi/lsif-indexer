@@ -455,13 +455,6 @@ fn generate_index(source_path: &str, output_path: &str, language: Option<&str>) 
                 client.shutdown()?;
                 syms
             }
-            "python" | "py" => {
-                use self::lsp_adapter::PythonAdapter;
-                let mut client = GenericLspClient::new(Box::new(PythonAdapter))?;
-                let syms = client.get_document_symbols(&file_uri)?;
-                client.shutdown()?;
-                syms
-            }
             _ => {
                 anyhow::bail!("Unsupported language: {}", lang);
             }
@@ -833,7 +826,7 @@ fn execute_query_pattern(index_path: &str, pattern: &str, limit: usize) -> Resul
 
 fn index_project(project_path: &str, output_path: &str, language: &str) -> Result<()> {
     use self::enhanced_indexer::EnhancedIndexer;
-    use self::lsp_adapter::{RustAnalyzerAdapter, TypeScriptAdapter, PythonAdapter};
+    use self::lsp_adapter::{RustAnalyzerAdapter, TypeScriptAdapter};
     use std::path::Path;
     
     let project_root = Path::new(project_path);
@@ -841,8 +834,7 @@ fn index_project(project_path: &str, output_path: &str, language: &str) -> Resul
     // Create appropriate language adapter
     let adapter: Box<dyn LspAdapter> = match language {
         "rust" => Box::new(RustAnalyzerAdapter),
-        "typescript" | "ts" => Box::new(TypeScriptAdapter),
-        "python" | "py" => Box::new(PythonAdapter),
+        "typescript" | "ts" | "javascript" | "js" => Box::new(TypeScriptAdapter),
         _ => {
             return Err(anyhow::anyhow!("Unsupported language: {}", language));
         }

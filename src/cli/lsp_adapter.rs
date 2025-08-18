@@ -55,24 +55,12 @@ impl LspAdapter for RustAnalyzerAdapter {
     }
 }
 
-/// TypeScript language server adapter
+/// TypeScript language server adapter (using tsgo)
 pub struct TypeScriptAdapter;
 
 impl LspAdapter for TypeScriptAdapter {
     fn spawn_command(&self) -> Result<Child> {
-        // Try typescript-language-server first
-        let result = Command::new("typescript-language-server")
-            .arg("--stdio")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn();
-            
-        if result.is_ok() {
-            return result.map_err(|e| anyhow!("Failed to spawn typescript-language-server: {}", e));
-        }
-        
-        // Fallback to @typescript/native-preview
+        // Use tsgo (@typescript/native-preview)
         Command::new("npx")
             .arg("-y")
             .arg("@typescript/native-preview")
@@ -82,7 +70,7 @@ impl LspAdapter for TypeScriptAdapter {
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|e| anyhow!("Failed to spawn TypeScript LSP: {}", e))
+            .map_err(|e| anyhow!("Failed to spawn tsgo: {}", e))
     }
     
     fn language_id(&self) -> &str {
@@ -90,36 +78,6 @@ impl LspAdapter for TypeScriptAdapter {
     }
 }
 
-/// Python language server adapter
-pub struct PythonAdapter;
-
-impl LspAdapter for PythonAdapter {
-    fn spawn_command(&self) -> Result<Child> {
-        // Try pylsp (Python LSP Server)
-        let result = Command::new("pylsp")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn();
-            
-        if result.is_ok() {
-            return result.map_err(|e| anyhow!("Failed to spawn pylsp: {}", e));
-        }
-        
-        // Fallback to pyright
-        Command::new("pyright-langserver")
-            .arg("--stdio")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|e| anyhow!("Failed to spawn Python LSP: {}", e))
-    }
-    
-    fn language_id(&self) -> &str {
-        "python"
-    }
-}
 
 /// Generic LSP client that works with any adapter
 pub struct GenericLspClient {
@@ -357,9 +315,7 @@ pub fn detect_language(file_path: &str) -> Option<Box<dyn LspAdapter>> {
     
     match extension {
         "rs" => Some(Box::new(RustAnalyzerAdapter)),
-        "ts" | "tsx" => Some(Box::new(TypeScriptAdapter)),
-        "js" | "jsx" => Some(Box::new(TypeScriptAdapter)),
-        "py" => Some(Box::new(PythonAdapter)),
+        "ts" | "tsx" | "js" | "jsx" => Some(Box::new(TypeScriptAdapter)),
         _ => None,
     }
 }
@@ -373,7 +329,8 @@ mod tests {
         assert!(matches!(detect_language("main.rs"), Some(_)));
         assert!(matches!(detect_language("index.ts"), Some(_)));
         assert!(matches!(detect_language("app.tsx"), Some(_)));
-        assert!(matches!(detect_language("script.py"), Some(_)));
+        assert!(matches!(detect_language("script.js"), Some(_)));
+        assert!(matches!(detect_language("component.jsx"), Some(_)));
         assert!(detect_language("unknown.xyz").is_none());
     }
 }

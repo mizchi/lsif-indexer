@@ -215,8 +215,12 @@ impl MemoryPoolStorage {
     }
     
     pub fn new(storage: UltraFastStorage) -> Self {
-        let mut pool = Vec::with_capacity(100);
-        for _ in 0..100 {
+        Self::with_cache_size(storage, 100)
+    }
+    
+    pub fn with_cache_size(storage: UltraFastStorage, size: usize) -> Self {
+        let mut pool = Vec::with_capacity(size);
+        for _ in 0..size {
             pool.push(Vec::with_capacity(1024));
         }
         
@@ -262,10 +266,35 @@ impl MemoryPoolStorage {
             })
     }
     
+    pub fn load_data<T: for<'de> Deserialize<'de>>(&self, key: &str) -> Result<Option<T>> {
+        match self.storage.db.get(key)? {
+            Some(data) => {
+                let value = bincode::deserialize(&data)?;
+                Ok(Some(value))
+            }
+            None => Ok(None),
+        }
+    }
+    
+    pub fn get_cache_stats(&self) -> CacheStats {
+        CacheStats {
+            hits: 0,
+            misses: 0,
+            hit_rate: 0.0,
+        }
+    }
+    
     pub fn flush(&self) -> Result<()> {
         self.storage.db.flush()?;
         Ok(())
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct CacheStats {
+    pub hits: usize,
+    pub misses: usize,
+    pub hit_rate: f64,
 }
 
 /// CPU親和性を考慮した並列処理
