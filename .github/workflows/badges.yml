@@ -19,7 +19,7 @@ jobs:
         run: mkdir -p .github/badges
         
       - name: Generate test badge
-        uses: emibcn/badge-action@v2.0.2
+        uses: emibcn/badge-action@v2.0.3
         with:
           label: 'tests'
           status: 'passing'
@@ -27,7 +27,7 @@ jobs:
           path: '.github/badges/tests.svg'
           
       - name: Generate build badge
-        uses: emibcn/badge-action@v2.0.2
+        uses: emibcn/badge-action@v2.0.3
         with:
           label: 'build'
           status: 'passing'
