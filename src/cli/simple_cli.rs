@@ -830,7 +830,7 @@ fn show_document_symbols(db_path: &str, file: Option<&str>, kind: Option<&str>) 
 
 /// ワークスペースシンボルを検索
 fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: bool) -> Result<()> {
-    use crate::cli::fuzzy_search::fuzzy_search;
+    use crate::cli::fuzzy_search::{fuzzy_search, needs_fuzzy_search};
     
     let storage = IndexStorage::open_read_only(db_path)?;
     let graph: CodeGraph = storage
@@ -878,6 +878,21 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: boo
         
         if matches.is_empty() {
             println!("  No symbols found matching '{query}'");
+            
+            // 曖昧検索を提案
+            if needs_fuzzy_search(query, 0) {
+                println!("\n  💡 Try fuzzy search: lsif workspace-symbols {query} --fuzzy");
+                
+                // プレビューとして少し表示
+                let all_symbols: Vec<_> = graph.get_all_symbols().cloned().collect();
+                let fuzzy_matches = fuzzy_search(query, &all_symbols);
+                if !fuzzy_matches.is_empty() {
+                    println!("     Would find {} symbols like:", fuzzy_matches.len().min(3));
+                    for (_i, m) in fuzzy_matches.iter().take(3).enumerate() {
+                        println!("       - {}", m.symbol.name);
+                    }
+                }
+            }
         } else {
             println!("  Found {} symbols:", matches.len());
             for (i, symbol) in matches.iter().enumerate() {
@@ -889,6 +904,11 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: boo
                     symbol.range.start.line + 1,
                     symbol.range.start.character + 1
                 );
+            }
+            
+            // 結果が少ない場合は曖昧検索も提案
+            if needs_fuzzy_search(query, matches.len()) {
+                println!("\n  💡 For more results, try: lsif workspace-symbols {query} --fuzzy");
             }
         }
     }

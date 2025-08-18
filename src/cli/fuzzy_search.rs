@@ -4,6 +4,7 @@
 /// 2. 前方一致
 /// 3. Fuzzy matching（文字の順序を保持）
 /// 4. 略語マッチング（大文字のみ抽出: RP -> RelationshipPattern）
+/// 5. 編集距離（レーベンシュタイン距離）によるタイポ対応
 
 use crate::core::Symbol;
 
@@ -20,6 +21,62 @@ pub struct StringMatch<'a> {
 pub struct FuzzyMatch<'a> {
     pub symbol: &'a Symbol,
     pub score: f32,  // 0.0 ~ 1.0 (1.0が完全一致)
+}
+
+/// 編集距離（レーベンシュタイン距離）を計算
+fn edit_distance(a: &str, b: &str) -> usize {
+    let a_chars: Vec<char> = a.chars().collect();
+    let b_chars: Vec<char> = b.chars().collect();
+    let a_len = a_chars.len();
+    let b_len = b_chars.len();
+    
+    if a_len == 0 {
+        return b_len;
+    }
+    if b_len == 0 {
+        return a_len;
+    }
+    
+    let mut matrix = vec![vec![0; b_len + 1]; a_len + 1];
+    
+    for i in 0..=a_len {
+        matrix[i][0] = i;
+    }
+    for j in 0..=b_len {
+        matrix[0][j] = j;
+    }
+    
+    for i in 1..=a_len {
+        for j in 1..=b_len {
+            let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
+            matrix[i][j] = std::cmp::min(
+                std::cmp::min(
+                    matrix[i - 1][j] + 1,      // 削除
+                    matrix[i][j - 1] + 1        // 挿入
+                ),
+                matrix[i - 1][j - 1] + cost    // 置換
+            );
+        }
+    }
+    
+    matrix[a_len][b_len]
+}
+
+/// 編集距離をスコアに変換（0.0～1.0）
+fn edit_distance_score(query: &str, target: &str) -> f32 {
+    let distance = edit_distance(query, target);
+    let max_len = std::cmp::max(query.len(), target.len());
+    if max_len == 0 {
+        return 1.0;
+    }
+    
+    // 距離が文字列長の30%以下なら採用
+    let score = 1.0 - (distance as f32 / max_len as f32);
+    if score >= 0.7 {
+        score * 0.8  // 編集距離によるマッチは少し低めのスコア
+    } else {
+        0.0
+    }
 }
 
 /// 汎用的な文字列の曖昧検索
@@ -77,11 +134,25 @@ pub fn fuzzy_search_strings<'a>(query: &str, texts: &'a [&str]) -> Vec<StringMat
                 score: 0.6,
                 index,
             });
+            continue;
+        }
+
+        // 6. 編集距離によるマッチング（タイポ対応）
+        let edit_score = edit_distance_score(&query_lower, &text_lower);
+        if edit_score > 0.0 {
+            matches.push(StringMatch {
+                text,
+                score: edit_score,
+                index,
+            });
         }
     }
 
-    // スコア順にソート
-    matches.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+    // スコア順にソート（同スコアなら短い名前を優先）
+    matches.sort_by(|a, b| {
+        b.score.partial_cmp(&a.score).unwrap()
+            .then(a.text.len().cmp(&b.text.len()))
+    });
     matches
 }
 
@@ -156,9 +227,41 @@ fn abbreviation_match(query: &str, target: &str) -> bool {
     capitals == query_upper || fuzzy_match(&query_upper, &capitals)
 }
 
+/// クエリが曖昧検索を必要とするかを判定
+pub fn needs_fuzzy_search(query: &str, exact_matches: usize) -> bool {
+    // 完全一致が少ない場合は曖昧検索を推奨
+    exact_matches < 3 ||
+    // 短いクエリは曖昧検索が有効
+    query.len() <= 3 ||
+    // 大文字のみは略語の可能性
+    query.chars().all(|c| c.is_uppercase())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_edit_distance() {
+        assert_eq!(edit_distance("kitten", "sitting"), 3);
+        assert_eq!(edit_distance("graph", "grph"), 1);
+        assert_eq!(edit_distance("", "abc"), 3);
+        assert_eq!(edit_distance("abc", ""), 3);
+    }
+
+    #[test]
+    fn test_edit_distance_score() {
+        // "grph" -> "graph" は編集距離1、長さ5なので 4/5 * 0.8 = 0.64
+        let score = edit_distance_score("graph", "grph");
+        assert!(score > 0.6 && score < 0.7);
+        
+        // "grape" -> "graph" は編集距離1（eを除去）、長さ5なので 4/5 * 0.8 = 0.64
+        let grape_score = edit_distance_score("graph", "grape");
+        assert!(grape_score > 0.6);
+        
+        // 全く異なる文字列は0
+        assert_eq!(edit_distance_score("graph", "abcdef"), 0.0);
+    }
 
     #[test]
     fn test_fuzzy_match() {
@@ -192,6 +295,16 @@ mod tests {
     }
     
     #[test]
+    fn test_fuzzy_search_with_typo() {
+        let texts = vec!["graph", "grape", "grasp"];
+        
+        let results = fuzzy_search_strings("grph", &texts);
+        assert!(!results.is_empty());
+        // graphが最初（編集距離1）
+        assert_eq!(results[0].text, "graph");
+    }
+    
+    #[test]
     fn test_fuzzy_search_paths() {
         let paths = vec![
             "src/core/graph.rs",
@@ -200,8 +313,10 @@ mod tests {
         ];
         
         let results = fuzzy_search_paths("fuzzy", &paths);
-        assert_eq!(results.len(), 2);
-        // fuzzy_search.rsが最初（ファイル名で部分一致）
-        assert!(results[0].text.contains("fuzzy_search.rs"));
+        assert!(results.len() >= 2);
+        // fuzzy_search.rsとtest_fuzzy.rsが含まれるはず
+        let names: Vec<&str> = results.iter().map(|r| r.text).collect();
+        assert!(names.contains(&"src/cli/fuzzy_search.rs"));
+        assert!(names.contains(&"tests/test_fuzzy.rs"));
     }
 }
