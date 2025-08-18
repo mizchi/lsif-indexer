@@ -1,12 +1,17 @@
 # LSIF Indexer
 
+[![CI](https://github.com/mizchi/lsif-indexer/actions/workflows/ci.yml/badge.svg)](https://github.com/mizchi/lsif-indexer/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/mizchi/lsif-indexer/branch/main/graph/badge.svg)](https://codecov.io/gh/mizchi/lsif-indexer)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Crates.io](https://img.shields.io/crates/v/lsif-indexer.svg)](https://crates.io/crates/lsif-indexer)
+
 高速で拡張可能なコードインデックス作成ツール。Language Server Protocol (LSP) を使用して、複数の言語に対応したコード解析を実現。
 
 ## 特徴
 
 - 🚀 **高速処理**: 並列処理により最大59倍の高速化
 - 🔍 **高度な解析**: 定義・参照検索、コールグラフ、デッドコード検出
-- 🌍 **多言語対応**: Rust, TypeScript, JavaScript, Python, Go, Java, C/C++
+- 🌍 **多言語対応**: Rust (rust-analyzer), TypeScript/JavaScript (tsgo)
 - 💾 **効率的なストレージ**: キャッシュとインクリメンタル更新で90%の時間削減
 - 📊 **リアルタイム進捗**: プログレスバーと詳細な統計情報
 
