@@ -400,10 +400,18 @@ fn find_definition(db_path: &str, file: &str, line: u32, column: u32) -> Result<
 
 /// 参照を再帰的に検索
 fn find_references_recursive(db_path: &str, file: &str, line: u32, column: u32, _depth: usize) -> Result<()> {
+    use crate::cli::reference_finder;
+    use std::path::Path;
+    
     let storage = IndexStorage::open_read_only(db_path)?;
     let graph: CodeGraph = storage
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif reindex' first."))?;
+        
+    // メタデータからプロジェクトルートを取得
+    let metadata = storage.load_metadata()?
+        .ok_or_else(|| anyhow::anyhow!("No metadata found in index"))?;
+    let project_root = Path::new(&metadata.project_root);
 
     // まず指定位置にあるシンボルを探す
     let position = crate::core::Position { 
@@ -427,34 +435,54 @@ fn find_references_recursive(db_path: &str, file: &str, line: u32, column: u32, 
     }
     
     if let Some(symbol) = target_symbol {
-        // グラフから実際の参照を取得
-        let refs = graph.find_references(&symbol.id);
+        println!("🔗 Finding references for '{}' ({:?})...", symbol.name, symbol.kind);
         
-        // 参照エッジがない場合は、同じ名前のシンボルを探す（簡易版）
-        let refs = if refs.is_empty() {
-            graph.get_all_symbols()
-                .filter(|s| s.name == symbol.name && s.id != symbol.id)
-                .collect::<Vec<_>>()
-        } else {
-            refs
-        };
+        // 実際のファイル内容を検索して参照を見つける
+        let references = reference_finder::find_all_references(
+            project_root,
+            &symbol.name,
+            &symbol.kind
+        )?;
         
-        if refs.is_empty() {
-            println!("🔗 No references found for '{}'", symbol.name);
-            println!("   (Note: Full reference tracking is not yet implemented)");
+        if references.is_empty() {
+            println!("No references found for '{}'", symbol.name);
         } else {
-            println!("🔗 Found {} occurrences of '{}' (name-based search):", refs.len(), symbol.name);
-            for (i, r) in refs.iter().take(MAX_CHANGES_DISPLAY).enumerate() {
-                println!("  {} {} at {}:{}:{}", 
-                    i + 1,
-                    r.name, 
-                    r.file_path, 
-                    r.range.start.line + 1,
-                    r.range.start.character + 1
-                );
+            // 定義と使用を分けてカウント
+            let definitions: Vec<_> = references.iter().filter(|r| r.is_definition).collect();
+            let usages: Vec<_> = references.iter().filter(|r| !r.is_definition).collect();
+            
+            println!("Found {} references ({} definitions, {} usages):", 
+                references.len(), definitions.len(), usages.len());
+            
+            // 定義を表示
+            if !definitions.is_empty() {
+                println!("\n📝 Definitions:");
+                for (i, ref_item) in definitions.iter().take(MAX_CHANGES_DISPLAY).enumerate() {
+                    println!("  {} {} at {}:{}:{}", 
+                        i + 1,
+                        ref_item.symbol.name,
+                        ref_item.symbol.file_path,
+                        ref_item.symbol.range.start.line + 1,
+                        ref_item.symbol.range.start.character + 1
+                    );
+                }
             }
-            if refs.len() > MAX_CHANGES_DISPLAY {
-                println!("  ... and {} more", refs.len() - MAX_CHANGES_DISPLAY);
+            
+            // 使用箇所を表示
+            if !usages.is_empty() {
+                println!("\n🔍 Usages:");
+                for (i, ref_item) in usages.iter().take(MAX_CHANGES_DISPLAY).enumerate() {
+                    println!("  {} {} at {}:{}:{}", 
+                        i + 1,
+                        ref_item.symbol.name,
+                        ref_item.symbol.file_path,
+                        ref_item.symbol.range.start.line + 1,
+                        ref_item.symbol.range.start.character + 1
+                    );
+                }
+                if usages.len() > MAX_CHANGES_DISPLAY {
+                    println!("  ... and {} more", usages.len() - MAX_CHANGES_DISPLAY);
+                }
             }
         }
     } else {

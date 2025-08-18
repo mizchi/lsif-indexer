@@ -6,6 +6,7 @@ use tracing::{debug, info};
 
 use crate::cli::git_diff::{FileChange, FileChangeStatus, GitDiffDetector};
 use crate::cli::storage::IndexStorage;
+use crate::cli::reference_finder;
 use crate::core::{CodeGraph, Symbol, SymbolKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -140,6 +141,9 @@ impl DifferentialIndexer {
                         debug!("Adding symbol: {} ({})", symbol.name, symbol.id);
                         graph.add_symbol(symbol);
                     }
+                    
+                    // 参照を検出してエッジを追加
+                    self.add_references_to_graph(&mut graph, &change.path)?;
                 }
                 FileChangeStatus::Modified | FileChangeStatus::Renamed { .. } => {
                     result.files_modified += 1;
@@ -163,6 +167,9 @@ impl DifferentialIndexer {
                     for symbol in symbols {
                         graph.add_symbol(symbol);
                     }
+                    
+                    // 参照を検出してエッジを追加
+                    self.add_references_to_graph(&mut graph, &change.path)?;
                 }
                 FileChangeStatus::Deleted => {
                     result.files_deleted += 1;
@@ -543,6 +550,70 @@ impl DifferentialIndexer {
             }
         }
         false
+    }
+    
+    /// ファイルから参照を検出してグラフにエッジを追加
+    fn add_references_to_graph(&self, graph: &mut CodeGraph, file_path: &Path) -> Result<()> {
+        // グラフの中のすべてのシンボルを取得
+        let all_symbols: Vec<_> = graph.get_all_symbols()
+            .map(|s| (s.name.clone(), s.id.clone(), s.kind.clone()))
+            .collect();
+        
+        // 各シンボルに対して、このファイル内での参照を検索
+        for (name, symbol_id, kind) in all_symbols {
+            let references = reference_finder::find_all_references(
+                &self.project_root,
+                &name,
+                &kind
+            )?;
+            
+            // このファイル内の参照のみを処理
+            let file_path_str = file_path.to_string_lossy();
+            for ref_item in references {
+                if ref_item.symbol.file_path == file_path_str && !ref_item.is_definition {
+                    // 参照元シンボルを特定
+                    // 現在の位置に最も近いシンボルを探す
+                    if let Some(source_symbol) = self.find_symbol_at_position(
+                        graph,
+                        &ref_item.symbol.file_path,
+                        ref_item.symbol.range.start.line,
+                        ref_item.symbol.range.start.character
+                    ) {
+                        // 参照エッジを追加
+                        if let (Some(from_idx), Some(to_idx)) = 
+                            (graph.get_node_index(&source_symbol.id), graph.get_node_index(&symbol_id)) {
+                            graph.add_edge(from_idx, to_idx, crate::core::EdgeKind::Reference);
+                            debug!(
+                                "Added reference edge: {} -> {}",
+                                source_symbol.id,
+                                symbol_id
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// 指定位置のシンボルを探す
+    fn find_symbol_at_position(
+        &self,
+        graph: &CodeGraph,
+        file_path: &str,
+        line: u32,
+        character: u32
+    ) -> Option<Symbol> {
+        graph.get_all_symbols()
+            .filter(|s| s.file_path == file_path)
+            .find(|s| {
+                s.range.start.line <= line &&
+                s.range.end.line >= line &&
+                s.range.start.character <= character &&
+                s.range.end.character >= character
+            })
+            .cloned()
     }
 }
 

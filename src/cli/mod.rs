@@ -13,6 +13,7 @@ pub mod lsp_indexer;
 pub mod lsp_integration;
 pub mod optimized_incremental;
 pub mod parallel_storage;
+pub mod reference_finder;
 pub mod simple_cli;
 pub mod storage;
 pub mod ultra_fast_storage;
