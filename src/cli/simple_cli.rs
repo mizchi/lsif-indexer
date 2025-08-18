@@ -145,8 +145,21 @@ pub enum SimpleCommands {
         verbose: bool,
     },
 
-    /// Show diagnostics/status
-    Diagnostics,
+    /// Show graph diff - track related changes in the code graph
+    Diff {
+        /// Base commit or "HEAD" (optional, defaults to last indexed commit)
+        #[arg(short, long)]
+        base: Option<String>,
+        /// Show only symbols related to changed files
+        #[arg(short, long)]
+        related: bool,
+        /// Maximum depth for tracking related changes
+        #[arg(short, long, default_value = "2")]
+        depth: usize,
+    },
+
+    /// Show index status
+    Status,
 
     /// Export index
     Export {
@@ -201,8 +214,11 @@ impl SimpleCli {
             SimpleCommands::Index { force, verbose } => {
                 rebuild_index(&db_path, &project_root, force, verbose)?;
             }
-            SimpleCommands::Diagnostics => {
-                show_diagnostics(&db_path, &project_root)?;
+            SimpleCommands::Diff { base, related, depth } => {
+                show_graph_diff(&db_path, &project_root, base.as_deref(), related, depth)?;
+            }
+            SimpleCommands::Status => {
+                show_status(&db_path, &project_root)?;
             }
             SimpleCommands::Export { format, output } => {
                 export_index(&db_path, &format, &output)?;
@@ -488,8 +504,92 @@ fn execute_graph_query(db_path: &str, pattern: &str, limit: usize, _depth: usize
     Ok(())
 }
 
-/// 診断情報を表示
-fn show_diagnostics(db_path: &str, project_root: &str) -> Result<()> {
+/// グラフ上の差分を表示
+fn show_graph_diff(db_path: &str, project_root: &str, base: Option<&str>, related: bool, depth: usize) -> Result<()> {
+    let storage = IndexStorage::open_read_only(db_path)?;
+    let graph: CodeGraph = storage
+        .load_data("graph")?
+        .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif index' first."))?;
+    
+    let metadata = storage.load_metadata()?;
+    
+    // Git差分を取得
+    let mut detector = GitDiffDetector::new(project_root)?;
+    let base_commit = base.or(metadata.as_ref().and_then(|m| m.git_commit_hash.as_deref()));
+    let changes = detector.detect_changes_since(base_commit)?;
+    
+    // インデックス対象のファイルのみフィルタリング
+    let indexable_changes: Vec<_> = changes.into_iter()
+        .filter(|change| {
+            let ext = change.path.extension()
+                .and_then(|s| s.to_str())
+                .unwrap_or("");
+            matches!(ext, "rs" | "ts" | "tsx" | "js" | "jsx")
+        })
+        .collect();
+    
+    if indexable_changes.is_empty() {
+        println!("📊 No changes detected");
+        return Ok(());
+    }
+    
+    println!("📊 Graph diff (depth: {depth}):");
+    println!("  Base: {}", base_commit.unwrap_or("initial"));
+    println!("  Changes: {} files", indexable_changes.len());
+    println!();
+    
+    // 変更されたファイルのシンボルを収集
+    let mut changed_symbols = Vec::new();
+    for change in &indexable_changes {
+        let path_str = change.path.to_string_lossy();
+        for symbol in graph.get_all_symbols() {
+            if symbol.file_path == path_str {
+                changed_symbols.push(symbol);
+            }
+        }
+    }
+    
+    println!("🔄 Changed symbols: {}", changed_symbols.len());
+    for (i, symbol) in changed_symbols.iter().take(10).enumerate() {
+        println!("  {} {} ({:?}) at {}:{}", 
+            i + 1,
+            symbol.name,
+            symbol.kind,
+            symbol.file_path,
+            symbol.range.start.line + 1
+        );
+    }
+    if changed_symbols.len() > 10 {
+        println!("  ... and {} more", changed_symbols.len() - 10);
+    }
+    
+    if related && depth > 0 {
+        println!();
+        println!("🔗 Related symbols (depth {depth}):");
+        
+        // 関連するシンボルを探す（同じ名前のシンボル = 簡易版）
+        let mut related_symbols = std::collections::HashSet::new();
+        for symbol in &changed_symbols {
+            for other in graph.get_all_symbols() {
+                if other.name == symbol.name && other.id != symbol.id {
+                    related_symbols.insert((other.name.clone(), other.file_path.clone()));
+                }
+            }
+        }
+        
+        for (i, (name, path)) in related_symbols.iter().take(15).enumerate() {
+            println!("  {} {} in {}", i + 1, name, path);
+        }
+        if related_symbols.len() > 15 {
+            println!("  ... and {} more", related_symbols.len() - 15);
+        }
+    }
+    
+    Ok(())
+}
+
+/// インデックス状態を表示
+fn show_status(db_path: &str, project_root: &str) -> Result<()> {
     if !Path::new(db_path).exists() {
         println!("❌ No index found at {db_path}");
         println!("   Run any command to create an initial index");

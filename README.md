@@ -72,7 +72,8 @@ lsif call-hierarchy function_name --depth 3
 |----------|------|
 | `graph` | Cypher風のグラフクエリ |
 | `unused` | 未使用コード検出 |
-| `diagnostics` | インデックス状態確認 |
+| `diff` | グラフ上の関連差分を追跡 |
+| `status` | インデックス状態確認 |
 | `export` | LSIF/JSON形式でエクスポート |
 
 ## AI統合例
