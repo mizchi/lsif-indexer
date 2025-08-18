@@ -107,6 +107,9 @@ pub enum SimpleCommands {
         /// Maximum results
         #[arg(short, long, default_value = "50")]
         limit: usize,
+        /// Enable fuzzy search (supports partial matches, abbreviations)
+        #[arg(short, long)]
+        fuzzy: bool,
     },
 
     /// Graph query - Advanced Cypher-like queries
@@ -232,8 +235,8 @@ impl SimpleCli {
             SimpleCommands::Symbols { file, kind } => {
                 show_document_symbols(&db_path, file.as_deref(), kind.as_deref())?;
             }
-            SimpleCommands::WorkspaceSymbols { query, limit } => {
-                search_workspace_symbols(&db_path, &query, limit)?;
+            SimpleCommands::WorkspaceSymbols { query, limit, fuzzy } => {
+                search_workspace_symbols(&db_path, &query, limit, fuzzy)?;
             }
             SimpleCommands::Graph { pattern, limit, depth } => {
                 execute_graph_query(&db_path, &pattern, limit, depth)?;
@@ -826,33 +829,67 @@ fn show_document_symbols(db_path: &str, file: Option<&str>, kind: Option<&str>) 
 }
 
 /// ワークスペースシンボルを検索
-fn search_workspace_symbols(db_path: &str, query: &str, limit: usize) -> Result<()> {
+fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: bool) -> Result<()> {
+    use crate::cli::fuzzy_search::fuzzy_search;
+    
     let storage = IndexStorage::open_read_only(db_path)?;
     let graph: CodeGraph = storage
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif index' first."))?;
     
-    println!("🔍 Searching workspace for '{query}'");
-    
-    let query_lower = query.to_lowercase();
-    let matches: Vec<_> = graph.get_all_symbols()
-        .filter(|s| s.name.to_lowercase().contains(&query_lower))
-        .take(limit)
-        .collect();
-    
-    if matches.is_empty() {
-        println!("  No symbols found matching '{query}'");
+    if fuzzy {
+        println!("🔍 Fuzzy searching workspace for '{query}'");
+        
+        // Collect all symbols for fuzzy search
+        let all_symbols: Vec<_> = graph.get_all_symbols().cloned().collect();
+        let matches = fuzzy_search(query, &all_symbols);
+        
+        if matches.is_empty() {
+            println!("  No symbols found matching '{query}'");
+            println!("  💡 Tips:");
+            println!("     - Try partial matches: 'relat' for 'RelationshipPattern'");
+            println!("     - Use lowercase: 'rp' matches 'JsonRpcRequest'");
+            println!("     - Abbreviations work best with capitals: 'RP' for names with R and P");
+        } else {
+            let limited = matches.into_iter().take(limit).collect::<Vec<_>>();
+            println!("  Found {} symbols (showing top {}):", limited.len(), limited.len());
+            
+            for (i, fuzzy_match) in limited.iter().enumerate() {
+                let symbol = fuzzy_match.symbol;
+                println!("  {} {:?} {} at {}:{}:{} (score: {:.2})", 
+                    i + 1,
+                    symbol.kind,
+                    symbol.name,
+                    symbol.file_path,
+                    symbol.range.start.line + 1,
+                    symbol.range.start.character + 1,
+                    fuzzy_match.score
+                );
+            }
+        }
     } else {
-        println!("  Found {} symbols:", matches.len());
-        for (i, symbol) in matches.iter().enumerate() {
-            println!("  {} {:?} {} at {}:{}:{}", 
-                i + 1,
-                symbol.kind,
-                symbol.name,
-                symbol.file_path,
-                symbol.range.start.line + 1,
-                symbol.range.start.character + 1
-            );
+        println!("🔍 Searching workspace for '{query}'");
+        
+        let query_lower = query.to_lowercase();
+        let matches: Vec<_> = graph.get_all_symbols()
+            .filter(|s| s.name.to_lowercase().contains(&query_lower))
+            .take(limit)
+            .collect();
+        
+        if matches.is_empty() {
+            println!("  No symbols found matching '{query}'");
+        } else {
+            println!("  Found {} symbols:", matches.len());
+            for (i, symbol) in matches.iter().enumerate() {
+                println!("  {} {:?} {} at {}:{}:{}", 
+                    i + 1,
+                    symbol.kind,
+                    symbol.name,
+                    symbol.file_path,
+                    symbol.range.start.line + 1,
+                    symbol.range.start.character + 1
+                );
+            }
         }
     }
     

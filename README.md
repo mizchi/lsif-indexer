@@ -32,6 +32,10 @@ lsif references ./src/main.rs 42
 # シンボル検索
 lsif workspace-symbols MyClass
 
+# 曖昧検索（fuzzy search）
+lsif workspace-symbols relat --fuzzy   # RelationshipPatternなどがマッチ
+lsif workspace-symbols rp --fuzzy      # 文字順でマッチ
+
 # コールヒエラルキー
 lsif call-hierarchy function_name --depth 3
 ```

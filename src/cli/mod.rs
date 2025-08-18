@@ -1,6 +1,7 @@
 pub mod cached_storage;
 pub mod call_hierarchy_cmd;
 pub mod differential_indexer;
+pub mod fuzzy_search;
 pub mod git_diff;
 pub mod incremental_storage;
 pub mod indexer;
