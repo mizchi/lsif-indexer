@@ -1,20 +1,27 @@
-pub mod graph;
-pub mod enhanced_graph;
-pub mod graph_serde;
-pub mod lsif;
 pub mod call_hierarchy;
-pub mod incremental;
 pub mod definition_chain;
-pub mod type_relations;
+pub mod enhanced_graph;
+pub mod graph;
 pub mod graph_query;
+pub mod graph_serde;
+pub mod incremental;
+pub mod lsif;
 pub mod parallel;
 pub mod parallel_optimized;
+pub mod type_relations;
 
-pub use graph::{CodeGraph, Symbol, SymbolKind, Range, Position, EdgeKind};
-pub use enhanced_graph::{EnhancedCodeGraph, TypeInfo, CallInfo, CallHierarchy as EnhancedCallHierarchy, CallNode, TypeRelations as EnhancedTypeRelations};
+pub use call_hierarchy::{format_hierarchy, CallHierarchy, CallHierarchyAnalyzer};
+pub use definition_chain::{format_definition_chain, DefinitionChain, DefinitionChainAnalyzer};
+pub use enhanced_graph::{
+    CallHierarchy as EnhancedCallHierarchy, CallInfo, CallNode, EnhancedCodeGraph, TypeInfo,
+    TypeRelations as EnhancedTypeRelations,
+};
+pub use graph::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
+pub use graph_query::{format_query_results, QueryEngine, QueryParser, QueryPattern, QueryResult};
+pub use incremental::{
+    calculate_file_hash, BatchUpdateResult, FileUpdate, IncrementalIndex, UpdateResult,
+};
 pub use lsif::{generate_lsif, parse_lsif, write_lsif};
-pub use call_hierarchy::{CallHierarchy, CallHierarchyAnalyzer, format_hierarchy};
-pub use incremental::{IncrementalIndex, FileUpdate, UpdateResult, BatchUpdateResult, calculate_file_hash};
-pub use definition_chain::{DefinitionChain, DefinitionChainAnalyzer, format_definition_chain};
-pub use type_relations::{TypeRelations, TypeRelationsAnalyzer, TypeHierarchy, RelationGroups, format_type_relations};
-pub use graph_query::{QueryPattern, QueryParser, QueryEngine, QueryResult, format_query_results};// Test 1755525843
+pub use type_relations::{
+    format_type_relations, RelationGroups, TypeHierarchy, TypeRelations, TypeRelationsAnalyzer,
+}; // Test 1755525843

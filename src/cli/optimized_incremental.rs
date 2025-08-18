@@ -6,9 +6,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::core::{Symbol, calculate_file_hash};
-use crate::cli::parallel_storage::ParallelIndexStorage;
 use crate::cli::cached_storage::CachedIndexStorage;
+use crate::cli::parallel_storage::ParallelIndexStorage;
+use crate::core::{calculate_file_hash, Symbol};
 
 /// 最適化された差分インデックス管理
 pub struct OptimizedIncrementalIndexer {
@@ -44,7 +44,7 @@ impl OptimizedIncrementalIndexer {
     pub fn new<P: AsRef<Path>>(storage_path: P) -> Result<Self> {
         let storage = Arc::new(ParallelIndexStorage::open(&storage_path)?);
         let cache = Arc::new(CachedIndexStorage::open(&storage_path)?);
-        
+
         Ok(Self {
             storage,
             cache,
@@ -58,10 +58,10 @@ impl OptimizedIncrementalIndexer {
     pub fn detect_changes(&mut self, project_path: &Path) -> Result<Vec<PathBuf>> {
         let start = Instant::now();
         let mut changed_files = Vec::new();
-        
+
         // 並列でファイルをスキャン
         let file_paths: Vec<PathBuf> = self.collect_source_files(project_path)?;
-        
+
         let changes: Vec<(PathBuf, bool)> = file_paths
             .par_iter()
             .map(|path| {
@@ -69,14 +69,14 @@ impl OptimizedIncrementalIndexer {
                 (path.clone(), needs_update)
             })
             .collect();
-        
+
         for (path, needs_update) in changes {
             if needs_update {
                 changed_files.push(path.clone());
                 self.dirty_files.insert(path);
             }
         }
-        
+
         println!("Change detection took: {}ms", start.elapsed().as_millis());
         Ok(changed_files)
     }
@@ -94,17 +94,17 @@ impl OptimizedIncrementalIndexer {
             cache_hits: 0,
             affected_files: Vec::new(),
         };
-        
+
         // 影響を受けるファイルを計算（依存関係を考慮）
         let affected_files = self.calculate_affected_files(&changed_files);
         result.affected_files = affected_files.clone();
-        
+
         // 変更されたファイルのみを並列処理
         let update_results: Vec<FileUpdateResult> = affected_files
             .par_iter()
             .map(|path| self.update_single_file(path))
             .collect::<Result<Vec<_>>>()?;
-        
+
         // 結果を集計
         for update in update_results {
             result.files_updated += 1;
@@ -113,10 +113,10 @@ impl OptimizedIncrementalIndexer {
             result.symbols_removed += update.removed;
             result.cache_hits += update.cache_hits;
         }
-        
+
         // 差分のみをストレージに保存
         self.save_incremental_changes(&result)?;
-        
+
         result.time_ms = start.elapsed().as_millis();
         Ok(result)
     }
@@ -124,33 +124,33 @@ impl OptimizedIncrementalIndexer {
     /// 単一ファイルの更新
     fn update_single_file(&self, path: &Path) -> Result<FileUpdateResult> {
         let mut result = FileUpdateResult::default();
-        
+
         // ファイル内容を読み込み
         let content = std::fs::read_to_string(path)?;
         let _file_hash = calculate_file_hash(&content);
-        
+
         // 既存のシンボルをキャッシュから取得（高速）
         let old_symbols = self.get_cached_symbols(path)?;
         result.cache_hits = if old_symbols.is_some() { 1 } else { 0 };
-        
+
         // 新しいシンボルを解析（ここは実際のパーサーに置き換え）
         let new_symbols = self.parse_file_symbols(path, &content)?;
-        
+
         // 差分を計算
         if let Some(old) = old_symbols {
             let old_ids: HashSet<String> = old.iter().map(|s| s.id.clone()).collect();
             let new_ids: HashSet<String> = new_symbols.iter().map(|s| s.id.clone()).collect();
-            
+
             result.removed = old_ids.difference(&new_ids).count();
             result.added = new_ids.difference(&old_ids).count();
             result.updated = old_ids.intersection(&new_ids).count();
         } else {
             result.added = new_symbols.len();
         }
-        
+
         // キャッシュに保存
         self.cache_symbols(path, &new_symbols)?;
-        
+
         Ok(result)
     }
 
@@ -158,7 +158,7 @@ impl OptimizedIncrementalIndexer {
     fn calculate_affected_files(&self, changed_files: &[PathBuf]) -> Vec<PathBuf> {
         let mut affected = HashSet::new();
         let mut to_process: Vec<PathBuf> = changed_files.to_vec();
-        
+
         while let Some(file) = to_process.pop() {
             if affected.insert(file.clone()) {
                 // このファイルに依存しているファイルを追加
@@ -171,7 +171,7 @@ impl OptimizedIncrementalIndexer {
                 }
             }
         }
-        
+
         affected.into_iter().collect()
     }
 
@@ -179,7 +179,7 @@ impl OptimizedIncrementalIndexer {
     pub fn prefetch_likely_changes(&self, current_file: &Path) -> Result<()> {
         // 現在のファイルに関連する可能性の高いファイルを予測
         let mut related_files = Vec::new();
-        
+
         // 同じディレクトリのファイル
         if let Some(parent) = current_file.parent() {
             for entry in std::fs::read_dir(parent)? {
@@ -188,14 +188,14 @@ impl OptimizedIncrementalIndexer {
                 }
             }
         }
-        
+
         // インポートされているファイル
         if let Some(state) = self.file_index.get(current_file) {
             for import in &state.imports {
                 related_files.push(import.clone());
             }
         }
-        
+
         // キャッシュにプリロード
         self.cache.prefetch(&related_files)?;
         Ok(())
@@ -214,7 +214,7 @@ impl OptimizedIncrementalIndexer {
             cache_hits: 0,
             affected_files: Vec::new(),
         };
-        
+
         // チャンクごとに処理
         for chunk in files.chunks(chunk_size) {
             let result = self.update_incremental(chunk.to_vec())?;
@@ -225,7 +225,7 @@ impl OptimizedIncrementalIndexer {
             total_result.cache_hits += result.cache_hits;
             total_result.affected_files.extend(result.affected_files);
         }
-        
+
         Ok(total_result)
     }
 
@@ -235,12 +235,12 @@ impl OptimizedIncrementalIndexer {
         if let Some(state) = self.file_index.get(path) {
             let metadata = std::fs::metadata(path)?;
             let modified = metadata.modified()?;
-            
+
             // タイムスタンプベースの高速チェック
             if modified <= state.last_modified {
                 return Ok(false);
             }
-            
+
             // ハッシュベースの正確なチェック（必要な場合のみ）
             let content = std::fs::read_to_string(path)?;
             let current_hash = calculate_file_hash(&content);
@@ -254,10 +254,10 @@ impl OptimizedIncrementalIndexer {
     fn save_incremental_changes(&self, result: &IncrementalResult) -> Result<()> {
         // 変更されたシンボルのみを保存
         let changed_symbols: Vec<(String, Symbol)> = Vec::new(); // 実際の実装では収集
-        
+
         // 並列バッチ保存
         self.storage.save_symbols_chunked(&changed_symbols, 100)?;
-        
+
         println!(
             "Saved {} symbols incrementally (added: {}, updated: {}, removed: {})",
             result.symbols_added + result.symbols_updated,
@@ -265,7 +265,7 @@ impl OptimizedIncrementalIndexer {
             result.symbols_updated,
             result.symbols_removed
         );
-        
+
         Ok(())
     }
 
@@ -323,27 +323,27 @@ impl IncrementalWatcher {
         loop {
             // ファイル変更を検出
             let changed = self.indexer.detect_changes(&self.project_path)?;
-            
+
             if !changed.is_empty() {
                 println!("Detected {} file changes", changed.len());
-                
+
                 // 差分更新を実行
                 let result = self.indexer.update_incremental(changed)?;
-                
+
                 println!(
                     "Incremental update completed in {}ms: {} files, {} symbols",
                     result.time_ms,
                     result.files_updated,
                     result.symbols_added + result.symbols_updated
                 );
-                
+
                 // キャッシュヒット率を表示
                 if result.files_checked > 0 {
                     let hit_rate = (result.cache_hits as f64 / result.files_checked as f64) * 100.0;
                     println!("Cache hit rate: {hit_rate:.1}%");
                 }
             }
-            
+
             std::thread::sleep(std::time::Duration::from_secs(1));
         }
     }

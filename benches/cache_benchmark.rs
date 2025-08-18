@@ -2,8 +2,8 @@ use criterion::{black_box, criterion_group, criterion_main, BatchSize, Benchmark
 use lsif_indexer::cli::cached_storage::CachedIndexStorage;
 use lsif_indexer::cli::storage::IndexStorage;
 use lsif_indexer::core::graph::{Position, Range, Symbol, SymbolKind};
-use tempfile::TempDir;
 use std::time::Duration;
+use tempfile::TempDir;
 
 fn generate_test_symbols(count: usize) -> Vec<Symbol> {
     (0..count)
@@ -39,52 +39,46 @@ fn generate_test_symbols(count: usize) -> Vec<Symbol> {
 
 fn benchmark_cache_performance(c: &mut Criterion) {
     let mut group = c.benchmark_group("cache_performance");
-    
+
     // キャッシュヒット率のベンチマーク
     group.bench_function("cache_hit_rate", |b| {
         let temp_dir = TempDir::new().unwrap();
-        let storage = CachedIndexStorage::open_with_config(
-            temp_dir.path(),
-            100,
-            Duration::from_secs(60),
-        ).unwrap();
-        
+        let storage =
+            CachedIndexStorage::open_with_config(temp_dir.path(), 100, Duration::from_secs(60))
+                .unwrap();
+
         // データを事前に保存
         let symbols = generate_test_symbols(100);
         for symbol in &symbols {
             storage.save_data_cached(&symbol.id, symbol).unwrap();
         }
-        
+
         b.iter(|| {
             // 同じデータを繰り返し読み込み（キャッシュヒット）
             for i in 0..10 {
-                let _: Option<Symbol> = storage
-                    .load_data_cached(&format!("symbol_{}", i))
-                    .unwrap();
+                let _: Option<Symbol> = storage.load_data_cached(&format!("symbol_{}", i)).unwrap();
             }
         });
     });
-    
+
     // キャッシュなしとの比較
     group.bench_function("no_cache_baseline", |b| {
         let temp_dir = TempDir::new().unwrap();
         let storage = IndexStorage::open(temp_dir.path()).unwrap();
-        
+
         // データを事前に保存
         let symbols = generate_test_symbols(100);
         for symbol in &symbols {
             storage.save_data(&symbol.id, symbol).unwrap();
         }
-        
+
         b.iter(|| {
             for i in 0..10 {
-                let _: Option<Symbol> = storage
-                    .load_data(&format!("symbol_{}", i))
-                    .unwrap();
+                let _: Option<Symbol> = storage.load_data(&format!("symbol_{}", i)).unwrap();
             }
         });
     });
-    
+
     // バッチ読み込みの性能
     for size in [10, 50, 100].iter() {
         group.bench_with_input(
@@ -96,27 +90,24 @@ fn benchmark_cache_performance(c: &mut Criterion) {
                     temp_dir.path(),
                     200,
                     Duration::from_secs(60),
-                ).unwrap();
-                
+                )
+                .unwrap();
+
                 // データを事前に保存
                 let symbols = generate_test_symbols(200);
                 for symbol in &symbols {
                     storage.save_data_cached(&symbol.id, symbol).unwrap();
                 }
-                
-                let keys: Vec<String> = (0..batch_size)
-                    .map(|i| format!("symbol_{}", i))
-                    .collect();
-                
+
+                let keys: Vec<String> = (0..batch_size).map(|i| format!("symbol_{}", i)).collect();
+
                 b.iter(|| {
-                    let _: Vec<Option<Symbol>> = storage
-                        .load_batch_cached(&keys)
-                        .unwrap();
+                    let _: Vec<Option<Symbol>> = storage.load_batch_cached(&keys).unwrap();
                 });
             },
         );
     }
-    
+
     // プリフェッチの効果
     group.bench_function("prefetch_effectiveness", |b| {
         b.iter_batched(
@@ -126,41 +117,39 @@ fn benchmark_cache_performance(c: &mut Criterion) {
                     temp_dir.path(),
                     50,
                     Duration::from_secs(60),
-                ).unwrap();
-                
+                )
+                .unwrap();
+
                 // データを事前に保存
                 let symbols = generate_test_symbols(100);
                 for symbol in &symbols {
                     storage.save_data_cached(&symbol.id, symbol).unwrap();
                 }
                 storage.clear_cache(); // キャッシュをクリア
-                
+
                 (storage, temp_dir)
             },
             |(storage, _temp_dir)| {
                 // プリフェッチ
-                let prefetch_keys: Vec<String> = (0..20)
-                    .map(|i| format!("symbol_{}", i))
-                    .collect();
+                let prefetch_keys: Vec<String> = (0..20).map(|i| format!("symbol_{}", i)).collect();
                 storage.prefetch(&prefetch_keys).unwrap();
-                
+
                 // プリフェッチしたデータを読み込み
                 for i in 0..20 {
-                    let _: Option<Symbol> = storage
-                        .load_data_cached(&format!("symbol_{}", i))
-                        .unwrap();
+                    let _: Option<Symbol> =
+                        storage.load_data_cached(&format!("symbol_{}", i)).unwrap();
                 }
             },
             BatchSize::SmallInput,
         );
     });
-    
+
     group.finish();
 }
 
 fn benchmark_cache_memory(c: &mut Criterion) {
     let mut group = c.benchmark_group("cache_memory");
-    
+
     // キャッシュサイズによる性能変化
     for cache_size in [10, 100, 1000].iter() {
         group.bench_with_input(
@@ -172,14 +161,15 @@ fn benchmark_cache_memory(c: &mut Criterion) {
                     temp_dir.path(),
                     size,
                     Duration::from_secs(300),
-                ).unwrap();
-                
+                )
+                .unwrap();
+
                 // キャッシュサイズを超えるデータを保存
                 let symbols = generate_test_symbols(size * 2);
                 for symbol in &symbols {
                     storage.save_data_cached(&symbol.id, symbol).unwrap();
                 }
-                
+
                 b.iter(|| {
                     // ランダムアクセスパターン
                     for _ in 0..100 {
@@ -192,66 +182,61 @@ fn benchmark_cache_memory(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
 fn benchmark_warmup(c: &mut Criterion) {
     let mut group = c.benchmark_group("cache_warmup");
-    
+
     group.bench_function("cold_start", |b| {
         b.iter_batched(
             || {
                 let temp_dir = TempDir::new().unwrap();
                 let storage = CachedIndexStorage::open(temp_dir.path()).unwrap();
-                
+
                 // データを保存
                 let symbols = generate_test_symbols(100);
                 for symbol in &symbols {
                     storage.save_data_cached(&symbol.id, symbol).unwrap();
                 }
                 storage.clear_cache();
-                
+
                 (storage, temp_dir)
             },
             |(storage, _temp_dir)| {
                 // コールドスタート（キャッシュなし）
                 for i in 0..50 {
-                    let _: Option<Symbol> = storage
-                        .load_data_cached(&format!("symbol_{}", i))
-                        .unwrap();
+                    let _: Option<Symbol> =
+                        storage.load_data_cached(&format!("symbol_{}", i)).unwrap();
                 }
             },
             BatchSize::SmallInput,
         );
     });
-    
+
     group.bench_function("warm_start", |b| {
         let temp_dir = TempDir::new().unwrap();
         let storage = CachedIndexStorage::open(temp_dir.path()).unwrap();
-        
+
         // データを保存
         let symbols = generate_test_symbols(100);
         for symbol in &symbols {
             storage.save_data_cached(&symbol.id, symbol).unwrap();
         }
-        
+
         // ウォームアップ
-        let hot_keys: Vec<String> = (0..50)
-            .map(|i| format!("symbol_{}", i))
-            .collect();
+        let hot_keys: Vec<String> = (0..50).map(|i| format!("symbol_{}", i)).collect();
         storage.warmup(&hot_keys).unwrap();
-        
+
         b.iter(|| {
             // ウォームスタート（プリロード済み）
             for i in 0..50 {
-                let _: Option<Symbol> = storage
-                    .load_data_cached(&format!("symbol_{}", i))
-                    .unwrap();
+                let _: Option<Symbol> = storage.load_data_cached(&format!("symbol_{}", i)).unwrap();
             }
         });
     });
-    
+
     group.finish();
 }
 
@@ -259,7 +244,7 @@ fn benchmark_warmup(c: &mut Criterion) {
 mod rand {
     use std::cell::Cell;
     use std::time::{SystemTime, UNIX_EPOCH};
-    
+
     thread_local! {
         static SEED: Cell<u64> = Cell::new({
             SystemTime::now()
@@ -268,7 +253,7 @@ mod rand {
                 .as_nanos() as u64
         });
     }
-    
+
     pub fn random<T>() -> T
     where
         Standard: Distribution<T>,
@@ -280,13 +265,13 @@ mod rand {
             Standard.sample(s)
         })
     }
-    
+
     trait Distribution<T> {
         fn sample(&self, seed: u64) -> T;
     }
-    
+
     struct Standard;
-    
+
     impl Distribution<usize> for Standard {
         fn sample(&self, seed: u64) -> usize {
             (seed >> 16) as usize

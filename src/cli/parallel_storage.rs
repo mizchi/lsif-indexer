@@ -2,9 +2,9 @@ use anyhow::Result;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sled::transaction::ConflictableTransactionError;
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::collections::HashMap;
 
 pub struct ParallelIndexStorage {
     db: Arc<sled::Db>,
@@ -50,8 +50,9 @@ impl ParallelIndexStorage {
             .try_for_each(|chunk| -> Result<()> {
                 let batch = self.db.transaction(|tx| {
                     for (key, data) in chunk {
-                        let serialized = bincode::serialize(data)
-                            .map_err(|e| ConflictableTransactionError::Abort(anyhow::anyhow!("{}", e)))?;
+                        let serialized = bincode::serialize(data).map_err(|e| {
+                            ConflictableTransactionError::Abort(anyhow::anyhow!("{}", e))
+                        })?;
                         tx.insert(key.as_bytes(), serialized)?;
                     }
                     Ok(())
@@ -66,12 +67,12 @@ impl ParallelIndexStorage {
     /// バッチトランザクションを使用した保存
     pub fn save_batch<T: Serialize>(&self, data: HashMap<String, T>) -> Result<()> {
         let mut batch = sled::Batch::default();
-        
+
         for (key, value) in data {
             let serialized = bincode::serialize(&value)?;
             batch.insert(key.as_bytes(), serialized);
         }
-        
+
         self.db.apply_batch(batch)?;
         self.db.flush()?;
         Ok(())
@@ -101,7 +102,8 @@ impl ParallelIndexStorage {
         &self,
         prefix: &str,
     ) -> Result<Vec<(String, T)>> {
-        let items: Vec<_> = self.db
+        let items: Vec<_> = self
+            .db
             .scan_prefix(prefix.as_bytes())
             .filter_map(|item| item.ok())
             .collect();
@@ -119,20 +121,16 @@ impl ParallelIndexStorage {
     }
 
     /// 非同期バックグラウンド保存
-    pub fn save_async<T: Serialize + Send + 'static>(
-        &self,
-        key: String,
-        data: T,
-    ) -> Result<()> {
+    pub fn save_async<T: Serialize + Send + 'static>(&self, key: String, data: T) -> Result<()> {
         let db = Arc::clone(&self.db);
-        
+
         std::thread::spawn(move || {
             if let Ok(serialized) = bincode::serialize(&data) {
                 let _ = db.insert(key.as_bytes(), serialized);
                 let _ = db.flush();
             }
         });
-        
+
         Ok(())
     }
 
@@ -140,7 +138,7 @@ impl ParallelIndexStorage {
     pub fn get_stats(&self) -> Result<StorageStats> {
         let size = self.db.size_on_disk()?;
         let len = self.db.len();
-        
+
         Ok(StorageStats {
             total_size_bytes: size,
             total_entries: len,
@@ -203,9 +201,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let storage = ParallelIndexStorage::open(temp_dir.path()).unwrap();
 
-        let symbols: Vec<(String, i32)> = (0..10000)
-            .map(|i| (format!("chunk_{}", i), i))
-            .collect();
+        let symbols: Vec<(String, i32)> = (0..10000).map(|i| (format!("chunk_{}", i), i)).collect();
 
         storage.save_symbols_chunked(&symbols, 100).unwrap();
 

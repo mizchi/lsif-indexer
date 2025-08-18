@@ -1,6 +1,6 @@
-use anyhow::Result;
-use crate::core::{CodeGraph, CallHierarchyAnalyzer, format_hierarchy};
 use super::storage::IndexStorage;
+use crate::core::{format_hierarchy, CallHierarchyAnalyzer, CodeGraph};
+use anyhow::Result;
 
 pub fn show_call_hierarchy(
     index_path: &str,
@@ -10,11 +10,12 @@ pub fn show_call_hierarchy(
 ) -> Result<()> {
     // Load the index
     let storage = IndexStorage::open(index_path)?;
-    let graph: CodeGraph = storage.load_data("graph")?
+    let graph: CodeGraph = storage
+        .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No graph found in index"))?;
-    
+
     let analyzer = CallHierarchyAnalyzer::new(&graph);
-    
+
     match direction {
         "incoming" | "callers" => {
             if let Some(hierarchy) = analyzer.get_incoming_calls(symbol_id, max_depth) {
@@ -41,10 +42,13 @@ pub fn show_call_hierarchy(
             }
         }
         _ => {
-            anyhow::bail!("Invalid direction: {}. Use 'incoming', 'outgoing', or 'full'", direction);
+            anyhow::bail!(
+                "Invalid direction: {}. Use 'incoming', 'outgoing', or 'full'",
+                direction
+            );
         }
     }
-    
+
     Ok(())
 }
 
@@ -56,12 +60,13 @@ pub fn find_paths(
 ) -> Result<()> {
     // Load the index
     let storage = IndexStorage::open(index_path)?;
-    let graph: CodeGraph = storage.load_data("graph")?
+    let graph: CodeGraph = storage
+        .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No graph found in index"))?;
-    
+
     let analyzer = CallHierarchyAnalyzer::new(&graph);
     let paths = analyzer.find_call_paths(from_symbol, to_symbol, max_depth);
-    
+
     if paths.is_empty() {
         println!("No paths found from {from_symbol} to {to_symbol}");
     } else {
@@ -71,6 +76,6 @@ pub fn find_paths(
         }
         println!("\nTotal paths found: {}", paths.len());
     }
-    
+
     Ok(())
 }

@@ -1,22 +1,22 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use lsp_types::{
-    DocumentSymbol, InitializeParams, InitializeResult, 
-    DocumentSymbolParams, TextDocumentIdentifier, WorkDoneProgressParams, PartialResultParams,
-    Url, InitializedParams, DidOpenTextDocumentParams, TextDocumentItem,
-    ReferenceParams, Location, GotoDefinitionParams, GotoDefinitionResponse,
+    DidOpenTextDocumentParams, DocumentSymbol, DocumentSymbolParams, GotoDefinitionParams,
+    GotoDefinitionResponse, InitializeParams, InitializeResult, InitializedParams, Location,
+    PartialResultParams, ReferenceParams, TextDocumentIdentifier, TextDocumentItem, Url,
+    WorkDoneProgressParams,
 };
 use serde::{Deserialize, Serialize};
-use std::process::{Command, Stdio, Child};
-use std::io::{BufReader, BufWriter, Write, BufRead};
+use std::io::{BufRead, BufReader, BufWriter, Write};
+use std::process::{Child, Command, Stdio};
 
 /// Trait for language-specific LSP configurations
 pub trait LspAdapter {
     /// Get the command to spawn the language server
     fn spawn_command(&self) -> Result<Child>;
-    
+
     /// Get the language ID for LSP
     fn language_id(&self) -> &str;
-    
+
     /// Get initialization parameters specific to this language
     fn get_init_params(&self) -> InitializeParams {
         InitializeParams {
@@ -49,7 +49,7 @@ impl LspAdapter for RustAnalyzerAdapter {
             .spawn()
             .map_err(|e| anyhow!("Failed to spawn rust-analyzer: {}", e))
     }
-    
+
     fn language_id(&self) -> &str {
         "rust"
     }
@@ -72,12 +72,11 @@ impl LspAdapter for TypeScriptAdapter {
             .spawn()
             .map_err(|e| anyhow!("Failed to spawn tsgo: {}", e))
     }
-    
+
     fn language_id(&self) -> &str {
         "typescript"
     }
 }
-
 
 /// Generic LSP client that works with any adapter
 pub struct GenericLspClient {
@@ -94,7 +93,7 @@ impl GenericLspClient {
         let mut child = adapter.spawn_command()?;
         let stdout = child.stdout.take().ok_or_else(|| anyhow!("No stdout"))?;
         let stdin = child.stdin.take().ok_or_else(|| anyhow!("No stdin"))?;
-        
+
         let mut client = Self {
             child,
             reader: BufReader::new(stdout),
@@ -102,37 +101,39 @@ impl GenericLspClient {
             request_id: 0,
             language_id: adapter.language_id().to_string(),
         };
-        
+
         // Initialize the LSP
         client.initialize(adapter.get_init_params())?;
-        
+
         Ok(client)
     }
-    
+
     fn initialize(&mut self, params: InitializeParams) -> Result<InitializeResult> {
         let response = self.send_request("initialize", params)?;
-        
+
         // Send initialized notification
         self.send_notification("initialized", InitializedParams {})?;
-        
+
         Ok(response)
     }
-    
+
     pub fn get_document_symbols(&mut self, file_uri: &str) -> Result<Vec<DocumentSymbol>> {
         // First, open the document
-        let content = std::fs::read_to_string(
-            file_uri.strip_prefix("file://").unwrap_or(file_uri)
-        )?;
-        
-        self.send_notification("textDocument/didOpen", DidOpenTextDocumentParams {
-            text_document: TextDocumentItem {
-                uri: Url::parse(file_uri)?,
-                language_id: self.language_id.clone(),
-                version: 0,
-                text: content,
+        let content =
+            std::fs::read_to_string(file_uri.strip_prefix("file://").unwrap_or(file_uri))?;
+
+        self.send_notification(
+            "textDocument/didOpen",
+            DidOpenTextDocumentParams {
+                text_document: TextDocumentItem {
+                    uri: Url::parse(file_uri)?,
+                    language_id: self.language_id.clone(),
+                    version: 0,
+                    text: content,
+                },
             },
-        })?;
-        
+        )?;
+
         // Request document symbols
         let params = DocumentSymbolParams {
             text_document: TextDocumentIdentifier {
@@ -141,59 +142,62 @@ impl GenericLspClient {
             work_done_progress_params: WorkDoneProgressParams::default(),
             partial_result_params: PartialResultParams::default(),
         };
-        
-        let response: Option<lsp_types::DocumentSymbolResponse> = 
+
+        let response: Option<lsp_types::DocumentSymbolResponse> =
             self.send_request("textDocument/documentSymbol", params)?;
-        
+
         match response {
             Some(lsp_types::DocumentSymbolResponse::Nested(symbols)) => Ok(symbols),
             Some(lsp_types::DocumentSymbolResponse::Flat(symbols)) => {
                 // Convert flat symbols to nested format
-                Ok(symbols.into_iter().map(|s| DocumentSymbol {
-                    name: s.name,
-                    detail: None,
-                    kind: s.kind,
-                    tags: s.tags,
-                    #[allow(deprecated)]
-                    deprecated: None,
-                    range: s.location.range,
-                    selection_range: s.location.range,
-                    children: None,
-                }).collect())
+                Ok(symbols
+                    .into_iter()
+                    .map(|s| DocumentSymbol {
+                        name: s.name,
+                        detail: None,
+                        kind: s.kind,
+                        tags: s.tags,
+                        #[allow(deprecated)]
+                        deprecated: None,
+                        range: s.location.range,
+                        selection_range: s.location.range,
+                        children: None,
+                    })
+                    .collect())
             }
             None => Ok(Vec::new()),
         }
     }
-    
+
     pub fn find_references(&mut self, params: ReferenceParams) -> Result<Vec<Location>> {
-        let response: Option<Vec<Location>> = 
+        let response: Option<Vec<Location>> =
             self.send_request("textDocument/references", params)?;
-        
+
         Ok(response.unwrap_or_default())
     }
-    
+
     pub fn goto_definition(&mut self, params: GotoDefinitionParams) -> Result<Location> {
-        let response: Option<GotoDefinitionResponse> = 
+        let response: Option<GotoDefinitionResponse> =
             self.send_request("textDocument/definition", params)?;
-        
+
         match response {
             Some(GotoDefinitionResponse::Scalar(location)) => Ok(location),
-            Some(GotoDefinitionResponse::Array(locations)) => {
-                locations.into_iter().next()
-                    .ok_or_else(|| anyhow!("No definition found"))
-            }
-            Some(GotoDefinitionResponse::Link(links)) => {
-                links.into_iter().next()
-                    .map(|link| Location {
-                        uri: link.target_uri,
-                        range: link.target_selection_range,
-                    })
-                    .ok_or_else(|| anyhow!("No definition found"))
-            }
+            Some(GotoDefinitionResponse::Array(locations)) => locations
+                .into_iter()
+                .next()
+                .ok_or_else(|| anyhow!("No definition found")),
+            Some(GotoDefinitionResponse::Link(links)) => links
+                .into_iter()
+                .next()
+                .map(|link| Location {
+                    uri: link.target_uri,
+                    range: link.target_selection_range,
+                })
+                .ok_or_else(|| anyhow!("No definition found")),
             None => Err(anyhow!("No definition found")),
         }
     }
-    
+
     pub fn send_request<P: Serialize, R: for<'de> Deserialize<'de>>(
         &mut self,
         method: &str,
@@ -206,15 +210,15 @@ impl GenericLspClient {
             method: method.to_string(),
             params,
         };
-        
+
         let request_str = serde_json::to_string(&request)?;
         let content_length = request_str.len();
-        
+
         writeln!(self.writer, "Content-Length: {content_length}\r")?;
         writeln!(self.writer, "\r")?;
         self.writer.write_all(request_str.as_bytes())?;
         self.writer.flush()?;
-        
+
         // Read response
         loop {
             let response = self.read_message()?;
@@ -230,37 +234,37 @@ impl GenericLspClient {
             }
         }
     }
-    
+
     pub fn send_notification<P: Serialize>(&mut self, method: &str, params: P) -> Result<()> {
         let notification = JsonRpcNotification {
             jsonrpc: "2.0".to_string(),
             method: method.to_string(),
             params,
         };
-        
+
         let notification_str = serde_json::to_string(&notification)?;
         let content_length = notification_str.len();
-        
+
         writeln!(self.writer, "Content-Length: {content_length}\r")?;
         writeln!(self.writer, "\r")?;
         self.writer.write_all(notification_str.as_bytes())?;
         self.writer.flush()?;
-        
+
         Ok(())
     }
-    
+
     fn read_message(&mut self) -> Result<Option<serde_json::Value>> {
         let mut headers = Vec::new();
         loop {
             let mut line = String::new();
             self.reader.read_line(&mut line)?;
-            
+
             if line == "\r\n" || line == "\n" {
                 break;
             }
             headers.push(line);
         }
-        
+
         let mut content_length = 0;
         for header in headers {
             if header.starts_with("Content-Length:") {
@@ -271,19 +275,19 @@ impl GenericLspClient {
                     .parse()?;
             }
         }
-        
+
         if content_length == 0 {
             return Ok(None);
         }
-        
+
         let mut buffer = vec![0u8; content_length];
         use std::io::Read;
         self.reader.read_exact(&mut buffer)?;
-        
+
         let response: serde_json::Value = serde_json::from_slice(&buffer)?;
         Ok(Some(response))
     }
-    
+
     pub fn shutdown(mut self) -> Result<()> {
         let _: () = self.send_request("shutdown", serde_json::Value::Null)?;
         self.send_notification("exit", serde_json::Value::Null)?;
@@ -312,7 +316,7 @@ pub fn detect_language(file_path: &str) -> Option<Box<dyn LspAdapter>> {
     let extension = std::path::Path::new(file_path)
         .extension()
         .and_then(|ext| ext.to_str())?;
-    
+
     match extension {
         "rs" => Some(Box::new(RustAnalyzerAdapter)),
         "ts" | "tsx" | "js" | "jsx" => Some(Box::new(TypeScriptAdapter)),
@@ -323,7 +327,7 @@ pub fn detect_language(file_path: &str) -> Option<Box<dyn LspAdapter>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_detect_language() {
         assert!(matches!(detect_language("main.rs"), Some(_)));

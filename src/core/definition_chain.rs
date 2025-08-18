@@ -1,4 +1,4 @@
-use super::graph::{CodeGraph, Symbol, EdgeKind};
+use super::graph::{CodeGraph, EdgeKind, Symbol};
 use petgraph::visit::EdgeRef;
 use std::collections::{HashSet, VecDeque};
 
@@ -159,7 +159,7 @@ impl<'a> DefinitionChainAnalyzer<'a> {
     /// Find the ultimate source definition (the root of the definition chain)
     pub fn find_ultimate_source(&self, symbol_id: &str) -> Option<Symbol> {
         let chain = self.get_definition_chain(symbol_id)?;
-        
+
         if chain.has_cycle {
             // In case of cycle, return the last non-cycling element
             chain.chain.last().cloned()
@@ -198,7 +198,8 @@ impl<'a> DefinitionChainAnalyzer<'a> {
     pub fn get_shortest_definition_path(&self, from: &str, to: &str) -> Option<Vec<Symbol>> {
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
-        let mut parent_map: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        let mut parent_map: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
 
         queue.push_back(from.to_string());
         visited.insert(from.to_string());
@@ -242,29 +243,30 @@ impl<'a> DefinitionChainAnalyzer<'a> {
 /// Format definition chain as a string
 pub fn format_definition_chain(chain: &DefinitionChain) -> String {
     let mut result = String::new();
-    
+
     for (i, symbol) in chain.chain.iter().enumerate() {
         if i > 0 {
             result.push_str(" → ");
         }
-        result.push_str(&format!("{} ({}:{})", 
-            symbol.name, 
-            symbol.file_path, 
+        result.push_str(&format!(
+            "{} ({}:{})",
+            symbol.name,
+            symbol.file_path,
             symbol.range.start.line + 1
         ));
     }
-    
+
     if chain.has_cycle {
         result.push_str(" [CYCLE DETECTED]");
     }
-    
+
     result
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{Symbol, SymbolKind, Range, Position};
+    use crate::core::{Position, Range, Symbol, SymbolKind};
 
     fn create_test_symbol(id: &str, name: &str) -> Symbol {
         Symbol {
@@ -273,8 +275,14 @@ mod tests {
             kind: SymbolKind::Variable,
             file_path: "test.rs".to_string(),
             range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 0, character: 10 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 0,
+                    character: 10,
+                },
             },
             documentation: None,
         }
@@ -283,22 +291,22 @@ mod tests {
     #[test]
     fn test_simple_definition_chain() {
         let mut graph = CodeGraph::new();
-        
+
         // Create chain: a -> b -> c
         let a = create_test_symbol("a", "var_a");
         let b = create_test_symbol("b", "var_b");
         let c = create_test_symbol("c", "var_c");
-        
+
         let a_idx = graph.add_symbol(a);
         let b_idx = graph.add_symbol(b);
         let c_idx = graph.add_symbol(c);
-        
+
         graph.add_edge(a_idx, b_idx, EdgeKind::Definition);
         graph.add_edge(b_idx, c_idx, EdgeKind::Definition);
-        
+
         let analyzer = DefinitionChainAnalyzer::new(&graph);
         let chain = analyzer.get_definition_chain("a").unwrap();
-        
+
         assert_eq!(chain.chain.len(), 3);
         assert!(!chain.has_cycle);
         assert_eq!(chain.chain[0].id, "a");
@@ -309,23 +317,23 @@ mod tests {
     #[test]
     fn test_cyclic_definition_chain() {
         let mut graph = CodeGraph::new();
-        
+
         // Create cycle: a -> b -> c -> a
         let a = create_test_symbol("a", "var_a");
         let b = create_test_symbol("b", "var_b");
         let c = create_test_symbol("c", "var_c");
-        
+
         let a_idx = graph.add_symbol(a);
         let b_idx = graph.add_symbol(b);
         let c_idx = graph.add_symbol(c);
-        
+
         graph.add_edge(a_idx, b_idx, EdgeKind::Definition);
         graph.add_edge(b_idx, c_idx, EdgeKind::Definition);
         graph.add_edge(c_idx, a_idx, EdgeKind::Definition);
-        
+
         let analyzer = DefinitionChainAnalyzer::new(&graph);
         let chain = analyzer.get_definition_chain("a").unwrap();
-        
+
         assert!(chain.has_cycle);
         assert_eq!(chain.chain.len(), 3);
     }
@@ -333,29 +341,29 @@ mod tests {
     #[test]
     fn test_multiple_definition_paths() {
         let mut graph = CodeGraph::new();
-        
+
         // Create diamond: a -> b, a -> c, b -> d, c -> d
         let a = create_test_symbol("a", "var_a");
         let b = create_test_symbol("b", "var_b");
         let c = create_test_symbol("c", "var_c");
         let d = create_test_symbol("d", "var_d");
-        
+
         let a_idx = graph.add_symbol(a);
         let b_idx = graph.add_symbol(b);
         let c_idx = graph.add_symbol(c);
         let d_idx = graph.add_symbol(d);
-        
+
         graph.add_edge(a_idx, b_idx, EdgeKind::Definition);
         graph.add_edge(a_idx, c_idx, EdgeKind::Definition);
         graph.add_edge(b_idx, d_idx, EdgeKind::Definition);
         graph.add_edge(c_idx, d_idx, EdgeKind::Definition);
-        
+
         let analyzer = DefinitionChainAnalyzer::new(&graph);
         let chains = analyzer.get_all_definition_chains("a");
-        
+
         // Should have 2 paths: a->b->d and a->c->d
         assert_eq!(chains.len(), 2);
-        
+
         for chain in &chains {
             assert_eq!(chain.chain.first().unwrap().id, "a");
             assert_eq!(chain.chain.last().unwrap().id, "d");
@@ -366,25 +374,25 @@ mod tests {
     #[test]
     fn test_ultimate_source() {
         let mut graph = CodeGraph::new();
-        
+
         // Create chain: a -> b -> c -> d
         let a = create_test_symbol("a", "var_a");
         let b = create_test_symbol("b", "var_b");
         let c = create_test_symbol("c", "var_c");
         let d = create_test_symbol("d", "ultimate_source");
-        
+
         let a_idx = graph.add_symbol(a);
         let b_idx = graph.add_symbol(b);
         let c_idx = graph.add_symbol(c);
         let d_idx = graph.add_symbol(d);
-        
+
         graph.add_edge(a_idx, b_idx, EdgeKind::Definition);
         graph.add_edge(b_idx, c_idx, EdgeKind::Definition);
         graph.add_edge(c_idx, d_idx, EdgeKind::Definition);
-        
+
         let analyzer = DefinitionChainAnalyzer::new(&graph);
         let ultimate = analyzer.find_ultimate_source("a").unwrap();
-        
+
         assert_eq!(ultimate.id, "d");
         assert_eq!(ultimate.name, "ultimate_source");
     }
@@ -392,26 +400,26 @@ mod tests {
     #[test]
     fn test_definition_path_checking() {
         let mut graph = CodeGraph::new();
-        
+
         // Create chain: a -> b -> c, d -> e
         let a = create_test_symbol("a", "var_a");
         let b = create_test_symbol("b", "var_b");
         let c = create_test_symbol("c", "var_c");
         let d = create_test_symbol("d", "var_d");
         let e = create_test_symbol("e", "var_e");
-        
+
         let a_idx = graph.add_symbol(a);
         let b_idx = graph.add_symbol(b);
         let c_idx = graph.add_symbol(c);
         let d_idx = graph.add_symbol(d);
         let e_idx = graph.add_symbol(e);
-        
+
         graph.add_edge(a_idx, b_idx, EdgeKind::Definition);
         graph.add_edge(b_idx, c_idx, EdgeKind::Definition);
         graph.add_edge(d_idx, e_idx, EdgeKind::Definition);
-        
+
         let analyzer = DefinitionChainAnalyzer::new(&graph);
-        
+
         assert!(analyzer.has_definition_path("a", "c"));
         assert!(analyzer.has_definition_path("a", "b"));
         assert!(!analyzer.has_definition_path("a", "e"));
@@ -421,28 +429,28 @@ mod tests {
     #[test]
     fn test_shortest_path() {
         let mut graph = CodeGraph::new();
-        
+
         // Create graph with multiple paths
         let a = create_test_symbol("a", "var_a");
         let b = create_test_symbol("b", "var_b");
         let c = create_test_symbol("c", "var_c");
         let d = create_test_symbol("d", "var_d");
-        
+
         let a_idx = graph.add_symbol(a);
         let b_idx = graph.add_symbol(b);
         let c_idx = graph.add_symbol(c);
         let d_idx = graph.add_symbol(d);
-        
+
         // Path 1: a -> b -> c -> d (length 3)
         // Path 2: a -> d (length 1)
         graph.add_edge(a_idx, b_idx, EdgeKind::Definition);
         graph.add_edge(b_idx, c_idx, EdgeKind::Definition);
         graph.add_edge(c_idx, d_idx, EdgeKind::Definition);
         graph.add_edge(a_idx, d_idx, EdgeKind::Definition); // Direct path
-        
+
         let analyzer = DefinitionChainAnalyzer::new(&graph);
         let path = analyzer.get_shortest_definition_path("a", "d").unwrap();
-        
+
         assert_eq!(path.len(), 2); // Shortest path: a -> d
         assert_eq!(path[0].id, "a");
         assert_eq!(path[1].id, "d");

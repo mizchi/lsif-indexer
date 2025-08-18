@@ -1,4 +1,4 @@
-use super::graph::{CodeGraph, Symbol, EdgeKind, SymbolKind};
+use super::graph::{CodeGraph, EdgeKind, Symbol, SymbolKind};
 use petgraph::visit::EdgeRef;
 use std::collections::{HashSet, VecDeque};
 use std::fmt;
@@ -13,16 +13,16 @@ pub struct QueryPattern {
 /// Node pattern in a query
 #[derive(Debug, Clone)]
 pub struct NodePattern {
-    pub variable: Option<String>,  // e.g., "fn" in (fn:Function)
-    pub label: Option<String>,     // e.g., "Function" in (fn:Function)
+    pub variable: Option<String>,        // e.g., "fn" in (fn:Function)
+    pub label: Option<String>,           // e.g., "Function" in (fn:Function)
     pub properties: Vec<PropertyFilter>, // e.g., name="main"
 }
 
 /// Relationship pattern in a query
 #[derive(Debug, Clone)]
 pub struct RelationshipPattern {
-    pub from_index: usize,  // Index in nodes array
-    pub to_index: usize,    // Index in nodes array
+    pub from_index: usize, // Index in nodes array
+    pub to_index: usize,   // Index in nodes array
     pub edge_type: Option<EdgeKind>,
     pub direction: Direction,
     pub min_depth: usize,
@@ -32,9 +32,9 @@ pub struct RelationshipPattern {
 /// Direction of relationship traversal
 #[derive(Debug, Clone, PartialEq)]
 pub enum Direction {
-    Forward,   // ->
-    Backward,  // <-
-    Both,      // --
+    Forward,  // ->
+    Backward, // <-
+    Both,     // --
 }
 
 /// Property filter for nodes
@@ -146,9 +146,13 @@ impl QueryParser {
         })
     }
 
-    fn parse_node(&self, chars: &[char], start: usize) -> Result<(NodePattern, usize), QueryParseError> {
+    fn parse_node(
+        &self,
+        chars: &[char],
+        start: usize,
+    ) -> Result<(NodePattern, usize), QueryParseError> {
         let mut pos = start;
-        
+
         if chars[pos] != '(' {
             return Err(QueryParseError::ExpectedChar('(', pos));
         }
@@ -196,7 +200,11 @@ impl QueryParser {
         ))
     }
 
-    fn parse_relationship(&self, chars: &[char], start: usize) -> Result<(RelationshipPattern, usize), QueryParseError> {
+    fn parse_relationship(
+        &self,
+        chars: &[char],
+        start: usize,
+    ) -> Result<(RelationshipPattern, usize), QueryParseError> {
         let mut pos = start;
         let mut direction = Direction::Forward;
         let mut edge_type = None;
@@ -237,7 +245,7 @@ impl QueryParser {
             // Parse relationship type and depth
             if content.starts_with(':') {
                 let parts: Vec<&str> = content[1..].split('*').collect();
-                
+
                 // Parse edge type
                 let edge_type_str = parts[0].trim();
                 edge_type = match edge_type_str {
@@ -319,7 +327,9 @@ impl<'a> QueryEngine<'a> {
 
         // If no nodes specified, return empty
         if pattern.nodes.is_empty() {
-            return QueryResult { matches: all_matches };
+            return QueryResult {
+                matches: all_matches,
+            };
         }
 
         // Find candidate nodes for the first pattern
@@ -332,7 +342,9 @@ impl<'a> QueryEngine<'a> {
             }
         }
 
-        QueryResult { matches: all_matches }
+        QueryResult {
+            matches: all_matches,
+        }
     }
 
     /// Find all nodes matching a node pattern
@@ -429,11 +441,7 @@ impl<'a> QueryEngine<'a> {
             let to_pattern = &pattern.nodes[rel.to_index];
 
             // Find paths matching the relationship
-            let matching_paths = self.find_paths_matching_relationship(
-                &start,
-                rel,
-                to_pattern,
-            );
+            let matching_paths = self.find_paths_matching_relationship(&start, rel, to_pattern);
 
             if matching_paths.is_empty() {
                 return None; // Pattern doesn't match
@@ -488,15 +496,19 @@ impl<'a> QueryEngine<'a> {
                 if let Some(node_idx) = self.graph.get_node_index(&current_id) {
                     // Traverse edges based on direction
                     let edges: Vec<_> = match rel.direction {
-                        Direction::Forward => {
-                            self.graph.graph.edges(node_idx).collect()
-                        }
-                        Direction::Backward => {
-                            self.graph.graph.edges_directed(node_idx, petgraph::Direction::Incoming).collect()
-                        }
+                        Direction::Forward => self.graph.graph.edges(node_idx).collect(),
+                        Direction::Backward => self
+                            .graph
+                            .graph
+                            .edges_directed(node_idx, petgraph::Direction::Incoming)
+                            .collect(),
                         Direction::Both => {
                             let mut edges = self.graph.graph.edges(node_idx).collect::<Vec<_>>();
-                            edges.extend(self.graph.graph.edges_directed(node_idx, petgraph::Direction::Incoming));
+                            edges.extend(
+                                self.graph
+                                    .graph
+                                    .edges_directed(node_idx, petgraph::Direction::Incoming),
+                            );
                             edges
                         }
                     };
@@ -536,14 +548,14 @@ impl<'a> QueryEngine<'a> {
 fn matches_edge_kind(actual: &EdgeKind, expected: &EdgeKind) -> bool {
     matches!(
         (actual, expected),
-        (EdgeKind::Definition, EdgeKind::Definition) |
-        (EdgeKind::Reference, EdgeKind::Reference) |
-        (EdgeKind::TypeDefinition, EdgeKind::TypeDefinition) |
-        (EdgeKind::Implementation, EdgeKind::Implementation) |
-        (EdgeKind::Override, EdgeKind::Override) |
-        (EdgeKind::Import, EdgeKind::Import) |
-        (EdgeKind::Export, EdgeKind::Export) |
-        (EdgeKind::Contains, EdgeKind::Contains)
+        (EdgeKind::Definition, EdgeKind::Definition)
+            | (EdgeKind::Reference, EdgeKind::Reference)
+            | (EdgeKind::TypeDefinition, EdgeKind::TypeDefinition)
+            | (EdgeKind::Implementation, EdgeKind::Implementation)
+            | (EdgeKind::Override, EdgeKind::Override)
+            | (EdgeKind::Import, EdgeKind::Import)
+            | (EdgeKind::Export, EdgeKind::Export)
+            | (EdgeKind::Contains, EdgeKind::Contains)
     )
 }
 
@@ -580,20 +592,23 @@ impl std::error::Error for QueryParseError {}
 /// Format query results
 pub fn format_query_results(results: &QueryResult) -> String {
     let mut output = String::new();
-    
+
     output.push_str(&format!("Found {} matches\n\n", results.matches.len()));
-    
+
     for (i, match_result) in results.matches.iter().enumerate() {
         output.push_str(&format!("Match {}:\n", i + 1));
-        
+
         // Show bindings
         if !match_result.bindings.is_empty() {
             output.push_str("  Bindings:\n");
             for (var, symbol) in &match_result.bindings {
-                output.push_str(&format!("    {} = {} ({})\n", var, symbol.name, symbol.file_path));
+                output.push_str(&format!(
+                    "    {} = {} ({})\n",
+                    var, symbol.name, symbol.file_path
+                ));
             }
         }
-        
+
         // Show paths
         if !match_result.paths.is_empty() {
             output.push_str("  Paths:\n");
@@ -608,17 +623,17 @@ pub fn format_query_results(results: &QueryResult) -> String {
                 output.push('\n');
             }
         }
-        
+
         output.push('\n');
     }
-    
+
     output
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{Symbol, Range, Position};
+    use crate::core::{Position, Range, Symbol};
 
     fn create_test_symbol(id: &str, name: &str, kind: SymbolKind) -> Symbol {
         Symbol {
@@ -627,8 +642,14 @@ mod tests {
             kind,
             file_path: "test.rs".to_string(),
             range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 10, character: 0 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 10,
+                    character: 0,
+                },
             },
             documentation: None,
         }
@@ -638,7 +659,7 @@ mod tests {
     fn test_parse_simple_node() {
         let query = "(fn:Function)";
         let pattern = QueryParser::parse(query).unwrap();
-        
+
         assert_eq!(pattern.nodes.len(), 1);
         assert_eq!(pattern.nodes[0].variable, Some("fn".to_string()));
         assert_eq!(pattern.nodes[0].label, Some("Function".to_string()));
@@ -648,17 +669,20 @@ mod tests {
     fn test_parse_relationship() {
         let query = "(a:Class)-[:Definition]->(b:Interface)";
         let pattern = QueryParser::parse(query).unwrap();
-        
+
         assert_eq!(pattern.nodes.len(), 2);
         assert_eq!(pattern.relationships.len(), 1);
-        
+
         assert_eq!(pattern.nodes[0].variable, Some("a".to_string()));
         assert_eq!(pattern.nodes[0].label, Some("Class".to_string()));
-        
+
         assert_eq!(pattern.nodes[1].variable, Some("b".to_string()));
         assert_eq!(pattern.nodes[1].label, Some("Interface".to_string()));
-        
-        assert_eq!(pattern.relationships[0].edge_type, Some(EdgeKind::Definition));
+
+        assert_eq!(
+            pattern.relationships[0].edge_type,
+            Some(EdgeKind::Definition)
+        );
         assert_eq!(pattern.relationships[0].direction, Direction::Forward);
     }
 
@@ -666,7 +690,7 @@ mod tests {
     fn test_parse_depth_range() {
         let query = "(a)-[:Reference*1..3]->(b)";
         let pattern = QueryParser::parse(query).unwrap();
-        
+
         assert_eq!(pattern.relationships[0].min_depth, 1);
         assert_eq!(pattern.relationships[0].max_depth, Some(3));
     }
@@ -675,7 +699,7 @@ mod tests {
     fn test_parse_unlimited_depth() {
         let query = "(a)-[:Reference*]->(b)";
         let pattern = QueryParser::parse(query).unwrap();
-        
+
         assert_eq!(pattern.relationships[0].min_depth, 1);
         assert_eq!(pattern.relationships[0].max_depth, None);
     }
@@ -683,47 +707,51 @@ mod tests {
     #[test]
     fn test_query_execution() {
         let mut graph = CodeGraph::new();
-        
+
         // Create test symbols
         let func = create_test_symbol("fn:main", "main", SymbolKind::Function);
         let class = create_test_symbol("class:MyClass", "MyClass", SymbolKind::Class);
-        
+
         let func_idx = graph.add_symbol(func);
         let class_idx = graph.add_symbol(class);
-        
+
         // Add relationship
         graph.add_edge(func_idx, class_idx, EdgeKind::Reference);
-        
+
         // Execute query
         let query = "(fn:Function)-[:Reference]->(cls:Class)";
         let pattern = QueryParser::parse(query).unwrap();
         let engine = QueryEngine::new(&graph);
         let results = engine.execute(&pattern);
-        
+
         assert_eq!(results.matches.len(), 1);
         assert_eq!(results.matches[0].bindings.len(), 2);
-        
+
         // Check bindings
         let bindings = &results.matches[0].bindings;
-        assert!(bindings.iter().any(|(var, sym)| var == "fn" && sym.name == "main"));
-        assert!(bindings.iter().any(|(var, sym)| var == "cls" && sym.name == "MyClass"));
+        assert!(bindings
+            .iter()
+            .any(|(var, sym)| var == "fn" && sym.name == "main"));
+        assert!(bindings
+            .iter()
+            .any(|(var, sym)| var == "cls" && sym.name == "MyClass"));
     }
 
     #[test]
     fn test_parse_backward_arrow() {
-        let query = "(b)-[:Reference]->(a)";  // Standard forward syntax
+        let query = "(b)-[:Reference]->(a)"; // Standard forward syntax
         let pattern = QueryParser::parse(query).unwrap();
         assert_eq!(pattern.relationships[0].direction, Direction::Forward);
-        
+
         // For actual backward, we'd need to support (a)<-[:Reference]-(b) properly
         // but for now just test that it parses
     }
 
     #[test]
     fn test_parse_bidirectional() {
-        let query = "(a)-->(b)";  // Simple forward for now
+        let query = "(a)-->(b)"; // Simple forward for now
         let pattern = QueryParser::parse(query).unwrap();
-        
+
         // Direction should be forward
         assert_eq!(pattern.relationships[0].direction, Direction::Forward);
     }
@@ -732,7 +760,7 @@ mod tests {
     fn test_parse_no_relationship_type() {
         let query = "(a)--(b)";
         let pattern = QueryParser::parse(query).unwrap();
-        
+
         assert_eq!(pattern.relationships[0].edge_type, None);
         assert_eq!(pattern.relationships[0].min_depth, 1);
         assert_eq!(pattern.relationships[0].max_depth, Some(1));
@@ -742,7 +770,7 @@ mod tests {
     fn test_empty_node() {
         let query = "()-[:Reference]->()";
         let pattern = QueryParser::parse(query).unwrap();
-        
+
         assert_eq!(pattern.nodes[0].variable, None);
         assert_eq!(pattern.nodes[0].label, None);
         assert_eq!(pattern.nodes[1].variable, None);
@@ -753,9 +781,9 @@ mod tests {
     fn test_node_matches_pattern_edge_cases() {
         let graph = CodeGraph::new();
         let engine = QueryEngine::new(&graph);
-        
+
         let symbol = create_test_symbol("test", "TestSymbol", SymbolKind::Function);
-        
+
         // Pattern with no constraints should match
         let pattern = NodePattern {
             variable: None,
@@ -763,7 +791,7 @@ mod tests {
             properties: vec![],
         };
         assert!(engine.node_matches_pattern(&symbol, &pattern));
-        
+
         // Pattern with wrong label should not match
         let pattern = NodePattern {
             variable: None,
@@ -771,7 +799,7 @@ mod tests {
             properties: vec![],
         };
         assert!(!engine.node_matches_pattern(&symbol, &pattern));
-        
+
         // Pattern with correct label should match
         let pattern = NodePattern {
             variable: None,
@@ -785,9 +813,9 @@ mod tests {
     fn test_property_filters() {
         let graph = CodeGraph::new();
         let engine = QueryEngine::new(&graph);
-        
+
         let symbol = create_test_symbol("fn:test", "TestFunction", SymbolKind::Function);
-        
+
         // Test Equals
         let filter = PropertyFilter {
             key: "name".to_string(),
@@ -795,7 +823,7 @@ mod tests {
             value: "TestFunction".to_string(),
         };
         assert!(engine.property_matches(&symbol, &filter));
-        
+
         // Test Contains
         let filter = PropertyFilter {
             key: "name".to_string(),
@@ -803,7 +831,7 @@ mod tests {
             value: "Func".to_string(),
         };
         assert!(engine.property_matches(&symbol, &filter));
-        
+
         // Test StartsWith
         let filter = PropertyFilter {
             key: "name".to_string(),
@@ -811,7 +839,7 @@ mod tests {
             value: "Test".to_string(),
         };
         assert!(engine.property_matches(&symbol, &filter));
-        
+
         // Test EndsWith
         let filter = PropertyFilter {
             key: "name".to_string(),
@@ -819,7 +847,7 @@ mod tests {
             value: "Function".to_string(),
         };
         assert!(engine.property_matches(&symbol, &filter));
-        
+
         // Test invalid key
         let filter = PropertyFilter {
             key: "invalid".to_string(),
@@ -842,7 +870,7 @@ mod tests {
             ("Export", EdgeKind::Export),
             ("Contains", EdgeKind::Contains),
         ];
-        
+
         for (name, expected) in edge_types {
             let query = format!("(a)-[:{}]->(b)", name);
             let pattern = QueryParser::parse(&query).unwrap();

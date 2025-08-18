@@ -1,4 +1,4 @@
-use petgraph::stable_graph::{StableDiGraph, NodeIndex};
+use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -101,7 +101,8 @@ impl CodeGraph {
     }
 
     pub fn find_symbol(&self, id: &str) -> Option<&Symbol> {
-        self.symbol_index.get(id)
+        self.symbol_index
+            .get(id)
             .and_then(|idx| self.graph.node_weight(*idx))
     }
 
@@ -109,7 +110,10 @@ impl CodeGraph {
         if let Some(&node_idx) = self.symbol_index.get(symbol_id) {
             // このシンボルへの参照（Incoming edges with Reference kind）を探す
             let mut references = Vec::new();
-            for edge in self.graph.edges_directed(node_idx, petgraph::Direction::Incoming) {
+            for edge in self
+                .graph
+                .edges_directed(node_idx, petgraph::Direction::Incoming)
+            {
                 if matches!(edge.weight(), EdgeKind::Reference) {
                     if let Some(symbol) = self.graph.node_weight(edge.source()) {
                         references.push(symbol);
@@ -124,7 +128,10 @@ impl CodeGraph {
 
     pub fn find_definition(&self, reference_id: &str) -> Option<&Symbol> {
         if let Some(&node_idx) = self.symbol_index.get(reference_id) {
-            for edge in self.graph.edges_directed(node_idx, petgraph::Direction::Incoming) {
+            for edge in self
+                .graph
+                .edges_directed(node_idx, petgraph::Direction::Incoming)
+            {
                 if matches!(edge.weight(), EdgeKind::Definition) {
                     return self.graph.node_weight(edge.source());
                 }
@@ -140,7 +147,7 @@ impl CodeGraph {
     pub fn get_node_index(&self, symbol_id: &str) -> Option<NodeIndex> {
         self.symbol_index.get(symbol_id).copied()
     }
-    
+
     pub fn get_all_symbols(&self) -> impl Iterator<Item = &Symbol> {
         self.graph.node_weights()
     }
@@ -148,12 +155,12 @@ impl CodeGraph {
     pub fn find_definition_at(&self, file_path: &str, position: Position) -> Option<&Symbol> {
         // 指定された位置にあるシンボルを探す
         for symbol in self.graph.node_weights() {
-            if symbol.file_path == file_path 
-                && symbol.range.start.line <= position.line 
+            if symbol.file_path == file_path
+                && symbol.range.start.line <= position.line
                 && symbol.range.end.line >= position.line
                 && symbol.range.start.character <= position.character
-                && symbol.range.end.character >= position.character {
-                
+                && symbol.range.end.character >= position.character
+            {
                 // このシンボルが参照している定義を探す
                 if let Some(&node_idx) = self.symbol_index.get(&symbol.id) {
                     for edge in self.graph.edges(node_idx) {
@@ -173,7 +180,10 @@ impl CodeGraph {
         if let Some(&node_idx) = self.symbol_index.get(interface_id) {
             // インターフェースを実装しているクラスを探す
             let mut implementations = Vec::new();
-            for edge in self.graph.edges_directed(node_idx, petgraph::Direction::Incoming) {
+            for edge in self
+                .graph
+                .edges_directed(node_idx, petgraph::Direction::Incoming)
+            {
                 if matches!(edge.weight(), EdgeKind::Implementation) {
                     if let Some(symbol) = self.graph.node_weight(edge.source()) {
                         implementations.push(symbol);
@@ -190,7 +200,10 @@ impl CodeGraph {
         if let Some(&node_idx) = self.symbol_index.get(method_id) {
             // このメソッドをオーバーライドしているメソッドを探す
             let mut overrides = Vec::new();
-            for edge in self.graph.edges_directed(node_idx, petgraph::Direction::Incoming) {
+            for edge in self
+                .graph
+                .edges_directed(node_idx, petgraph::Direction::Incoming)
+            {
                 if matches!(edge.weight(), EdgeKind::Override) {
                     if let Some(symbol) = self.graph.node_weight(edge.source()) {
                         overrides.push(symbol);

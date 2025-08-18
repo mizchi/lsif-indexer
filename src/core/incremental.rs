@@ -1,10 +1,10 @@
-use super::graph::{CodeGraph, Symbol, EdgeKind};
+use super::graph::{CodeGraph, EdgeKind, Symbol};
 use anyhow::Result;
-use serde::{Serialize, Deserialize};
+use petgraph::visit::EdgeRef;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
-use petgraph::visit::EdgeRef;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileMetadata {
@@ -35,22 +35,24 @@ impl IncrementalIndex {
     pub fn from_graph(graph: CodeGraph) -> Self {
         let mut symbol_to_file = HashMap::new();
         let mut file_metadata = HashMap::new();
-        
+
         // Build symbol to file mapping
         for symbol in graph.get_all_symbols() {
             let path = PathBuf::from(&symbol.file_path);
             symbol_to_file.insert(symbol.id.clone(), path.clone());
-            
-            file_metadata.entry(path.clone())
+
+            file_metadata
+                .entry(path.clone())
                 .or_insert_with(|| FileMetadata {
                     path: path.clone(),
                     last_modified: SystemTime::now(),
                     symbols: HashSet::new(),
                     hash: String::new(),
                 })
-                .symbols.insert(symbol.id.clone());
+                .symbols
+                .insert(symbol.id.clone());
         }
-        
+
         Self {
             graph,
             file_metadata,
@@ -60,14 +62,21 @@ impl IncrementalIndex {
     }
 
     /// Update the index with changes from a specific file
-    pub fn update_file(&mut self, file_path: &Path, new_symbols: Vec<Symbol>, file_hash: String) -> Result<UpdateResult> {
+    pub fn update_file(
+        &mut self,
+        file_path: &Path,
+        new_symbols: Vec<Symbol>,
+        file_hash: String,
+    ) -> Result<UpdateResult> {
         let mut result = UpdateResult::default();
-        
+
         // Get old symbols for this file
-        let old_symbols = self.file_metadata.get(file_path)
+        let old_symbols = self
+            .file_metadata
+            .get(file_path)
             .map(|meta| meta.symbols.clone())
             .unwrap_or_default();
-        
+
         // Find removed symbols (potential dead code)
         for old_symbol_id in &old_symbols {
             if !new_symbols.iter().any(|s| &s.id == old_symbol_id) {
@@ -77,13 +86,13 @@ impl IncrementalIndex {
                 self.mark_as_potentially_dead(old_symbol_id);
             }
         }
-        
+
         // Process new and updated symbols
         let mut new_symbol_ids = HashSet::new();
         for symbol in new_symbols {
             let symbol_id = symbol.id.clone();
             new_symbol_ids.insert(symbol_id.clone());
-            
+
             if old_symbols.contains(&symbol_id) {
                 // Update existing symbol
                 self.update_symbol(symbol)?;
@@ -94,7 +103,7 @@ impl IncrementalIndex {
                 result.added_symbols.insert(symbol_id);
             }
         }
-        
+
         // Update file metadata
         self.file_metadata.insert(
             file_path.to_path_buf(),
@@ -103,19 +112,19 @@ impl IncrementalIndex {
                 last_modified: SystemTime::now(),
                 symbols: new_symbol_ids,
                 hash: file_hash,
-            }
+            },
         );
-        
+
         // Check for dead code
         self.detect_dead_code(&mut result);
-        
+
         Ok(result)
     }
 
     /// Remove a file from the index
     pub fn remove_file(&mut self, file_path: &Path) -> Result<UpdateResult> {
         let mut result = UpdateResult::default();
-        
+
         if let Some(metadata) = self.file_metadata.remove(file_path) {
             for symbol_id in metadata.symbols {
                 result.removed_symbols.insert(symbol_id.clone());
@@ -123,10 +132,10 @@ impl IncrementalIndex {
                 self.symbol_to_file.remove(&symbol_id);
             }
         }
-        
+
         // Detect newly dead code after removal
         self.detect_dead_code(&mut result);
-        
+
         Ok(result)
     }
 
@@ -143,7 +152,7 @@ impl IncrementalIndex {
             self.graph.graph.remove_node(node_idx);
             self.graph.symbol_index.remove(&symbol.id);
         }
-        
+
         // Add updated symbol
         self.add_symbol(symbol)?;
         Ok(())
@@ -164,7 +173,7 @@ impl IncrementalIndex {
     pub fn detect_dead_code(&mut self, result: &mut UpdateResult) {
         let mut live_symbols = HashSet::new();
         let mut to_visit = Vec::new();
-        
+
         // Start from entry points (main functions, exported symbols, tests)
         for symbol in self.graph.get_all_symbols() {
             if self.is_entry_point(symbol) {
@@ -172,7 +181,7 @@ impl IncrementalIndex {
                 to_visit.push(symbol.id.clone());
             }
         }
-        
+
         // Traverse the graph to find all reachable symbols
         while let Some(symbol_id) = to_visit.pop() {
             if let Some(node_idx) = self.graph.get_node_index(&symbol_id) {
@@ -188,7 +197,7 @@ impl IncrementalIndex {
                 }
             }
         }
-        
+
         // Find dead symbols
         for symbol in self.graph.get_all_symbols() {
             if !live_symbols.contains(&symbol.id) {
@@ -203,22 +212,22 @@ impl IncrementalIndex {
         if symbol.name == "main" || symbol.name.ends_with("::main") {
             return true;
         }
-        
+
         // Public API (pub functions/types)
         if symbol.name.starts_with("pub ") {
             return true;
         }
-        
+
         // Test functions
         if symbol.name.contains("test") || symbol.name.contains("bench") {
             return true;
         }
-        
+
         // Library entry points
         if symbol.file_path.contains("lib.rs") && symbol.name.starts_with("pub") {
             return true;
         }
-        
+
         false
     }
 
@@ -229,7 +238,8 @@ impl IncrementalIndex {
 
     /// Check if a file needs updating
     pub fn needs_update(&self, file_path: &Path, current_hash: &str) -> bool {
-        self.file_metadata.get(file_path)
+        self.file_metadata
+            .get(file_path)
             .map(|meta| meta.hash != current_hash)
             .unwrap_or(true)
     }
@@ -237,23 +247,25 @@ impl IncrementalIndex {
     /// Batch update multiple files
     pub fn batch_update(&mut self, updates: Vec<FileUpdate>) -> Result<BatchUpdateResult> {
         let mut batch_result = BatchUpdateResult::default();
-        
+
         for update in updates {
             let result = match update {
-                FileUpdate::Modified { path, symbols, hash } => {
-                    self.update_file(&path, symbols, hash)?
-                }
-                FileUpdate::Removed { path } => {
-                    self.remove_file(&path)?
-                }
-                FileUpdate::Added { path, symbols, hash } => {
-                    self.update_file(&path, symbols, hash)?
-                }
+                FileUpdate::Modified {
+                    path,
+                    symbols,
+                    hash,
+                } => self.update_file(&path, symbols, hash)?,
+                FileUpdate::Removed { path } => self.remove_file(&path)?,
+                FileUpdate::Added {
+                    path,
+                    symbols,
+                    hash,
+                } => self.update_file(&path, symbols, hash)?,
             };
-            
+
             batch_result.merge(result);
         }
-        
+
         Ok(batch_result)
     }
 }
@@ -306,7 +318,7 @@ pub enum FileUpdate {
 pub fn calculate_file_hash(content: &str) -> String {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
-    
+
     let mut hasher = DefaultHasher::new();
     content.hash(&mut hasher);
     format!("{:x}", hasher.finish())
@@ -315,7 +327,7 @@ pub fn calculate_file_hash(content: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{SymbolKind, Range, Position};
+    use crate::core::{Position, Range, SymbolKind};
 
     fn create_test_symbol(id: &str, file: &str) -> Symbol {
         Symbol {
@@ -324,8 +336,14 @@ mod tests {
             kind: SymbolKind::Function,
             file_path: file.to_string(),
             range: Range {
-                start: Position { line: 1, character: 0 },
-                end: Position { line: 5, character: 0 },
+                start: Position {
+                    line: 1,
+                    character: 0,
+                },
+                end: Position {
+                    line: 5,
+                    character: 0,
+                },
             },
             documentation: None,
         }
@@ -334,34 +352,30 @@ mod tests {
     #[test]
     fn test_incremental_update() {
         let mut index = IncrementalIndex::new();
-        
+
         // Initial file
         let symbols = vec![
             create_test_symbol("func1", "file1.rs"),
             create_test_symbol("func2", "file1.rs"),
         ];
-        
-        let result = index.update_file(
-            Path::new("file1.rs"),
-            symbols,
-            "hash1".to_string()
-        ).unwrap();
-        
+
+        let result = index
+            .update_file(Path::new("file1.rs"), symbols, "hash1".to_string())
+            .unwrap();
+
         assert_eq!(result.added_symbols.len(), 2);
         assert_eq!(result.removed_symbols.len(), 0);
-        
+
         // Update file - remove func1, add func3
         let updated_symbols = vec![
             create_test_symbol("func2", "file1.rs"),
             create_test_symbol("func3", "file1.rs"),
         ];
-        
-        let result = index.update_file(
-            Path::new("file1.rs"),
-            updated_symbols,
-            "hash2".to_string()
-        ).unwrap();
-        
+
+        let result = index
+            .update_file(Path::new("file1.rs"), updated_symbols, "hash2".to_string())
+            .unwrap();
+
         assert_eq!(result.added_symbols.len(), 1);
         assert_eq!(result.removed_symbols.len(), 1);
         assert!(result.removed_symbols.contains("func1"));
@@ -370,27 +384,29 @@ mod tests {
     #[test]
     fn test_dead_code_detection() {
         let mut index = IncrementalIndex::new();
-        
+
         // Add main and helper functions
         let symbols = vec![
             create_test_symbol("main", "main.rs"),
             create_test_symbol("used_func", "lib.rs"),
             create_test_symbol("unused_func", "lib.rs"),
         ];
-        
+
         for symbol in symbols {
             index.add_symbol(symbol).unwrap();
         }
-        
+
         // Add edge from main to used_func
         let main_idx = index.graph.get_node_index("main").unwrap();
         let used_idx = index.graph.get_node_index("used_func").unwrap();
-        index.graph.add_edge(main_idx, used_idx, EdgeKind::Reference);
-        
+        index
+            .graph
+            .add_edge(main_idx, used_idx, EdgeKind::Reference);
+
         // Detect dead code
         let mut result = UpdateResult::default();
         index.detect_dead_code(&mut result);
-        
+
         assert!(result.dead_symbols.contains("unused_func"));
         assert!(!result.dead_symbols.contains("main"));
         assert!(!result.dead_symbols.contains("used_func"));
@@ -399,22 +415,20 @@ mod tests {
     #[test]
     fn test_file_removal() {
         let mut index = IncrementalIndex::new();
-        
+
         // Add file with symbols
         let symbols = vec![
             create_test_symbol("func1", "file1.rs"),
             create_test_symbol("func2", "file1.rs"),
         ];
-        
-        index.update_file(
-            Path::new("file1.rs"),
-            symbols,
-            "hash1".to_string()
-        ).unwrap();
-        
+
+        index
+            .update_file(Path::new("file1.rs"), symbols, "hash1".to_string())
+            .unwrap();
+
         // Remove file
         let result = index.remove_file(Path::new("file1.rs")).unwrap();
-        
+
         assert_eq!(result.removed_symbols.len(), 2);
         assert!(result.removed_symbols.contains("func1"));
         assert!(result.removed_symbols.contains("func2"));

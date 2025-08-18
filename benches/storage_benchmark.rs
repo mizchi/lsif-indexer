@@ -1,10 +1,10 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use lsif_indexer::cli::storage::{IndexMetadata, IndexStorage, IndexFormat};
-use lsif_indexer::cli::parallel_storage::ParallelIndexStorage;
 use lsif_indexer::cli::cached_storage::CachedIndexStorage;
+use lsif_indexer::cli::parallel_storage::ParallelIndexStorage;
+use lsif_indexer::cli::storage::{IndexFormat, IndexMetadata, IndexStorage};
 use lsif_indexer::core::graph::{CodeGraph, Position, Range, Symbol, SymbolKind};
-use tempfile::TempDir;
 use std::time::Duration;
+use tempfile::TempDir;
 
 fn generate_test_symbols(count: usize) -> Vec<Symbol> {
     (0..count)
@@ -41,17 +41,17 @@ fn generate_test_symbols(count: usize) -> Vec<Symbol> {
 fn generate_test_graph(symbol_count: usize) -> CodeGraph {
     let mut graph = CodeGraph::new();
     let symbols = generate_test_symbols(symbol_count);
-    
+
     for symbol in symbols {
         graph.add_symbol(symbol);
     }
-    
+
     graph
 }
 
 fn benchmark_symbol_save(c: &mut Criterion) {
     let mut group = c.benchmark_group("symbol_storage");
-    
+
     for size in [100, 1000, 10000].iter() {
         // 並列保存のベンチマーク
         group.bench_with_input(
@@ -75,7 +75,7 @@ fn benchmark_symbol_save(c: &mut Criterion) {
                 );
             },
         );
-        
+
         // チャンク並列保存のベンチマーク
         group.bench_with_input(
             BenchmarkId::new("save_chunked_parallel", size),
@@ -99,7 +99,7 @@ fn benchmark_symbol_save(c: &mut Criterion) {
                 );
             },
         );
-        
+
         group.bench_with_input(
             BenchmarkId::new("save_individual_symbols", size),
             size,
@@ -120,7 +120,7 @@ fn benchmark_symbol_save(c: &mut Criterion) {
                 );
             },
         );
-        
+
         group.bench_with_input(
             BenchmarkId::new("save_graph", size),
             size,
@@ -139,7 +139,7 @@ fn benchmark_symbol_save(c: &mut Criterion) {
                 );
             },
         );
-        
+
         group.bench_with_input(
             BenchmarkId::new("save_batch_symbols", size),
             size,
@@ -159,13 +159,13 @@ fn benchmark_symbol_save(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
 fn benchmark_symbol_load(c: &mut Criterion) {
     let mut group = c.benchmark_group("symbol_loading");
-    
+
     for size in [100, 1000, 10000].iter() {
         group.bench_with_input(
             BenchmarkId::new("load_individual_symbols", size),
@@ -174,21 +174,20 @@ fn benchmark_symbol_load(c: &mut Criterion) {
                 let temp_dir = TempDir::new().unwrap();
                 let storage = IndexStorage::open(temp_dir.path()).unwrap();
                 let symbols = generate_test_symbols(symbol_count);
-                
+
                 for symbol in &symbols {
                     storage.save_data(&symbol.id, symbol).unwrap();
                 }
-                
+
                 b.iter(|| {
                     for i in 0..symbol_count {
-                        let _: Option<Symbol> = storage
-                            .load_data(&format!("symbol_{}", i))
-                            .unwrap();
+                        let _: Option<Symbol> =
+                            storage.load_data(&format!("symbol_{}", i)).unwrap();
                     }
                 });
             },
         );
-        
+
         group.bench_with_input(
             BenchmarkId::new("load_graph", size),
             size,
@@ -197,13 +196,13 @@ fn benchmark_symbol_load(c: &mut Criterion) {
                 let storage = IndexStorage::open(temp_dir.path()).unwrap();
                 let graph = generate_test_graph(symbol_count);
                 storage.save_data("code_graph", &graph).unwrap();
-                
+
                 b.iter(|| {
                     let _: Option<CodeGraph> = storage.load_data("code_graph").unwrap();
                 });
             },
         );
-        
+
         group.bench_with_input(
             BenchmarkId::new("load_batch_symbols", size),
             size,
@@ -212,20 +211,20 @@ fn benchmark_symbol_load(c: &mut Criterion) {
                 let storage = IndexStorage::open(temp_dir.path()).unwrap();
                 let symbols = generate_test_symbols(symbol_count);
                 storage.save_data("all_symbols", &symbols).unwrap();
-                
+
                 b.iter(|| {
                     let _: Option<Vec<Symbol>> = storage.load_data("all_symbols").unwrap();
                 });
             },
         );
     }
-    
+
     group.finish();
 }
 
 fn benchmark_metadata_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("metadata_operations");
-    
+
     group.bench_function("save_metadata", |b| {
         b.iter_batched(
             || {
@@ -238,6 +237,8 @@ fn benchmark_metadata_operations(c: &mut Criterion) {
                     project_root: "/test/project".to_string(),
                     files_count: 1000,
                     symbols_count: 10000,
+                    git_commit_hash: None,
+                    file_hashes: std::collections::HashMap::new(),
                 };
                 (storage, metadata, temp_dir)
             },
@@ -247,7 +248,7 @@ fn benchmark_metadata_operations(c: &mut Criterion) {
             BatchSize::SmallInput,
         );
     });
-    
+
     group.bench_function("load_metadata", |b| {
         let temp_dir = TempDir::new().unwrap();
         let storage = IndexStorage::open(temp_dir.path()).unwrap();
@@ -258,14 +259,16 @@ fn benchmark_metadata_operations(c: &mut Criterion) {
             project_root: "/test/project".to_string(),
             files_count: 1000,
             symbols_count: 10000,
+            git_commit_hash: None,
+            file_hashes: std::collections::HashMap::new(),
         };
         storage.save_metadata(&metadata).unwrap();
-        
+
         b.iter(|| {
             let _ = black_box(storage.load_metadata().unwrap());
         });
     });
-    
+
     group.finish();
 }
 

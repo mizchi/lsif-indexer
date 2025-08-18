@@ -1,6 +1,6 @@
+use crate::core::{CodeGraph, Position, Range, Symbol, SymbolKind};
 use anyhow::Result;
 use lsp_types::DocumentSymbol;
-use crate::core::{CodeGraph, Symbol, SymbolKind, Range, Position};
 use tracing::debug;
 
 pub struct LspIndexer {
@@ -25,10 +25,9 @@ impl LspIndexer {
 
     fn process_symbol(&mut self, symbol: &DocumentSymbol, parent_id: Option<String>) -> Result<()> {
         // Create symbol ID
-        let symbol_id = format!("{}#{}:{}", 
-            self.file_path, 
-            symbol.range.start.line,
-            symbol.name
+        let symbol_id = format!(
+            "{}#{}:{}",
+            self.file_path, symbol.range.start.line, symbol.name
         );
 
         // Convert LSP symbol to our Symbol type
@@ -75,7 +74,7 @@ impl LspIndexer {
 
     fn convert_symbol_kind(&self, lsp_kind: lsp_types::SymbolKind) -> SymbolKind {
         use lsp_types::SymbolKind as LspKind;
-        
+
         match lsp_kind {
             LspKind::FUNCTION => SymbolKind::Function,
             LspKind::METHOD => SymbolKind::Method,
@@ -94,7 +93,6 @@ impl LspIndexer {
         }
     }
 
-
     pub fn into_graph(self) -> CodeGraph {
         self.graph
     }
@@ -106,8 +104,8 @@ mod tests {
 
     #[test]
     fn test_index_from_lsp_symbols() -> Result<()> {
-        use lsp_types::{Range as LspRange, Position as LspPosition};
-        
+        use lsp_types::{Position as LspPosition, Range as LspRange};
+
         // Create mock symbols
         let symbols = vec![
             DocumentSymbol {
@@ -117,12 +115,24 @@ mod tests {
                 tags: None,
                 deprecated: None,
                 range: LspRange {
-                    start: LspPosition { line: 65, character: 0 },
-                    end: LspPosition { line: 70, character: 1 },
+                    start: LspPosition {
+                        line: 65,
+                        character: 0,
+                    },
+                    end: LspPosition {
+                        line: 70,
+                        character: 1,
+                    },
                 },
                 selection_range: LspRange {
-                    start: LspPosition { line: 65, character: 3 },
-                    end: LspPosition { line: 65, character: 7 },
+                    start: LspPosition {
+                        line: 65,
+                        character: 3,
+                    },
+                    end: LspPosition {
+                        line: 65,
+                        character: 7,
+                    },
                 },
                 children: None,
             },
@@ -133,55 +143,76 @@ mod tests {
                 tags: None,
                 deprecated: None,
                 range: LspRange {
-                    start: LspPosition { line: 10, character: 0 },
-                    end: LspPosition { line: 15, character: 1 },
+                    start: LspPosition {
+                        line: 10,
+                        character: 0,
+                    },
+                    end: LspPosition {
+                        line: 15,
+                        character: 1,
+                    },
                 },
                 selection_range: LspRange {
-                    start: LspPosition { line: 10, character: 7 },
-                    end: LspPosition { line: 10, character: 17 },
-                },
-                children: Some(vec![
-                    DocumentSymbol {
-                        name: "field1".to_string(),
-                        detail: Some("String".to_string()),
-                        kind: lsp_types::SymbolKind::FIELD,
-                        tags: None,
-                        deprecated: None,
-                                range: LspRange {
-                            start: LspPosition { line: 11, character: 4 },
-                            end: LspPosition { line: 11, character: 20 },
-                        },
-                        selection_range: LspRange {
-                            start: LspPosition { line: 11, character: 4 },
-                            end: LspPosition { line: 11, character: 10 },
-                        },
-                        children: None,
+                    start: LspPosition {
+                        line: 10,
+                        character: 7,
                     },
-                ]),
+                    end: LspPosition {
+                        line: 10,
+                        character: 17,
+                    },
+                },
+                children: Some(vec![DocumentSymbol {
+                    name: "field1".to_string(),
+                    detail: Some("String".to_string()),
+                    kind: lsp_types::SymbolKind::FIELD,
+                    tags: None,
+                    deprecated: None,
+                    range: LspRange {
+                        start: LspPosition {
+                            line: 11,
+                            character: 4,
+                        },
+                        end: LspPosition {
+                            line: 11,
+                            character: 20,
+                        },
+                    },
+                    selection_range: LspRange {
+                        start: LspPosition {
+                            line: 11,
+                            character: 4,
+                        },
+                        end: LspPosition {
+                            line: 11,
+                            character: 10,
+                        },
+                    },
+                    children: None,
+                }]),
             },
         ];
-        
+
         // Create indexer and process symbols
         let mut indexer = LspIndexer::new("src/main.rs".to_string());
         indexer.index_from_symbols(symbols)?;
-        
+
         // Verify we have symbols in the graph
         let graph = indexer.into_graph();
         assert_eq!(graph.symbol_count(), 3); // main, TestStruct, field1
-        
+
         // Try to find specific symbols
         let all_symbols: Vec<_> = graph.get_all_symbols().collect();
         assert_eq!(all_symbols.len(), 3);
-        
+
         // Check that main symbol exists
         let main_exists = all_symbols.iter().any(|s| s.name == "main");
         assert!(main_exists, "main symbol should exist");
-        
+
         // Check that TestStruct exists
         let struct_exists = all_symbols.iter().any(|s| s.name == "TestStruct");
         assert!(struct_exists, "TestStruct symbol should exist");
-        
+
         Ok(())
     }
-
 }

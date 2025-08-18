@@ -1,4 +1,4 @@
-use super::graph::{CodeGraph, Symbol, EdgeKind, SymbolKind};
+use super::graph::{CodeGraph, EdgeKind, Symbol, SymbolKind};
 use petgraph::visit::EdgeRef;
 use std::collections::{HashSet, VecDeque};
 
@@ -40,7 +40,7 @@ impl<'a> TypeRelationsAnalyzer<'a> {
         max_depth: usize,
     ) -> Option<TypeRelations> {
         let root_type = self.graph.find_symbol(type_symbol_id)?.clone();
-        
+
         // Check if it's actually a type-like symbol
         if !self.is_type_symbol(&root_type) {
             return None;
@@ -88,15 +88,11 @@ impl<'a> TypeRelationsAnalyzer<'a> {
     }
 
     /// Find all symbols that reference a type (recursively)
-    pub fn find_all_type_references(
-        &self,
-        type_symbol_id: &str,
-        max_depth: usize,
-    ) -> Vec<Symbol> {
+    pub fn find_all_type_references(&self, type_symbol_id: &str, max_depth: usize) -> Vec<Symbol> {
         let mut all_references = Vec::new();
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
-        
+
         queue.push_back((type_symbol_id.to_string(), 0));
         visited.insert(type_symbol_id.to_string());
 
@@ -107,11 +103,11 @@ impl<'a> TypeRelationsAnalyzer<'a> {
 
             // Get direct references
             let refs = self.graph.find_references(&current_id);
-            
+
             for reference in refs {
                 if visited.insert(reference.id.clone()) {
                     all_references.push(reference.clone());
-                    
+
                     // Add to queue for recursive search
                     if depth < max_depth {
                         queue.push_back((reference.id.clone(), depth + 1));
@@ -122,12 +118,16 @@ impl<'a> TypeRelationsAnalyzer<'a> {
             // Also check for symbols that have this type
             if let Some(node_idx) = self.graph.get_node_index(&current_id) {
                 // Look for incoming edges
-                for edge in self.graph.graph.edges_directed(node_idx, petgraph::Direction::Incoming) {
+                for edge in self
+                    .graph
+                    .graph
+                    .edges_directed(node_idx, petgraph::Direction::Incoming)
+                {
                     if matches!(edge.weight(), EdgeKind::Reference | EdgeKind::Definition) {
                         if let Some(source) = self.graph.graph.node_weight(edge.source()) {
                             if visited.insert(source.id.clone()) {
                                 all_references.push(source.clone());
-                                
+
                                 if depth < max_depth {
                                     queue.push_back((source.id.clone(), depth + 1));
                                 }
@@ -144,32 +144,32 @@ impl<'a> TypeRelationsAnalyzer<'a> {
     /// Find all types that are related through inheritance/implementation
     pub fn find_type_hierarchy(&self, type_symbol_id: &str) -> TypeHierarchy {
         let mut hierarchy = TypeHierarchy::new();
-        
+
         if let Some(root) = self.graph.find_symbol(type_symbol_id) {
             hierarchy.root = Some(root.clone());
-            
+
             // Find parents (what this type extends/implements)
             self.find_parent_types(type_symbol_id, &mut hierarchy.parents, &mut HashSet::new());
-            
+
             // Find children (what extends/implements this type)
             self.find_child_types(type_symbol_id, &mut hierarchy.children, &mut HashSet::new());
-            
+
             // Find siblings (types that share a parent with this type)
             for parent in &hierarchy.parents {
                 self.find_child_types(&parent.id, &mut hierarchy.siblings, &mut HashSet::new());
             }
-            
+
             // Remove self from siblings
             hierarchy.siblings.retain(|s| s.id != type_symbol_id);
         }
-        
+
         hierarchy
     }
 
     /// Group related symbols by their relationship type
     pub fn group_relations_by_type(&self, type_symbol_id: &str) -> RelationGroups {
         let mut groups = RelationGroups::default();
-        
+
         if let Some(node_idx) = self.graph.get_node_index(type_symbol_id) {
             // Analyze outgoing edges
             for edge in self.graph.graph.edges(node_idx) {
@@ -185,9 +185,13 @@ impl<'a> TypeRelationsAnalyzer<'a> {
                     }
                 }
             }
-            
+
             // Analyze incoming edges
-            for edge in self.graph.graph.edges_directed(node_idx, petgraph::Direction::Incoming) {
+            for edge in self
+                .graph
+                .graph
+                .edges_directed(node_idx, petgraph::Direction::Incoming)
+            {
                 if let Some(source) = self.graph.graph.node_weight(edge.source()) {
                     match edge.weight() {
                         EdgeKind::Definition => {
@@ -201,7 +205,7 @@ impl<'a> TypeRelationsAnalyzer<'a> {
                 }
             }
         }
-        
+
         // Categorize by symbol kind
         for symbol in &groups.referenced_by {
             match symbol.kind {
@@ -217,7 +221,7 @@ impl<'a> TypeRelationsAnalyzer<'a> {
                 _ => {}
             }
         }
-        
+
         groups
     }
 
@@ -253,7 +257,11 @@ impl<'a> TypeRelationsAnalyzer<'a> {
 
         if let Some(node_idx) = self.graph.get_node_index(symbol_id) {
             // Collect incoming references (who uses this type)
-            for edge in self.graph.graph.edges_directed(node_idx, petgraph::Direction::Incoming) {
+            for edge in self
+                .graph
+                .graph
+                .edges_directed(node_idx, petgraph::Direction::Incoming)
+            {
                 if let Some(source) = self.graph.graph.node_weight(edge.source()) {
                     match source.kind {
                         SymbolKind::Variable | SymbolKind::Parameter => {
@@ -340,7 +348,11 @@ impl<'a> TypeRelationsAnalyzer<'a> {
         }
 
         if let Some(node_idx) = self.graph.get_node_index(symbol_id) {
-            for edge in self.graph.graph.edges_directed(node_idx, petgraph::Direction::Incoming) {
+            for edge in self
+                .graph
+                .graph
+                .edges_directed(node_idx, petgraph::Direction::Incoming)
+            {
                 if matches!(edge.weight(), EdgeKind::Definition) {
                     if let Some(child) = self.graph.graph.node_weight(edge.source()) {
                         if self.is_type_symbol(child) {
@@ -389,37 +401,57 @@ pub struct RelationGroups {
 /// Format type relations as a report
 pub fn format_type_relations(relations: &TypeRelations) -> String {
     let mut report = String::new();
-    
-    report.push_str(&format!("Type: {} ({})\n", relations.root_type.name, relations.root_type.file_path));
-    report.push_str(&format!("Total related symbols: {}\n\n", relations.total_relations));
-    
+
+    report.push_str(&format!(
+        "Type: {} ({})\n",
+        relations.root_type.name, relations.root_type.file_path
+    ));
+    report.push_str(&format!(
+        "Total related symbols: {}\n\n",
+        relations.total_relations
+    ));
+
     if !relations.users.is_empty() {
         report.push_str(&format!("Used by {} symbols:\n", relations.users.len()));
         for (i, user) in relations.users.iter().take(5).enumerate() {
-            report.push_str(&format!("  {}. {} ({})\n", i + 1, user.name, user.file_path));
+            report.push_str(&format!(
+                "  {}. {} ({})\n",
+                i + 1,
+                user.name,
+                user.file_path
+            ));
         }
         if relations.users.len() > 5 {
             report.push_str(&format!("  ... and {} more\n", relations.users.len() - 5));
         }
         report.push('\n');
     }
-    
+
     if !relations.implementations.is_empty() {
-        report.push_str(&format!("Implemented by {} types:\n", relations.implementations.len()));
+        report.push_str(&format!(
+            "Implemented by {} types:\n",
+            relations.implementations.len()
+        ));
         for impl_type in relations.implementations.iter().take(5) {
-            report.push_str(&format!("  - {} ({})\n", impl_type.name, impl_type.file_path));
+            report.push_str(&format!(
+                "  - {} ({})\n",
+                impl_type.name, impl_type.file_path
+            ));
         }
         report.push('\n');
     }
-    
+
     if !relations.extensions.is_empty() {
-        report.push_str(&format!("Extended by {} types:\n", relations.extensions.len()));
+        report.push_str(&format!(
+            "Extended by {} types:\n",
+            relations.extensions.len()
+        ));
         for ext_type in relations.extensions.iter().take(5) {
             report.push_str(&format!("  - {} ({})\n", ext_type.name, ext_type.file_path));
         }
         report.push('\n');
     }
-    
+
     if !relations.members.is_empty() {
         report.push_str(&format!("Has {} members:\n", relations.members.len()));
         for member in relations.members.iter().take(5) {
@@ -427,7 +459,7 @@ pub fn format_type_relations(relations: &TypeRelations) -> String {
         }
         report.push('\n');
     }
-    
+
     if !relations.methods.is_empty() {
         report.push_str(&format!("Has {} methods:\n", relations.methods.len()));
         for method in relations.methods.iter().take(5) {
@@ -435,14 +467,14 @@ pub fn format_type_relations(relations: &TypeRelations) -> String {
         }
         report.push('\n');
     }
-    
+
     report
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{Range, Position};
+    use crate::core::{Position, Range};
 
     fn create_type_symbol(id: &str, name: &str, kind: SymbolKind) -> Symbol {
         Symbol {
@@ -451,8 +483,14 @@ mod tests {
             kind,
             file_path: "test.rs".to_string(),
             range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 10, character: 0 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 10,
+                    character: 0,
+                },
             },
             documentation: None,
         }
@@ -461,33 +499,33 @@ mod tests {
     #[test]
     fn test_collect_type_relations() {
         let mut graph = CodeGraph::new();
-        
+
         // Create a type hierarchy
         let base_type = create_type_symbol("type:Base", "BaseClass", SymbolKind::Class);
         let derived_type = create_type_symbol("type:Derived", "DerivedClass", SymbolKind::Class);
         let var1 = create_type_symbol("var:x", "x", SymbolKind::Variable);
         let var2 = create_type_symbol("var:y", "y", SymbolKind::Variable);
         let method1 = create_type_symbol("method:foo", "foo", SymbolKind::Method);
-        
+
         let base_idx = graph.add_symbol(base_type.clone());
         let derived_idx = graph.add_symbol(derived_type);
         let var1_idx = graph.add_symbol(var1.clone());
         let var2_idx = graph.add_symbol(var2.clone());
         let method_idx = graph.add_symbol(method1.clone());
-        
+
         // Derived extends Base
         graph.add_edge(derived_idx, base_idx, EdgeKind::Definition);
-        
+
         // Variables reference Base type
         graph.add_edge(var1_idx, base_idx, EdgeKind::Reference);
         graph.add_edge(var2_idx, base_idx, EdgeKind::Reference);
-        
+
         // Method belongs to Base
         graph.add_edge(method_idx, base_idx, EdgeKind::Reference);
-        
+
         let analyzer = TypeRelationsAnalyzer::new(&graph);
         let relations = analyzer.collect_type_relations("type:Base", 2).unwrap();
-        
+
         assert_eq!(relations.root_type.id, "type:Base");
         assert_eq!(relations.users.len(), 2); // var1 and var2
         assert_eq!(relations.extensions.len(), 1); // Derived
@@ -497,26 +535,26 @@ mod tests {
     #[test]
     fn test_find_all_type_references() {
         let mut graph = CodeGraph::new();
-        
+
         // Create a chain of references
         let type_a = create_type_symbol("type:A", "TypeA", SymbolKind::Class);
         let type_b = create_type_symbol("type:B", "TypeB", SymbolKind::Class);
         let var_x = create_type_symbol("var:x", "x", SymbolKind::Variable);
         let var_y = create_type_symbol("var:y", "y", SymbolKind::Variable);
-        
+
         let a_idx = graph.add_symbol(type_a);
         let b_idx = graph.add_symbol(type_b);
         let x_idx = graph.add_symbol(var_x);
         let y_idx = graph.add_symbol(var_y);
-        
+
         // x -> A, y -> B, B -> A
         graph.add_edge(x_idx, a_idx, EdgeKind::Reference);
         graph.add_edge(y_idx, b_idx, EdgeKind::Reference);
         graph.add_edge(b_idx, a_idx, EdgeKind::Reference);
-        
+
         let analyzer = TypeRelationsAnalyzer::new(&graph);
         let refs = analyzer.find_all_type_references("type:A", 2);
-        
+
         // Should find x directly and y through B
         assert!(refs.len() >= 2);
         assert!(refs.iter().any(|r| r.id == "var:x"));
@@ -526,28 +564,28 @@ mod tests {
     #[test]
     fn test_type_hierarchy() {
         let mut graph = CodeGraph::new();
-        
+
         // Create hierarchy: Interface <- Base <- Derived1, Derived2
         let interface = create_type_symbol("type:Interface", "IBase", SymbolKind::Interface);
         let base = create_type_symbol("type:Base", "BaseClass", SymbolKind::Class);
         let derived1 = create_type_symbol("type:Derived1", "Derived1", SymbolKind::Class);
         let derived2 = create_type_symbol("type:Derived2", "Derived2", SymbolKind::Class);
-        
+
         let interface_idx = graph.add_symbol(interface);
         let base_idx = graph.add_symbol(base);
         let derived1_idx = graph.add_symbol(derived1);
         let derived2_idx = graph.add_symbol(derived2);
-        
+
         // Base implements Interface
         graph.add_edge(base_idx, interface_idx, EdgeKind::Definition);
-        
+
         // Derived1 and Derived2 extend Base
         graph.add_edge(derived1_idx, base_idx, EdgeKind::Definition);
         graph.add_edge(derived2_idx, base_idx, EdgeKind::Definition);
-        
+
         let analyzer = TypeRelationsAnalyzer::new(&graph);
         let hierarchy = analyzer.find_type_hierarchy("type:Base");
-        
+
         assert!(hierarchy.root.is_some());
         assert_eq!(hierarchy.parents.len(), 1); // Interface
         assert_eq!(hierarchy.children.len(), 2); // Derived1, Derived2
@@ -556,30 +594,30 @@ mod tests {
     #[test]
     fn test_relation_groups() {
         let mut graph = CodeGraph::new();
-        
+
         // Create various relations
         let my_type = create_type_symbol("type:MyType", "MyType", SymbolKind::Class);
         let var = create_type_symbol("var:x", "x", SymbolKind::Variable);
         let func = create_type_symbol("fn:getMyType", "getMyType", SymbolKind::Function);
         let field = create_type_symbol("field:data", "data", SymbolKind::Field);
-        
+
         let type_idx = graph.add_symbol(my_type);
         let var_idx = graph.add_symbol(var);
         let func_idx = graph.add_symbol(func);
         let field_idx = graph.add_symbol(field);
-        
+
         // Variable of MyType
         graph.add_edge(var_idx, type_idx, EdgeKind::Reference);
-        
+
         // Function returns MyType
         graph.add_edge(func_idx, type_idx, EdgeKind::Reference);
-        
+
         // Field of MyType
         graph.add_edge(field_idx, type_idx, EdgeKind::Reference);
-        
+
         let analyzer = TypeRelationsAnalyzer::new(&graph);
         let groups = analyzer.group_relations_by_type("type:MyType");
-        
+
         assert!(!groups.referenced_by.is_empty());
         assert_eq!(groups.variables_of_type.len(), 1);
         assert_eq!(groups.functions_returning_type.len(), 1);

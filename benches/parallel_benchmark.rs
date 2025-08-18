@@ -1,14 +1,13 @@
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId, BatchSize};
-use lsif_indexer::core::{
-    CodeGraph, Symbol, SymbolKind, Range, Position, EdgeKind,
-    IncrementalIndex, FileUpdate,
-};
+use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use lsif_indexer::core::parallel::{
-    ParallelCodeGraph, ParallelIncrementalIndex, ParallelFileAnalyzer,
-    parallel_lsif::ParallelLsifGenerator,
+    parallel_lsif::ParallelLsifGenerator, ParallelCodeGraph, ParallelFileAnalyzer,
+    ParallelIncrementalIndex,
 };
 use lsif_indexer::core::parallel_optimized::{
-    OptimizedParallelGraph, OptimizedParallelIndex, OptimizedDeadCodeDetector,
+    OptimizedDeadCodeDetector, OptimizedParallelGraph, OptimizedParallelIndex,
+};
+use lsif_indexer::core::{
+    CodeGraph, EdgeKind, FileUpdate, IncrementalIndex, Position, Range, Symbol, SymbolKind,
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -27,8 +26,14 @@ fn create_symbols(count: usize) -> Vec<Symbol> {
             },
             file_path: format!("src/module_{}/file_{}.rs", i / 100, i / 10),
             range: Range {
-                start: Position { line: ((i % 100) * 10) as u32, character: 0 },
-                end: Position { line: ((i % 100) * 10 + 5) as u32, character: 0 },
+                start: Position {
+                    line: ((i % 100) * 10) as u32,
+                    character: 0,
+                },
+                end: Position {
+                    line: ((i % 100) * 10 + 5) as u32,
+                    character: 0,
+                },
             },
             documentation: if i % 2 == 0 {
                 Some(format!("Documentation for symbol_{}", i))
@@ -41,10 +46,10 @@ fn create_symbols(count: usize) -> Vec<Symbol> {
 
 fn benchmark_symbol_addition(c: &mut Criterion) {
     let mut group = c.benchmark_group("symbol_addition");
-    
+
     for size in [100, 1000, 10000].iter() {
         let symbols = create_symbols(*size);
-        
+
         // Sequential version
         group.bench_with_input(
             BenchmarkId::new("sequential", size),
@@ -58,11 +63,11 @@ fn benchmark_symbol_addition(c: &mut Criterion) {
                         }
                         graph
                     },
-                    BatchSize::SmallInput
+                    BatchSize::SmallInput,
                 )
-            }
+            },
         );
-        
+
         // Parallel version (with Mutex)
         group.bench_with_input(
             BenchmarkId::new("parallel_mutex", size),
@@ -74,11 +79,11 @@ fn benchmark_symbol_addition(c: &mut Criterion) {
                         graph.add_symbols_parallel(symbols.clone());
                         graph
                     },
-                    BatchSize::SmallInput
+                    BatchSize::SmallInput,
                 )
-            }
+            },
         );
-        
+
         // Optimized parallel version (batch processing)
         group.bench_with_input(
             BenchmarkId::new("parallel_optimized", size),
@@ -90,32 +95,32 @@ fn benchmark_symbol_addition(c: &mut Criterion) {
                         OptimizedParallelGraph::add_symbols_batch(&mut graph, symbols.clone());
                         graph
                     },
-                    BatchSize::SmallInput
+                    BatchSize::SmallInput,
                 )
-            }
+            },
         );
     }
-    
+
     group.finish();
 }
 
 fn benchmark_symbol_search(c: &mut Criterion) {
     let mut group = c.benchmark_group("symbol_search");
-    
+
     for size in [1000, 10000].iter() {
         let mut graph = CodeGraph::new();
         let symbols = create_symbols(*size);
         for symbol in &symbols {
             graph.add_symbol(symbol.clone());
         }
-        
+
         let search_ids: Vec<String> = (0..*size)
             .step_by(10)
             .map(|i| format!("symbol_{}", i))
             .collect();
-        
+
         let parallel_graph = ParallelCodeGraph::from_graph(graph.clone());
-        
+
         // Sequential search
         group.bench_with_input(
             BenchmarkId::new("sequential", size),
@@ -128,28 +133,24 @@ fn benchmark_symbol_search(c: &mut Criterion) {
                     }
                     results
                 })
-            }
+            },
         );
-        
+
         // Parallel search
-        group.bench_with_input(
-            BenchmarkId::new("parallel", size),
-            &search_ids,
-            |b, ids| {
-                b.iter(|| {
-                    let id_refs: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
-                    parallel_graph.find_symbols_parallel(id_refs)
-                })
-            }
-        );
+        group.bench_with_input(BenchmarkId::new("parallel", size), &search_ids, |b, ids| {
+            b.iter(|| {
+                let id_refs: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
+                parallel_graph.find_symbols_parallel(id_refs)
+            })
+        });
     }
-    
+
     group.finish();
 }
 
 fn benchmark_file_updates(c: &mut Criterion) {
     let mut group = c.benchmark_group("file_updates");
-    
+
     for num_files in [10, 50, 100].iter() {
         let updates: Vec<(PathBuf, Vec<Symbol>, String)> = (0..*num_files)
             .map(|i| {
@@ -161,8 +162,14 @@ fn benchmark_file_updates(c: &mut Criterion) {
                         kind: SymbolKind::Function,
                         file_path: format!("file_{}.rs", i),
                         range: Range {
-                            start: Position { line: 0, character: 0 },
-                            end: Position { line: 5, character: 0 },
+                            start: Position {
+                                line: 0,
+                                character: 0,
+                            },
+                            end: Position {
+                                line: 5,
+                                character: 0,
+                            },
                         },
                         documentation: None,
                     },
@@ -172,8 +179,14 @@ fn benchmark_file_updates(c: &mut Criterion) {
                         kind: SymbolKind::Function,
                         file_path: format!("file_{}.rs", i),
                         range: Range {
-                            start: Position { line: 10, character: 0 },
-                            end: Position { line: 15, character: 0 },
+                            start: Position {
+                                line: 10,
+                                character: 0,
+                            },
+                            end: Position {
+                                line: 15,
+                                character: 0,
+                            },
                         },
                         documentation: None,
                     },
@@ -182,7 +195,7 @@ fn benchmark_file_updates(c: &mut Criterion) {
                 (path, symbols, hash)
             })
             .collect();
-        
+
         // Sequential update
         group.bench_with_input(
             BenchmarkId::new("sequential", num_files),
@@ -192,15 +205,17 @@ fn benchmark_file_updates(c: &mut Criterion) {
                     || IncrementalIndex::new(),
                     |mut index| {
                         for (path, symbols, hash) in updates {
-                            index.update_file(path, symbols.clone(), hash.clone()).unwrap();
+                            index
+                                .update_file(path, symbols.clone(), hash.clone())
+                                .unwrap();
                         }
                         index
                     },
-                    BatchSize::SmallInput
+                    BatchSize::SmallInput,
                 )
-            }
+            },
         );
-        
+
         // Parallel update
         group.bench_with_input(
             BenchmarkId::new("parallel", num_files),
@@ -212,37 +227,45 @@ fn benchmark_file_updates(c: &mut Criterion) {
                         index.update_files_parallel(updates.clone()).unwrap();
                         index
                     },
-                    BatchSize::SmallInput
+                    BatchSize::SmallInput,
                 )
-            }
+            },
         );
     }
-    
+
     group.finish();
 }
 
 fn benchmark_dead_code_detection(c: &mut Criterion) {
     let mut group = c.benchmark_group("dead_code_detection");
-    
+
     for size in [100, 500, 1000].iter() {
         // Create index with mix of live and dead symbols
         let mut index = IncrementalIndex::new();
-        
+
         // Add main function (entry point)
-        index.add_symbol(Symbol {
-            id: "main".to_string(),
-            name: "main".to_string(),
-            kind: SymbolKind::Function,
-            file_path: "main.rs".to_string(),
-            range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 5, character: 0 },
-            },
-            documentation: None,
-        }).unwrap();
-        
+        index
+            .add_symbol(Symbol {
+                id: "main".to_string(),
+                name: "main".to_string(),
+                kind: SymbolKind::Function,
+                file_path: "main.rs".to_string(),
+                range: Range {
+                    start: Position {
+                        line: 0,
+                        character: 0,
+                    },
+                    end: Position {
+                        line: 5,
+                        character: 0,
+                    },
+                },
+                documentation: None,
+            })
+            .unwrap();
+
         let main_idx = index.graph.get_node_index("main").unwrap();
-        
+
         // Add connected symbols (live)
         for i in 0..(*size / 2) {
             let symbol = Symbol {
@@ -251,23 +274,35 @@ fn benchmark_dead_code_detection(c: &mut Criterion) {
                 kind: SymbolKind::Function,
                 file_path: format!("file_{}.rs", i / 10),
                 range: Range {
-                    start: Position { line: i as u32 * 10, character: 0 },
-                    end: Position { line: i as u32 * 10 + 5, character: 0 },
+                    start: Position {
+                        line: i as u32 * 10,
+                        character: 0,
+                    },
+                    end: Position {
+                        line: i as u32 * 10 + 5,
+                        character: 0,
+                    },
                 },
                 documentation: None,
             };
             let idx = index.graph.add_symbol(symbol.clone());
-            index.symbol_to_file.insert(format!("live_{}", i), PathBuf::from(format!("file_{}.rs", i / 10)));
-            
+            index.symbol_to_file.insert(
+                format!("live_{}", i),
+                PathBuf::from(format!("file_{}.rs", i / 10)),
+            );
+
             // Connect to main or previous symbol
             if i == 0 {
                 index.graph.add_edge(main_idx, idx, EdgeKind::Reference);
             } else if i > 0 {
-                let prev_idx = index.graph.get_node_index(&format!("live_{}", i - 1)).unwrap();
+                let prev_idx = index
+                    .graph
+                    .get_node_index(&format!("live_{}", i - 1))
+                    .unwrap();
                 index.graph.add_edge(prev_idx, idx, EdgeKind::Reference);
             }
         }
-        
+
         // Add unconnected symbols (dead)
         for i in 0..(*size / 2) {
             let symbol = Symbol {
@@ -276,44 +311,40 @@ fn benchmark_dead_code_detection(c: &mut Criterion) {
                 kind: SymbolKind::Function,
                 file_path: format!("dead_file_{}.rs", i / 10),
                 range: Range {
-                    start: Position { line: i as u32 * 10, character: 0 },
-                    end: Position { line: i as u32 * 10 + 5, character: 0 },
+                    start: Position {
+                        line: i as u32 * 10,
+                        character: 0,
+                    },
+                    end: Position {
+                        line: i as u32 * 10 + 5,
+                        character: 0,
+                    },
                 },
                 documentation: None,
             };
             index.add_symbol(symbol).unwrap();
         }
-        
+
         let parallel_index = ParallelIncrementalIndex::from_index(index.clone());
-        
+
         // Sequential dead code detection
-        group.bench_with_input(
-            BenchmarkId::new("sequential", size),
-            &size,
-            |b, _| {
-                b.iter_batched(
-                    || index.clone(),
-                    |mut idx| {
-                        let mut result = lsif_indexer::core::incremental::UpdateResult::default();
-                        idx.detect_dead_code(&mut result);
-                        result.dead_symbols
-                    },
-                    BatchSize::SmallInput
-                )
-            }
-        );
-        
+        group.bench_with_input(BenchmarkId::new("sequential", size), &size, |b, _| {
+            b.iter_batched(
+                || index.clone(),
+                |mut idx| {
+                    let mut result = lsif_indexer::core::incremental::UpdateResult::default();
+                    idx.detect_dead_code(&mut result);
+                    result.dead_symbols
+                },
+                BatchSize::SmallInput,
+            )
+        });
+
         // Parallel dead code detection (Mutex version)
-        group.bench_with_input(
-            BenchmarkId::new("parallel_mutex", size),
-            &size,
-            |b, _| {
-                b.iter(|| {
-                    parallel_index.detect_dead_code_parallel().unwrap()
-                })
-            }
-        );
-        
+        group.bench_with_input(BenchmarkId::new("parallel_mutex", size), &size, |b, _| {
+            b.iter(|| parallel_index.detect_dead_code_parallel().unwrap())
+        });
+
         // Optimized parallel dead code detection
         group.bench_with_input(
             BenchmarkId::new("parallel_optimized", size),
@@ -321,74 +352,63 @@ fn benchmark_dead_code_detection(c: &mut Criterion) {
             |b, _| {
                 b.iter_batched(
                     || index.graph.clone(),
-                    |graph| {
-                        OptimizedDeadCodeDetector::detect_parallel(&graph)
-                    },
-                    BatchSize::SmallInput
+                    |graph| OptimizedDeadCodeDetector::detect_parallel(&graph),
+                    BatchSize::SmallInput,
                 )
-            }
+            },
         );
     }
-    
+
     group.finish();
 }
 
 fn benchmark_lsif_generation(c: &mut Criterion) {
     let mut group = c.benchmark_group("lsif_generation");
-    
+
     for size in [100, 500, 1000].iter() {
         let mut graph = CodeGraph::new();
         let symbols = create_symbols(*size);
-        
+
         for symbol in &symbols {
             graph.add_symbol(symbol.clone());
         }
-        
+
         // Add some edges
         for i in 0..(*size - 1) {
             if let (Some(from), Some(to)) = (
                 graph.get_node_index(&format!("symbol_{}", i)),
-                graph.get_node_index(&format!("symbol_{}", i + 1))
+                graph.get_node_index(&format!("symbol_{}", i + 1)),
             ) {
                 graph.add_edge(from, to, EdgeKind::Reference);
             }
         }
-        
+
         // Sequential LSIF generation
-        group.bench_with_input(
-            BenchmarkId::new("sequential", size),
-            &graph,
-            |b, graph| {
-                b.iter(|| {
-                    lsif_indexer::core::generate_lsif(graph.clone()).unwrap()
-                })
-            }
-        );
-        
+        group.bench_with_input(BenchmarkId::new("sequential", size), &graph, |b, graph| {
+            b.iter(|| lsif_indexer::core::generate_lsif(graph.clone()).unwrap())
+        });
+
         // Parallel LSIF generation
-        group.bench_with_input(
-            BenchmarkId::new("parallel", size),
-            &graph,
-            |b, graph| {
-                b.iter(|| {
-                    let generator = ParallelLsifGenerator::new(graph.clone());
-                    let elements = generator.generate_parallel().unwrap();
-                    // Convert to JSON lines format
-                    elements.into_iter()
-                        .map(|elem| serde_json::to_string(&elem).unwrap())
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                })
-            }
-        );
+        group.bench_with_input(BenchmarkId::new("parallel", size), &graph, |b, graph| {
+            b.iter(|| {
+                let generator = ParallelLsifGenerator::new(graph.clone());
+                let elements = generator.generate_parallel().unwrap();
+                // Convert to JSON lines format
+                elements
+                    .into_iter()
+                    .map(|elem| serde_json::to_string(&elem).unwrap())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            })
+        });
     }
-    
+
     group.finish();
 }
 
 fn benchmark_file_hash_calculation(c: &mut Criterion) {
     let mut group = c.benchmark_group("file_hash_calculation");
-    
+
     for num_files in [10, 50, 100].iter() {
         let files: Vec<(PathBuf, String)> = (0..*num_files)
             .map(|i| {
@@ -409,11 +429,10 @@ fn benchmark_file_hash_calculation(c: &mut Criterion) {
                 (path, content)
             })
             .collect();
-        
-        let file_refs: Vec<(&PathBuf, String)> = files.iter()
-            .map(|(p, c)| (p, c.clone()))
-            .collect();
-        
+
+        let file_refs: Vec<(&PathBuf, String)> =
+            files.iter().map(|(p, c)| (p, c.clone())).collect();
+
         // Sequential hash calculation
         group.bench_with_input(
             BenchmarkId::new("sequential", num_files),
@@ -427,21 +446,17 @@ fn benchmark_file_hash_calculation(c: &mut Criterion) {
                     }
                     hashes
                 })
-            }
+            },
         );
-        
+
         // Parallel hash calculation
         group.bench_with_input(
             BenchmarkId::new("parallel", num_files),
             &file_refs,
-            |b, files| {
-                b.iter(|| {
-                    ParallelFileAnalyzer::calculate_hashes_parallel(files.clone())
-                })
-            }
+            |b, files| b.iter(|| ParallelFileAnalyzer::calculate_hashes_parallel(files.clone())),
         );
     }
-    
+
     group.finish();
 }
 

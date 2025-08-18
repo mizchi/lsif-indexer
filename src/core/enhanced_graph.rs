@@ -1,10 +1,10 @@
-use std::collections::{HashMap, HashSet, VecDeque};
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet, VecDeque};
 
-use super::{Symbol, SymbolKind, EdgeKind, Range};
+use super::{EdgeKind, Range, Symbol, SymbolKind};
 
 /// 拡張されたコードグラフ（高度な解析機能付き）
 #[derive(Debug, Clone)]
@@ -24,19 +24,19 @@ pub struct EnhancedCodeGraph {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TypeInfo {
     pub symbol_id: String,
-    pub base_types: Vec<String>,      // 継承元
-    pub derived_types: Vec<String>,    // 派生型
-    pub implements: Vec<String>,       // 実装インターフェース
-    pub methods: Vec<String>,          // メソッド一覧
-    pub fields: Vec<String>,           // フィールド一覧
+    pub base_types: Vec<String>,    // 継承元
+    pub derived_types: Vec<String>, // 派生型
+    pub implements: Vec<String>,    // 実装インターフェース
+    pub methods: Vec<String>,       // メソッド一覧
+    pub fields: Vec<String>,        // フィールド一覧
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CallInfo {
     pub symbol_id: String,
-    pub calls: Vec<String>,           // この関数が呼び出す関数
-    pub called_by: Vec<String>,       // この関数を呼び出す関数
-    pub depth: usize,                 // コールスタックの深さ
+    pub calls: Vec<String>,     // この関数が呼び出す関数
+    pub called_by: Vec<String>, // この関数を呼び出す関数
+    pub depth: usize,           // コールスタックの深さ
 }
 
 impl EnhancedCodeGraph {
@@ -66,35 +66,36 @@ impl EnhancedCodeGraph {
 
         let node_index = self.graph.add_node(symbol.clone());
         self.symbol_index.insert(symbol.id.clone(), node_index);
-        
+
         // ファイルインデックスに追加
         self.file_symbols
             .entry(symbol.file_path.clone())
             .or_default()
             .push(node_index);
-        
+
         // 使用回数を初期化
         self.usage_count.insert(symbol.id.clone(), 0);
-        
+
         node_index
     }
 
     /// エッジ追加時に関連情報を更新
     pub fn add_edge_enhanced(&mut self, from: NodeIndex, to: NodeIndex, kind: EdgeKind) {
         self.graph.add_edge(from, to, kind.clone());
-        
+
         // 使用回数を更新
         if let Some(to_symbol) = self.graph.node_weight(to) {
             *self.usage_count.entry(to_symbol.id.clone()).or_insert(0) += 1;
         }
-        
+
         // コールグラフを更新
         if matches!(kind, EdgeKind::Reference) {
-            if let (Some(from_symbol), Some(to_symbol)) = 
-                (self.graph.node_weight(from), self.graph.node_weight(to)) {
-                
+            if let (Some(from_symbol), Some(to_symbol)) =
+                (self.graph.node_weight(from), self.graph.node_weight(to))
+            {
                 if matches!(from_symbol.kind, SymbolKind::Function | SymbolKind::Method) {
-                    let from_info = self.call_graph
+                    let from_info = self
+                        .call_graph
                         .entry(from_symbol.id.clone())
                         .or_insert_with(|| CallInfo {
                             symbol_id: from_symbol.id.clone(),
@@ -103,26 +104,28 @@ impl EnhancedCodeGraph {
                             depth: 0,
                         });
                     from_info.calls.push(to_symbol.id.clone());
-                    
-                    let to_info = self.call_graph
-                        .entry(to_symbol.id.clone())
-                        .or_insert_with(|| CallInfo {
-                            symbol_id: to_symbol.id.clone(),
-                            calls: Vec::new(),
-                            called_by: Vec::new(),
-                            depth: 0,
-                        });
+
+                    let to_info =
+                        self.call_graph
+                            .entry(to_symbol.id.clone())
+                            .or_insert_with(|| CallInfo {
+                                symbol_id: to_symbol.id.clone(),
+                                calls: Vec::new(),
+                                called_by: Vec::new(),
+                                depth: 0,
+                            });
                     to_info.called_by.push(from_symbol.id.clone());
                 }
             }
         }
-        
+
         // 型階層を更新
         if matches!(kind, EdgeKind::TypeDefinition | EdgeKind::Implementation) {
-            if let (Some(from_symbol), Some(to_symbol)) = 
-                (self.graph.node_weight(from), self.graph.node_weight(to)) {
-                
-                let from_info = self.type_hierarchy
+            if let (Some(from_symbol), Some(to_symbol)) =
+                (self.graph.node_weight(from), self.graph.node_weight(to))
+            {
+                let from_info = self
+                    .type_hierarchy
                     .entry(from_symbol.id.clone())
                     .or_insert_with(|| TypeInfo {
                         symbol_id: from_symbol.id.clone(),
@@ -132,12 +135,13 @@ impl EnhancedCodeGraph {
                         methods: Vec::new(),
                         fields: Vec::new(),
                     });
-                
+
                 match kind {
                     EdgeKind::TypeDefinition => {
                         from_info.base_types.push(to_symbol.id.clone());
-                        
-                        let to_info = self.type_hierarchy
+
+                        let to_info = self
+                            .type_hierarchy
                             .entry(to_symbol.id.clone())
                             .or_insert_with(|| TypeInfo {
                                 symbol_id: to_symbol.id.clone(),
@@ -165,16 +169,16 @@ impl EnhancedCodeGraph {
         if parts.len() != 2 {
             return None;
         }
-        
+
         let file_path = parts[0];
         let pos_parts: Vec<&str> = parts[1].split(':').collect();
         if pos_parts.len() < 2 {
             return None;
         }
-        
+
         let line: u32 = pos_parts[0].parse().ok()?;
         let column: u32 = pos_parts[1].parse().ok()?;
-        
+
         // ファイル内のシンボルを検索
         if let Some(file_symbols) = self.file_symbols.get(file_path) {
             for &node_idx in file_symbols {
@@ -193,14 +197,14 @@ impl EnhancedCodeGraph {
                 }
             }
         }
-        
+
         None
     }
 
     /// 改善された参照検索
     pub fn find_references_enhanced(&self, symbol_id: &str) -> Vec<&Symbol> {
         let mut references = Vec::new();
-        
+
         if let Some(&node_idx) = self.symbol_index.get(symbol_id) {
             // 入力エッジ（このシンボルを参照している）を探す
             for edge in self.graph.edges_directed(node_idx, Direction::Incoming) {
@@ -211,7 +215,7 @@ impl EnhancedCodeGraph {
                 }
             }
         }
-        
+
         references
     }
 
@@ -222,17 +226,17 @@ impl EnhancedCodeGraph {
             outgoing: Vec::new(),
             incoming: Vec::new(),
         };
-        
+
         // BFSで呼び出し階層を探索
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
         queue.push_back((function_id.to_string(), 0));
-        
+
         while let Some((current_id, depth)) = queue.pop_front() {
             if depth >= max_depth || !visited.insert(current_id.clone()) {
                 continue;
             }
-            
+
             if let Some(info) = self.call_graph.get(&current_id) {
                 // 呼び出し先
                 for called in &info.calls {
@@ -243,7 +247,7 @@ impl EnhancedCodeGraph {
                     });
                     queue.push_back((called.clone(), depth + 1));
                 }
-                
+
                 // 呼び出し元
                 for caller in &info.called_by {
                     hierarchy.incoming.push(CallNode {
@@ -254,14 +258,14 @@ impl EnhancedCodeGraph {
                 }
             }
         }
-        
+
         hierarchy
     }
 
     /// デッドコード検出
     pub fn find_dead_code(&self) -> Vec<&Symbol> {
         let mut dead_symbols = Vec::new();
-        
+
         for (symbol_id, &count) in &self.usage_count {
             if count == 0 {
                 if let Some(symbol) = self.get_symbol(symbol_id) {
@@ -272,7 +276,7 @@ impl EnhancedCodeGraph {
                 }
             }
         }
-        
+
         dead_symbols
     }
 
@@ -287,14 +291,14 @@ impl EnhancedCodeGraph {
             fields: Vec::new(),
             related_types: HashSet::new(),
         };
-        
+
         if let Some(info) = self.type_hierarchy.get(type_id) {
             relations.base_types = info.base_types.clone();
             relations.derived_types = info.derived_types.clone();
             relations.implementations = info.implements.clone();
             relations.methods = info.methods.clone();
             relations.fields = info.fields.clone();
-            
+
             // 関連型を収集
             for base in &info.base_types {
                 relations.related_types.insert(base.clone());
@@ -306,51 +310,52 @@ impl EnhancedCodeGraph {
                 relations.related_types.insert(impl_type.clone());
             }
         }
-        
+
         relations
     }
 
     /// クロスファイル解析
     pub fn analyze_cross_file_dependencies(&self) -> HashMap<String, Vec<String>> {
         let mut dependencies: HashMap<String, Vec<String>> = HashMap::new();
-        
+
         for edge in self.graph.edge_indices() {
             if let Some((source, target)) = self.graph.edge_endpoints(edge) {
-                if let (Some(from_symbol), Some(to_symbol)) = 
-                    (self.graph.node_weight(source), 
-                     self.graph.node_weight(target)) {
-                
-                if from_symbol.file_path != to_symbol.file_path {
-                    dependencies
-                        .entry(from_symbol.file_path.clone())
-                        .or_default()
-                        .push(to_symbol.file_path.clone());
+                if let (Some(from_symbol), Some(to_symbol)) = (
+                    self.graph.node_weight(source),
+                    self.graph.node_weight(target),
+                ) {
+                    if from_symbol.file_path != to_symbol.file_path {
+                        dependencies
+                            .entry(from_symbol.file_path.clone())
+                            .or_default()
+                            .push(to_symbol.file_path.clone());
+                    }
                 }
             }
         }
-    }
-        
+
         // 重複を削除
         for deps in dependencies.values_mut() {
             deps.sort();
             deps.dedup();
         }
-        
+
         dependencies
     }
 
     // ヘルパーメソッド
     fn get_symbol(&self, symbol_id: &str) -> Option<&Symbol> {
-        self.symbol_index.get(symbol_id)
+        self.symbol_index
+            .get(symbol_id)
             .and_then(|&idx| self.graph.node_weight(idx))
     }
 
     fn is_entry_point(&self, symbol: &Symbol) -> bool {
-        symbol.name == "main" || 
-        symbol.name == "Main" ||
-        symbol.name.ends_with("::main") ||
-        symbol.name.contains("test") ||
-        symbol.name.starts_with("test_")
+        symbol.name == "main"
+            || symbol.name == "Main"
+            || symbol.name.ends_with("::main")
+            || symbol.name.contains("test")
+            || symbol.name.starts_with("test_")
     }
 
     pub fn symbol_count(&self) -> usize {
@@ -364,15 +369,15 @@ impl Range {
         if line < self.start.line || line > self.end.line {
             return false;
         }
-        
+
         if line == self.start.line && character < self.start.character {
             return false;
         }
-        
+
         if line == self.end.line && character > self.end.character {
             return false;
         }
-        
+
         true
     }
 }

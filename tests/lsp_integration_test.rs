@@ -1,9 +1,9 @@
 use anyhow::Result;
 use lsif_indexer::cli::{
-    lsp_client::LspClient,
-    lsp_features::{LspClient as FeatureClient, DependencyGraph, LspCodeAnalyzer},
     lsp_adapter::{detect_language, LspAdapter, RustAnalyzerAdapter, TypeScriptAdapter},
+    lsp_client::LspClient,
     lsp_commands::*,
+    lsp_features::{DependencyGraph, LspClient as FeatureClient, LspCodeAnalyzer},
     lsp_integration::LspIntegration,
 };
 use lsp_types::*;
