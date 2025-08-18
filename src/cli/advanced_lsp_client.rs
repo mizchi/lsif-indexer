@@ -115,7 +115,7 @@ impl AdvancedLspClient {
     
     pub fn document_symbols(&self, uri: Url) -> Result<Vec<DocumentSymbol>> {
         let mut client = self.inner.lock().unwrap();
-        client.get_document_symbols(&uri.to_string())
+        client.get_document_symbols(uri.as_ref())
     }
     
     pub fn call_hierarchy_prepare(
@@ -256,7 +256,6 @@ impl AdvancedLspClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     
     #[test]
     fn test_advanced_client_creation() {

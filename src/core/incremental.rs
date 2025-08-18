@@ -167,7 +167,7 @@ impl IncrementalIndex {
         
         // Start from entry points (main functions, exported symbols, tests)
         for symbol in self.graph.get_all_symbols() {
-            if self.is_entry_point(&symbol) {
+            if self.is_entry_point(symbol) {
                 live_symbols.insert(symbol.id.clone());
                 to_visit.push(symbol.id.clone());
             }

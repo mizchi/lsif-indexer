@@ -18,6 +18,12 @@ pub struct EnhancedIndexer {
     processed_files: HashSet<PathBuf>,
 }
 
+impl Default for EnhancedIndexer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EnhancedIndexer {
     pub fn new() -> Self {
         Self {
@@ -46,7 +52,7 @@ impl EnhancedIndexer {
         // Now analyze references for each symbol
         info!("Analyzing references for {} symbols", file_syms.len());
         for symbol in &file_syms {
-            self.analyze_symbol_references(&symbol, &file_uri, client)?;
+            self.analyze_symbol_references(symbol, &file_uri, client)?;
         }
         
         self.file_symbols.insert(file_uri.clone(), file_syms);
@@ -70,7 +76,7 @@ impl EnhancedIndexer {
         // Index each file
         for (i, file) in files.iter().enumerate() {
             info!("Processing file {}/{}: {}", i + 1, files.len(), file.display());
-            if let Err(e) = self.index_file_with_references(&file, &mut client) {
+            if let Err(e) = self.index_file_with_references(file, &mut client) {
                 warn!("Failed to index {}: {}", file.display(), e);
             }
         }

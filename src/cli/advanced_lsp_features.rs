@@ -1,11 +1,11 @@
-use anyhow::{Result, Context};
+use anyhow::Result;
 use lsp_types::*;
 use lsp_types::request::{GotoImplementationParams, GotoImplementationResponse, GotoTypeDefinitionParams, GotoTypeDefinitionResponse, GotoDeclarationParams, GotoDeclarationResponse};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
-use tracing::{debug, info, warn};
+use tracing::info;
 
 use super::lsp_adapter::{GenericLspClient, LspAdapter};
 
@@ -506,6 +506,12 @@ pub struct DependencyGraph {
     edges: HashMap<String, Vec<String>>,
 }
 
+impl Default for DependencyGraph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DependencyGraph {
     pub fn new() -> Self {
         Self {
@@ -516,7 +522,7 @@ impl DependencyGraph {
     pub fn add_dependency(&mut self, from: &str, to: &str) {
         self.edges
             .entry(from.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(to.to_string());
     }
     

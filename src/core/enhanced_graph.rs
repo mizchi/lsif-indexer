@@ -70,7 +70,7 @@ impl EnhancedCodeGraph {
         // ファイルインデックスに追加
         self.file_symbols
             .entry(symbol.file_path.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(node_index);
         
         // 使用回数を初期化
@@ -323,7 +323,7 @@ impl EnhancedCodeGraph {
                 if from_symbol.file_path != to_symbol.file_path {
                     dependencies
                         .entry(from_symbol.file_path.clone())
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(to_symbol.file_path.clone());
                 }
             }

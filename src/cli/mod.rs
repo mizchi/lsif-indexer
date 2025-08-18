@@ -557,7 +557,7 @@ fn update_incremental(index_path: &str, source_path: &str, detect_dead: bool) ->
     // Check if update is needed
     let path = std::path::Path::new(source_path);
     if !index.needs_update(path, &file_hash) {
-        println!("File {} is up to date", source_path);
+        println!("File {source_path} is up to date");
         return Ok(());
     }
     
@@ -588,7 +588,7 @@ fn update_incremental(index_path: &str, source_path: &str, detect_dead: bool) ->
     if detect_dead {
         println!("\nDead code detected: {} symbols", result.dead_symbols.len());
         for symbol_id in result.dead_symbols.iter().take(10) {
-            println!("  - {}", symbol_id);
+            println!("  - {symbol_id}");
         }
         if result.dead_symbols.len() > 10 {
             println!("  ... and {} more", result.dead_symbols.len() - 10);
@@ -623,15 +623,15 @@ fn show_dead_code(index_path: &str) -> Result<()> {
         for symbol_id in dead_symbols {
             if let Some(path) = index.symbol_to_file.get(symbol_id) {
                 by_file.entry(path.to_string_lossy().to_string())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(symbol_id.clone());
             }
         }
         
         for (file, symbols) in by_file {
-            println!("\n{}:", file);
+            println!("\n{file}:");
             for symbol in symbols.iter().take(5) {
-                println!("  - {}", symbol);
+                println!("  - {symbol}");
             }
             if symbols.len() > 5 {
                 println!("  ... and {} more", symbols.len() - 5);
@@ -656,9 +656,9 @@ fn show_definition_chain(index_path: &str, symbol_id: &str, show_all: bool) -> R
         let chains = analyzer.get_all_definition_chains(symbol_id);
         
         if chains.is_empty() {
-            println!("No definition chains found for symbol: {}", symbol_id);
+            println!("No definition chains found for symbol: {symbol_id}");
         } else {
-            println!("All definition chains for {}:", symbol_id);
+            println!("All definition chains for {symbol_id}:");
             for (i, chain) in chains.iter().enumerate() {
                 println!("\n  Chain {}:", i + 1);
                 println!("    {}", format_definition_chain(chain));
@@ -669,7 +669,7 @@ fn show_definition_chain(index_path: &str, symbol_id: &str, show_all: bool) -> R
         // Show single definition chain
         match analyzer.get_definition_chain(symbol_id) {
             Some(chain) => {
-                println!("Definition chain for {}:", symbol_id);
+                println!("Definition chain for {symbol_id}:");
                 println!("  {}", format_definition_chain(&chain));
                 
                 if chain.has_cycle {
@@ -686,12 +686,12 @@ fn show_definition_chain(index_path: &str, symbol_id: &str, show_all: bool) -> R
                     );
                     
                     if let Some(doc) = &ultimate.documentation {
-                        println!("  Documentation: {}", doc);
+                        println!("  Documentation: {doc}");
                     }
                 }
             }
             None => {
-                println!("Symbol not found: {}", symbol_id);
+                println!("Symbol not found: {symbol_id}");
             }
         }
     }
@@ -786,7 +786,7 @@ fn show_type_relations(index_path: &str, type_symbol_id: &str, max_depth: usize,
         println!("\nTotal references found (recursive): {}", all_refs.len());
         
     } else {
-        println!("Symbol not found or not a type: {}", type_symbol_id);
+        println!("Symbol not found or not a type: {type_symbol_id}");
     }
     
     Ok(())
@@ -809,13 +809,13 @@ fn execute_query_pattern(index_path: &str, pattern: &str, limit: usize) -> Resul
     
     // Format and display results
     if results.matches.is_empty() {
-        println!("No matches found for pattern: {}", pattern);
+        println!("No matches found for pattern: {pattern}");
     } else {
         let total_matches = results.matches.len();
         let mut limited_results = results;
         if limited_results.matches.len() > limit {
             limited_results.matches.truncate(limit);
-            println!("Showing first {} of {} matches\n", limit, total_matches);
+            println!("Showing first {limit} of {total_matches} matches\n");
         }
         
         println!("{}", format_query_results(&limited_results));
@@ -876,7 +876,7 @@ fn execute_lsp_command(command: LspCommands) -> Result<()> {
             let hover_info = runtime.block_on(
                 lsp.get_hover_info(&PathBuf::from(&file), line, column)
             )?;
-            println!("{}", hover_info);
+            println!("{hover_info}");
         }
         LspCommands::Complete { file, line, column } => {
             let mut lsp = LspIntegration::new(PathBuf::from("."))?;
@@ -941,9 +941,8 @@ fn execute_lsp_command(command: LspCommands) -> Result<()> {
                 for (uri, edits) in changes {
                     println!("  File: {}", uri.path());
                     for edit in edits {
-                        println!("    - Line {}: {} -> {}", 
+                        println!("    - Line {}: ... -> {}", 
                             edit.range.start.line + 1,
-                            "...",
                             edit.new_text
                         );
                     }

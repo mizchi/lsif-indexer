@@ -113,7 +113,7 @@ impl<'a> TypeRelationsAnalyzer<'a> {
                     all_references.push(reference.clone());
                     
                     // Add to queue for recursive search
-                    if depth + 1 <= max_depth {
+                    if depth < max_depth {
                         queue.push_back((reference.id.clone(), depth + 1));
                     }
                 }
@@ -128,7 +128,7 @@ impl<'a> TypeRelationsAnalyzer<'a> {
                             if visited.insert(source.id.clone()) {
                                 all_references.push(source.clone());
                                 
-                                if depth + 1 <= max_depth {
+                                if depth < max_depth {
                                     queue.push_back((source.id.clone(), depth + 1));
                                 }
                             }
@@ -277,7 +277,7 @@ impl<'a> TypeRelationsAnalyzer<'a> {
                     }
 
                     // Recurse
-                    if current_depth + 1 <= max_depth {
+                    if current_depth < max_depth {
                         self.collect_recursive(
                             &source.id,
                             users,

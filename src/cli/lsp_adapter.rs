@@ -210,7 +210,7 @@ impl GenericLspClient {
         let request_str = serde_json::to_string(&request)?;
         let content_length = request_str.len();
         
-        writeln!(self.writer, "Content-Length: {}\r", content_length)?;
+        writeln!(self.writer, "Content-Length: {content_length}\r")?;
         writeln!(self.writer, "\r")?;
         self.writer.write_all(request_str.as_bytes())?;
         self.writer.flush()?;
@@ -241,7 +241,7 @@ impl GenericLspClient {
         let notification_str = serde_json::to_string(&notification)?;
         let content_length = notification_str.len();
         
-        writeln!(self.writer, "Content-Length: {}\r", content_length)?;
+        writeln!(self.writer, "Content-Length: {content_length}\r")?;
         writeln!(self.writer, "\r")?;
         self.writer.write_all(notification_str.as_bytes())?;
         self.writer.flush()?;

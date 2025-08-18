@@ -423,8 +423,8 @@ impl LsifParser {
                                 name: format!("symbol_{out_v}"),
                                 file_path: doc_uri.clone(),
                                 range: Range {
-                                    start: range.start.clone(),
-                                    end: range.end.clone(),
+                                    start: range.start,
+                                    end: range.end,
                                 },
                                 documentation: None,
                             };

@@ -127,7 +127,7 @@ impl OptimizedIncrementalIndexer {
         
         // ファイル内容を読み込み
         let content = std::fs::read_to_string(path)?;
-        let file_hash = calculate_file_hash(&content);
+        let _file_hash = calculate_file_hash(&content);
         
         // 既存のシンボルをキャッシュから取得（高速）
         let old_symbols = self.get_cached_symbols(path)?;
@@ -270,7 +270,7 @@ impl OptimizedIncrementalIndexer {
     }
 
     // ヘルパーメソッド
-    fn collect_source_files(&self, project_path: &Path) -> Result<Vec<PathBuf>> {
+    fn collect_source_files(&self, _project_path: &Path) -> Result<Vec<PathBuf>> {
         // 実装簡略化
         Ok(Vec::new())
     }
@@ -340,7 +340,7 @@ impl IncrementalWatcher {
                 // キャッシュヒット率を表示
                 if result.files_checked > 0 {
                     let hit_rate = (result.cache_hits as f64 / result.files_checked as f64) * 100.0;
-                    println!("Cache hit rate: {:.1}%", hit_rate);
+                    println!("Cache hit rate: {hit_rate:.1}%");
                 }
             }
             

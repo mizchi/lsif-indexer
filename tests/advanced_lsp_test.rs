@@ -2,7 +2,6 @@
 mod tests {
     use lsif_indexer::cli::advanced_lsp_features::*;
     use lsif_indexer::cli::lsp_adapter::*;
-    use lsif_indexer::cli::lsp_commands::*;
     use lsp_types::*;
     use std::sync::Arc;
     use tempfile::TempDir;
@@ -288,7 +287,6 @@ fn main() {
 
 #[cfg(test)]
 mod command_tests {
-    use lsif_indexer::cli::lsp_commands::*;
     use tempfile::TempDir;
     use std::fs;
     

@@ -115,7 +115,6 @@ mod tests {
                 detail: Some("fn main()".to_string()),
                 kind: lsp_types::SymbolKind::FUNCTION,
                 tags: None,
-                deprecated: None,
                 range: LspRange {
                     start: LspPosition { line: 65, character: 0 },
                     end: LspPosition { line: 70, character: 1 },
@@ -131,7 +130,6 @@ mod tests {
                 detail: Some("struct TestStruct".to_string()),
                 kind: lsp_types::SymbolKind::STRUCT,
                 tags: None,
-                deprecated: None,
                 range: LspRange {
                     start: LspPosition { line: 10, character: 0 },
                     end: LspPosition { line: 15, character: 1 },
@@ -146,8 +144,7 @@ mod tests {
                         detail: Some("String".to_string()),
                         kind: lsp_types::SymbolKind::FIELD,
                         tags: None,
-                        deprecated: None,
-                        range: LspRange {
+                                range: LspRange {
                             start: LspPosition { line: 11, character: 4 },
                             end: LspPosition { line: 11, character: 20 },
                         },

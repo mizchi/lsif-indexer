@@ -54,7 +54,7 @@ impl IncrementalStorage {
         // Update only changed symbols
         for symbol_id in &result.added_symbols {
             if let Some(symbol) = index.graph.find_symbol(symbol_id) {
-                let key = format!("symbol:{}", symbol_id);
+                let key = format!("symbol:{symbol_id}");
                 let value = bincode::serialize(symbol)?;
                 batch.insert(key.as_bytes(), value);
                 metrics.symbols_written += 1;
@@ -63,7 +63,7 @@ impl IncrementalStorage {
         
         for symbol_id in &result.updated_symbols {
             if let Some(symbol) = index.graph.find_symbol(symbol_id) {
-                let key = format!("symbol:{}", symbol_id);
+                let key = format!("symbol:{symbol_id}");
                 let value = bincode::serialize(symbol)?;
                 batch.insert(key.as_bytes(), value);
                 metrics.symbols_updated += 1;
@@ -71,7 +71,7 @@ impl IncrementalStorage {
         }
         
         for symbol_id in &result.removed_symbols {
-            let key = format!("symbol:{}", symbol_id);
+            let key = format!("symbol:{symbol_id}");
             batch.remove(key.as_bytes());
             metrics.symbols_removed += 1;
         }
@@ -166,7 +166,7 @@ impl IncrementalStorage {
         let mut symbols = Vec::new();
         
         for symbol_id in symbol_ids {
-            let key = format!("symbol:{}", symbol_id);
+            let key = format!("symbol:{symbol_id}");
             if let Some(data) = self.symbol_tree.get(key)? {
                 let symbol: Symbol = bincode::deserialize(&data)?;
                 symbols.push(symbol);

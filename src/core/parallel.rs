@@ -13,6 +13,12 @@ pub struct ParallelCodeGraph {
     inner: Arc<Mutex<CodeGraph>>,
 }
 
+impl Default for ParallelCodeGraph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ParallelCodeGraph {
     pub fn new() -> Self {
         Self {
@@ -82,6 +88,12 @@ impl ParallelCodeGraph {
 /// 並列インクリメンタルインデックス
 pub struct ParallelIncrementalIndex {
     inner: Arc<Mutex<IncrementalIndex>>,
+}
+
+impl Default for ParallelIncrementalIndex {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ParallelIncrementalIndex {
@@ -267,7 +279,7 @@ pub mod parallel_lsif {
             for symbol in self.graph.get_all_symbols() {
                 documents_map
                     .entry(symbol.file_path.clone())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(symbol.clone());
             }
             

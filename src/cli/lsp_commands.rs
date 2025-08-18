@@ -1,14 +1,13 @@
 use anyhow::{Result, Context};
 use clap::{Args, Subcommand};
 use lsp_types::*;
-use lsp_types::request::{GotoImplementationParams, GotoImplementationResponse, GotoTypeDefinitionParams, GotoTypeDefinitionResponse, GotoDeclarationParams, GotoDeclarationResponse};
+use lsp_types::request::{GotoImplementationParams, GotoImplementationResponse, GotoTypeDefinitionParams, GotoTypeDefinitionResponse};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use tracing::{info, debug};
 
-use super::advanced_lsp_features::{AdvancedLspClient, LspCodeAnalyzer, DependencyGraph, FileStructure, SymbolInfo};
-use super::lsp_adapter::{detect_language, LspAdapter};
+use super::advanced_lsp_features::{AdvancedLspClient, LspCodeAnalyzer};
+use super::lsp_adapter::detect_language;
 
 #[derive(Debug, Args)]
 pub struct LspCommand {
@@ -478,7 +477,7 @@ impl LspCommand {
         let structure = analyzer.analyze_file_structure(uri.as_str())?;
         
         println!("=== Document Symbols ===");
-        println!("File: {}", file);
+        println!("File: {file}");
         println!();
         
         for symbol in &structure.symbols {
@@ -498,7 +497,7 @@ impl LspCommand {
         })?;
         
         println!("=== Workspace Symbols ===");
-        println!("Query: {}", query);
+        println!("Query: {query}");
         
         if let Some(symbols) = result {
             let symbols: Vec<_> = symbols.into_iter().take(limit).collect();
@@ -513,7 +512,7 @@ impl LspCommand {
                     symbol.location.range.start.character + 1
                 );
                 if let Some(container) = &symbol.container_name {
-                    println!("    Container: {}", container);
+                    println!("    Container: {container}");
                 }
             }
         } else {
@@ -562,10 +561,10 @@ impl LspCommand {
             for (i, item) in items.iter().enumerate().take(20) {
                 println!("[{}] {}", i + 1, item.label);
                 if let Some(kind) = item.kind {
-                    println!("    Kind: {:?}", kind);
+                    println!("    Kind: {kind:?}");
                 }
                 if let Some(detail) = &item.detail {
-                    println!("    Detail: {}", detail);
+                    println!("    Detail: {detail}");
                 }
                 if let Some(doc) = &item.documentation {
                     match doc {
@@ -615,7 +614,7 @@ impl LspCommand {
                 if let Some(doc) = &signature.documentation {
                     match doc {
                         Documentation::String(s) => {
-                            println!("    Doc: {}", s);
+                            println!("    Doc: {s}");
                         }
                         Documentation::MarkupContent(content) => {
                             println!("    Doc: {}", content.value);
@@ -691,7 +690,7 @@ impl LspCommand {
             for (i, action) in actions.iter().enumerate() {
                 println!("[{}] {}", i + 1, action.title);
                 if let Some(kind) = &action.kind {
-                    println!("    Kind: {:?}", kind);
+                    println!("    Kind: {kind:?}");
                 }
                 if let Some(edit) = &action.edit {
                     println!("    Has workspace edit with {} changes", edit.changes.as_ref().map(|c| c.len()).unwrap_or(0));
@@ -774,7 +773,7 @@ impl LspCommand {
         })?;
         
         println!("=== Rename Result ===");
-        println!("New name: {}", new_name);
+        println!("New name: {new_name}");
         
         if let Some(edit) = result {
             self.print_workspace_edit(&edit);
@@ -961,7 +960,7 @@ impl LspCommand {
         let diagnostics = client.get_diagnostics(&uri);
         
         println!("=== Diagnostics ===");
-        println!("File: {}", file);
+        println!("File: {file}");
         
         let filtered_diagnostics: Vec<_> = if let Some(severity_filter) = severity {
             let severity = match severity_filter {
@@ -1001,12 +1000,12 @@ impl LspCommand {
             );
             if let Some(code) = &diagnostic.code {
                 match code {
-                    NumberOrString::Number(n) => println!("    Code: {}", n),
-                    NumberOrString::String(s) => println!("    Code: {}", s),
+                    NumberOrString::Number(n) => println!("    Code: {n}"),
+                    NumberOrString::String(s) => println!("    Code: {s}"),
                 }
             }
             if let Some(source) = &diagnostic.source {
-                println!("    Source: {}", source);
+                println!("    Source: {source}");
             }
         }
         
@@ -1039,7 +1038,7 @@ impl LspCommand {
         })?;
         
         println!("=== Inlay Hints ===");
-        println!("File: {}", file);
+        println!("File: {file}");
         println!("Range: lines {} to {}", 
             range.start.line + 1,
             range.end.line + 1
@@ -1058,7 +1057,7 @@ impl LspCommand {
                 
                 match &hint.label {
                     InlayHintLabel::String(s) => {
-                        println!("    Label: {}", s);
+                        println!("    Label: {s}");
                     }
                     InlayHintLabel::LabelParts(parts) => {
                         print!("    Label: ");
@@ -1070,13 +1069,13 @@ impl LspCommand {
                 }
                 
                 if let Some(kind) = &hint.kind {
-                    println!("    Kind: {:?}", kind);
+                    println!("    Kind: {kind:?}");
                 }
                 
                 if let Some(tooltip) = &hint.tooltip {
                     match tooltip {
                         InlayHintTooltip::String(s) => {
-                            println!("    Tooltip: {}", s);
+                            println!("    Tooltip: {s}");
                         }
                         InlayHintTooltip::MarkupContent(content) => {
                             println!("    Tooltip: {}", content.value);
@@ -1098,8 +1097,8 @@ impl LspCommand {
         let analyzer = LspCodeAnalyzer::new(Arc::new(client));
         
         println!("=== Dependencies Analysis ===");
-        println!("File: {}", file);
-        println!("Recursive: {}", recursive);
+        println!("File: {file}");
+        println!("Recursive: {recursive}");
         println!();
         
         if recursive {
@@ -1108,9 +1107,9 @@ impl LspCommand {
             
             println!("Dependency graph ({} files):", deps.len());
             for (from, to_list) in deps {
-                println!("\n{}", from);
+                println!("\n{from}");
                 for to in to_list {
-                    println!("  -> {}", to);
+                    println!("  -> {to}");
                 }
             }
         } else {
@@ -1120,7 +1119,7 @@ impl LspCommand {
             
             // Analyze each symbol for external dependencies
             for symbol in &structure.symbols {
-                self.analyze_symbol_dependencies(&analyzer, &symbol, &uri)?;
+                self.analyze_symbol_dependencies(&analyzer, symbol, &uri)?;
             }
         }
         
@@ -1146,7 +1145,7 @@ impl LspCommand {
     
     fn print_marked_string(&self, content: &MarkedString) {
         match content {
-            MarkedString::String(s) => println!("{}", s),
+            MarkedString::String(s) => println!("{s}"),
             MarkedString::LanguageString(ls) => {
                 println!("```{}", ls.language);
                 println!("{}", ls.value);
@@ -1221,7 +1220,7 @@ impl LspCommand {
         );
         
         if let Some(detail) = &symbol.detail {
-            println!("{}  Detail: {}", indent_str, detail);
+            println!("{indent_str}  Detail: {detail}");
         }
         
         if hierarchical {
@@ -1269,7 +1268,7 @@ impl LspCommand {
         if let Some(changes) = &edit.changes {
             println!("Changes in {} files:", changes.len());
             for (uri, edits) in changes {
-                println!("\nFile: {}", uri);
+                println!("\nFile: {uri}");
                 println!("  {} edits", edits.len());
                 for (i, edit) in edits.iter().enumerate() {
                     println!("  [{}] {}:{} - {}:{}", 
@@ -1288,7 +1287,7 @@ impl LspCommand {
                 DocumentChanges::Edits(edits) => edits.len(),
                 DocumentChanges::Operations(ops) => ops.len(),
             };
-            println!("Document changes: {} operations", count);
+            println!("Document changes: {count} operations");
         }
         
         if let Some(change_annotations) = &edit.change_annotations {
@@ -1312,7 +1311,7 @@ impl LspCommand {
             let mut refs_by_file: HashMap<String, Vec<&Location>> = HashMap::new();
             for reference in &info.references {
                 refs_by_file.entry(reference.uri.to_string())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(reference);
             }
             

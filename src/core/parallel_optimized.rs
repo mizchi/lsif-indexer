@@ -111,6 +111,12 @@ pub struct OptimizedParallelIndex {
     index: Arc<RwLock<IncrementalIndex>>,
 }
 
+impl Default for OptimizedParallelIndex {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OptimizedParallelIndex {
     pub fn new() -> Self {
         Self {
@@ -135,7 +141,7 @@ impl OptimizedParallelIndex {
                 FileUpdate::Removed { path } => path.clone(),
                 FileUpdate::Added { path, .. } => path.clone(),
             };
-            grouped_updates.entry(path).or_insert_with(Vec::new).push(update);
+            grouped_updates.entry(path).or_default().push(update);
         }
         
         // 各ファイルグループを並列処理

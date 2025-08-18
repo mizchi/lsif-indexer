@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lsif_indexer::core::{
     CodeGraph, Symbol, SymbolKind, Range, Position, EdgeKind,
     generate_lsif, parse_lsif,

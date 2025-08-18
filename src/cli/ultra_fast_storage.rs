@@ -312,7 +312,7 @@ impl AffinityOptimizedStorage {
         items: Vec<(String, T)>,
     ) -> Result<()> {
         let num_cpus = num_cpus::get();
-        let chunk_size = (items.len() + num_cpus - 1) / num_cpus;
+        let chunk_size = items.len().div_ceil(num_cpus);
         
         // 各CPUコアに均等に分散
         items

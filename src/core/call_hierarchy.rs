@@ -264,9 +264,9 @@ pub fn format_hierarchy(hierarchy: &CallHierarchy, prefix: &str, is_last: bool) 
     let new_prefix = if hierarchy.depth == 0 {
         String::new()
     } else if is_last {
-        format!("{}    ", prefix)
+        format!("{prefix}    ")
     } else {
-        format!("{}│   ", prefix)
+        format!("{prefix}│   ")
     };
 
     // Format callers

@@ -560,16 +560,16 @@ impl fmt::Display for QueryParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             QueryParseError::ExpectedChar(ch, pos) => {
-                write!(f, "Expected '{}' at position {}", ch, pos)
+                write!(f, "Expected '{ch}' at position {pos}")
             }
             QueryParseError::UnmatchedParenthesis(pos) => {
-                write!(f, "Unmatched parenthesis at position {}", pos)
+                write!(f, "Unmatched parenthesis at position {pos}")
             }
             QueryParseError::UnmatchedBracket(pos) => {
-                write!(f, "Unmatched bracket at position {}", pos)
+                write!(f, "Unmatched bracket at position {pos}")
             }
             QueryParseError::InvalidSyntax(msg) => {
-                write!(f, "Invalid syntax: {}", msg)
+                write!(f, "Invalid syntax: {msg}")
             }
         }
     }

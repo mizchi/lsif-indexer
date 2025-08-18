@@ -163,7 +163,7 @@ impl LspIntegration {
                     );
                     
                     index.references.entry(symbol_id.clone())
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(Reference {
                             location: ref_id,
                             kind: "reference".to_string(),
@@ -180,7 +180,7 @@ impl LspIntegration {
                     );
                     
                     index.definitions.entry(symbol_id.clone())
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(def_id);
                 }
             }
