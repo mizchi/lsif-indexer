@@ -225,11 +225,15 @@ fn auto_index(db_path: &str, project_root: &str) -> Result<()> {
         let mut indexer = DifferentialIndexer::new(db_path, project_path)?;
         let result = indexer.index_differential()?;
         
+        // 初回は Modified として扱われるので、適切に表示
+        let total_files = result.files_added + result.files_modified;
+        let total_symbols = result.symbols_added + result.symbols_updated;
+        
         println!(
             "✅ Initial index created in {:.2}s ({} files, {} symbols)",
             start.elapsed().as_secs_f64(),
-            result.files_added,
-            result.symbols_added
+            total_files,
+            total_symbols
         );
         return Ok(());
     }

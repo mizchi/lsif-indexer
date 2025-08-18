@@ -206,15 +206,20 @@ impl DifferentialIndexer {
         }
 
         // CodeGraphを保存
+        debug!("Saving CodeGraph with {} symbols", graph.symbol_count());
         self.storage.save_data("graph", &graph)?;
+        debug!("CodeGraph saved successfully");
 
         // ファイルハッシュを保存
         if let Some(ref mut metadata) = self.metadata {
             metadata.file_content_hashes.extend(new_file_hashes.clone());
+            debug!("Updated file hashes: {} total", metadata.file_content_hashes.len());
         }
 
         // メタデータを更新
+        debug!("Updating metadata...");
         self.update_metadata()?;
+        debug!("Metadata updated successfully");
 
         result.duration = start.elapsed();
 
@@ -247,17 +252,22 @@ impl DifferentialIndexer {
 
         // ファイル拡張子で言語を判定
         let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+        debug!("Processing file: {} (extension: {})", path.display(), extension);
 
         match extension {
             "rs" => {
                 // Rustファイルの解析
                 let content = std::fs::read_to_string(path)?;
-                symbols.extend(self.extract_rust_symbols(path, &content)?);
+                let rust_symbols = self.extract_rust_symbols(path, &content)?;
+                debug!("Found {} Rust symbols in {}", rust_symbols.len(), path.display());
+                symbols.extend(rust_symbols);
             }
             "ts" | "tsx" | "js" | "jsx" => {
                 // TypeScript/JavaScriptファイルの解析
                 let content = std::fs::read_to_string(path)?;
-                symbols.extend(self.extract_typescript_symbols(path, &content)?);
+                let ts_symbols = self.extract_typescript_symbols(path, &content)?;
+                debug!("Found {} TypeScript symbols in {}", ts_symbols.len(), path.display());
+                symbols.extend(ts_symbols);
             }
             _ => {
                 debug!("Unsupported file type: {}", extension);
@@ -454,26 +464,26 @@ impl DifferentialIndexer {
 
     /// インデックス済みファイル数をカウント
     fn count_indexed_files(&self) -> Result<usize> {
-        let mut files = HashSet::new();
-
-        let keys = self.storage.list_keys()?;
-        for key in keys {
-            if key.starts_with("__") {
-                continue;
+        // CodeGraphから取得
+        if let Some(graph) = self.storage.load_data::<CodeGraph>("graph")? {
+            let mut files = HashSet::new();
+            for symbol in graph.get_all_symbols() {
+                files.insert(symbol.file_path.clone());
             }
-
-            if let Ok(Some(symbol)) = self.storage.load_data::<Symbol>(&key) {
-                files.insert(symbol.file_path);
-            }
+            Ok(files.len())
+        } else {
+            Ok(0)
         }
-
-        Ok(files.len())
     }
 
     /// 総シンボル数をカウント
     fn count_total_symbols(&self) -> Result<usize> {
-        let keys = self.storage.list_keys()?;
-        Ok(keys.iter().filter(|k| !k.starts_with("__")).count())
+        // CodeGraphから取得
+        if let Some(graph) = self.storage.load_data::<CodeGraph>("graph")? {
+            Ok(graph.symbol_count())
+        } else {
+            Ok(0)
+        }
     }
 
     /// 完全再インデックス

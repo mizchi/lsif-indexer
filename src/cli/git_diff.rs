@@ -59,11 +59,16 @@ impl GitDiffDetector {
 
     /// 前回のインデックス以降の変更ファイルを検出
     pub fn detect_changes_since(&mut self, last_commit: Option<&str>) -> Result<Vec<FileChange>> {
+        info!("Detecting changes since commit: {:?}", last_commit);
         if self.repo.is_some() {
-            self.detect_git_changes(last_commit)
+            let changes = self.detect_git_changes(last_commit)?;
+            info!("Git detected {} changes", changes.len());
+            Ok(changes)
         } else {
             // Gitリポジトリがない場合は全ファイルをコンテンツハッシュで管理
-            self.detect_all_files_with_hash()
+            let changes = self.detect_all_files_with_hash()?;
+            info!("Hash-based detection found {} changes", changes.len());
+            Ok(changes)
         }
     }
 
