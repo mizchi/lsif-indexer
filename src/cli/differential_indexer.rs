@@ -6,7 +6,7 @@ use tracing::{debug, info};
 
 use crate::cli::git_diff::{FileChange, FileChangeStatus, GitDiffDetector};
 use crate::cli::storage::IndexStorage;
-use crate::core::{Symbol, SymbolKind};
+use crate::core::{CodeGraph, Symbol, SymbolKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use walkdir;
@@ -81,6 +81,7 @@ impl DifferentialIndexer {
     pub fn index_differential(&mut self) -> Result<DifferentialIndexResult> {
         let start = Instant::now();
         info!("Starting differential indexing...");
+        debug!("Project root: {}", self.project_root.display());
 
         // 前回のメタデータからハッシュキャッシュを復元
         if let Some(ref metadata) = self.metadata {
@@ -109,6 +110,10 @@ impl DifferentialIndexer {
             duration: Duration::from_secs(0),
         };
 
+        // 既存のCodeGraphを読み込むか新規作成
+        let mut graph = self.storage.load_data::<CodeGraph>("graph")?
+            .unwrap_or_else(CodeGraph::new);
+
         // ファイルごとに処理
         let mut new_file_hashes = HashMap::new();
 
@@ -121,33 +126,87 @@ impl DifferentialIndexer {
             match change.status {
                 FileChangeStatus::Added => {
                     result.files_added += 1;
-                    let symbols_added = self.index_new_file(&change.path)?;
-                    result.symbols_added += symbols_added;
+                    let symbols = self.extract_symbols_from_file(&change.path)?;
+                    debug!("Extracted {} symbols from {}", symbols.len(), change.path.display());
+                    result.symbols_added += symbols.len();
+                    
+                    // グラフにシンボルを追加
+                    for symbol in symbols {
+                        debug!("Adding symbol: {} ({})", symbol.name, symbol.id);
+                        graph.add_symbol(symbol);
+                    }
                 }
                 FileChangeStatus::Modified | FileChangeStatus::Renamed { .. } => {
                     result.files_modified += 1;
-                    let (updated, deleted) = self.update_file_index(&change)?;
-                    result.symbols_updated += updated;
-                    result.symbols_deleted += deleted;
+                    
+                    // 既存のシンボルを削除
+                    let path_str = change.path.to_string_lossy();
+                    let old_symbols: Vec<_> = graph.get_all_symbols()
+                        .filter(|s| s.file_path == path_str)
+                        .map(|s| s.id.clone())
+                        .collect();
+                    
+                    for id in &old_symbols {
+                        graph.remove_symbol(id);
+                    }
+                    result.symbols_deleted += old_symbols.len();
+                    
+                    // 新しいシンボルを追加
+                    let symbols = self.extract_symbols_from_file(&change.path)?;
+                    result.symbols_updated += symbols.len();
+                    
+                    for symbol in symbols {
+                        graph.add_symbol(symbol);
+                    }
                 }
                 FileChangeStatus::Deleted => {
                     result.files_deleted += 1;
-                    let symbols_deleted = self.remove_file_index(&change.path)?;
-                    result.symbols_deleted += symbols_deleted;
+                    
+                    // シンボルを削除
+                    let path_str = change.path.to_string_lossy();
+                    let old_symbols: Vec<_> = graph.get_all_symbols()
+                        .filter(|s| s.file_path == path_str)
+                        .map(|s| s.id.clone())
+                        .collect();
+                    
+                    for id in &old_symbols {
+                        graph.remove_symbol(id);
+                    }
+                    result.symbols_deleted += old_symbols.len();
                 }
                 FileChangeStatus::Untracked => {
                     // コンテンツハッシュで管理
                     if let Some(ref hash) = change.content_hash {
                         if self.is_file_changed(&change.path, hash)? {
                             result.files_modified += 1;
-                            let (updated, deleted) = self.update_file_index(&change)?;
-                            result.symbols_updated += updated;
-                            result.symbols_deleted += deleted;
+                            
+                            // 既存のシンボルを削除
+                            let path_str = change.path.to_string_lossy();
+                            let old_symbols: Vec<_> = graph.get_all_symbols()
+                                .filter(|s| s.file_path == path_str)
+                                .map(|s| s.id.clone())
+                                .collect();
+                            
+                            for id in &old_symbols {
+                                graph.remove_symbol(id);
+                            }
+                            result.symbols_deleted += old_symbols.len();
+                            
+                            // 新しいシンボルを追加
+                            let symbols = self.extract_symbols_from_file(&change.path)?;
+                            result.symbols_updated += symbols.len();
+                            
+                            for symbol in symbols {
+                                graph.add_symbol(symbol);
+                            }
                         }
                     }
                 }
             }
         }
+
+        // CodeGraphを保存
+        self.storage.save_data("graph", &graph)?;
 
         // ファイルハッシュを保存
         if let Some(ref mut metadata) = self.metadata {
@@ -170,70 +229,6 @@ impl DifferentialIndexer {
         Ok(result)
     }
 
-    /// 新規ファイルをインデックス
-    fn index_new_file(&mut self, path: &Path) -> Result<usize> {
-        debug!("Indexing new file: {}", path.display());
-
-        // ファイルからシンボルを抽出（簡易版）
-        let symbols = self.extract_symbols_from_file(path)?;
-        let symbol_count = symbols.len();
-
-        // シンボルを保存
-        for symbol in symbols {
-            self.storage.save_data(&symbol.id, &symbol)?;
-        }
-
-        Ok(symbol_count)
-    }
-
-    /// ファイルのインデックスを更新
-    fn update_file_index(&mut self, change: &FileChange) -> Result<(usize, usize)> {
-        debug!("Updating file index: {}", change.path.display());
-
-        // 既存のシンボルを削除
-        let deleted = self.remove_file_symbols(&change.path)?;
-
-        // 新しいシンボルを追加
-        let symbols = self.extract_symbols_from_file(&change.path)?;
-        let added = symbols.len();
-
-        for symbol in symbols {
-            self.storage.save_data(&symbol.id, &symbol)?;
-        }
-
-        Ok((added, deleted))
-    }
-
-    /// ファイルのインデックスを削除
-    fn remove_file_index(&mut self, path: &Path) -> Result<usize> {
-        debug!("Removing file index: {}", path.display());
-        self.remove_file_symbols(path)
-    }
-
-    /// ファイルのシンボルを削除
-    fn remove_file_symbols(&mut self, path: &Path) -> Result<usize> {
-        let path_str = path.to_string_lossy();
-        let mut deleted_count = 0;
-
-        // データベース内の全キーを走査
-        let keys = self.storage.list_keys()?;
-        for key in keys {
-            if key.starts_with("__") {
-                continue; // メタデータはスキップ
-            }
-
-            // シンボルを読み込んで、該当ファイルのものか確認
-            if let Ok(Some(symbol)) = self.storage.load_data::<Symbol>(&key) {
-                if symbol.file_path == path_str {
-                    // 削除
-                    self.storage.db.remove(&key)?;
-                    deleted_count += 1;
-                }
-            }
-        }
-
-        Ok(deleted_count)
-    }
 
     /// ファイルが変更されているかをハッシュで確認
     fn is_file_changed(&self, path: &Path, new_hash: &str) -> Result<bool> {

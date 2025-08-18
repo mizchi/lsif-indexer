@@ -13,3 +13,4 @@ pub use cli::{
     storage::{IndexFormat, IndexMetadata, IndexStorage},
     Cli,
 };
+// test comment

@@ -96,6 +96,15 @@ impl CodeGraph {
         node_index
     }
 
+    pub fn remove_symbol(&mut self, id: &str) -> bool {
+        if let Some(node_index) = self.symbol_index.remove(id) {
+            self.graph.remove_node(node_index);
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn add_edge(&mut self, from: NodeIndex, to: NodeIndex, kind: EdgeKind) {
         self.graph.add_edge(from, to, kind);
     }

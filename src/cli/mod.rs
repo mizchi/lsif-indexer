@@ -12,6 +12,7 @@ pub mod lsp_indexer;
 pub mod lsp_integration;
 pub mod optimized_incremental;
 pub mod parallel_storage;
+pub mod simple_cli;
 pub mod storage;
 pub mod ultra_fast_storage;
 
@@ -25,7 +26,7 @@ use crate::core::{generate_lsif, parse_lsif, CodeGraph};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::fs;
-use tracing::info;
+use tracing::{debug, info};
 
 #[derive(Parser)]
 #[command(name = "lsif-indexer")]
@@ -225,6 +226,21 @@ pub enum Commands {
         language: String,
     },
 
+    /// Differential index with Git diff detection
+    DifferentialIndex {
+        /// Project root directory
+        #[arg(short, long, default_value = ".")]
+        project: String,
+
+        /// Output index database path
+        #[arg(short, long)]
+        output: String,
+
+        /// Force full reindex
+        #[arg(short, long)]
+        force: bool,
+    },
+
     /// Enhanced LSP commands
     #[command(subcommand)]
     Lsp(LspCommands),
@@ -372,6 +388,8 @@ impl Cli {
                     "Showing {} call hierarchy for {} (depth: {})",
                     direction, symbol, max_depth
                 );
+                // 自動差分インデックス実行（シンボル特化）
+                ensure_index_updated_for_symbol(&index, &symbol)?;
                 call_hierarchy_cmd::show_call_hierarchy(&index, &symbol, &direction, max_depth)?;
             }
             Commands::CallPaths {
@@ -384,6 +402,8 @@ impl Cli {
                     "Finding paths from {} to {} (max depth: {})",
                     from, to, max_depth
                 );
+                // 自動差分インデックス実行
+                ensure_index_updated(&index)?;
                 call_hierarchy_cmd::find_paths(&index, &from, &to, max_depth)?;
             }
             Commands::UpdateIncremental {
@@ -396,10 +416,14 @@ impl Cli {
             }
             Commands::ShowDeadCode { index } => {
                 info!("Showing dead code in index {}", index);
+                // 自動差分インデックス実行
+                ensure_index_updated(&index)?;
                 show_dead_code(&index)?;
             }
             Commands::DefinitionChain { index, symbol, all } => {
                 info!("Tracing definition chain for {} in index {}", symbol, index);
+                // 自動差分インデックス実行（シンボル特化）
+                ensure_index_updated_for_symbol(&index, &symbol)?;
                 show_definition_chain(&index, &symbol, all)?;
             }
             Commands::TypeRelations {
@@ -413,6 +437,8 @@ impl Cli {
                     "Collecting type relations for {} in index {} (depth: {})",
                     type_symbol, index, max_depth
                 );
+                // 自動差分インデックス実行（シンボル特化）
+                ensure_index_updated_for_symbol(&index, &type_symbol)?;
                 show_type_relations(&index, &type_symbol, max_depth, hierarchy, group)?;
             }
             Commands::QueryPattern {
@@ -421,6 +447,8 @@ impl Cli {
                 limit,
             } => {
                 info!("Executing query pattern: {}", pattern);
+                // 自動差分インデックス実行
+                ensure_index_updated(&index)?;
                 execute_query_pattern(&index, &pattern, limit)?;
             }
             Commands::IndexProject {
@@ -430,6 +458,14 @@ impl Cli {
             } => {
                 info!("Indexing project {} with language {}", project, language);
                 index_project(&project, &output, &language)?;
+            }
+            Commands::DifferentialIndex {
+                project,
+                output,
+                force,
+            } => {
+                info!("Running differential index for project {}", project);
+                run_differential_index(&project, &output, force)?;
             }
             Commands::Lsp(lsp_cmd) => {
                 execute_lsp_command(lsp_cmd)?;
@@ -562,6 +598,9 @@ fn query_index(
     line: u32,
     _column: u32,
 ) -> Result<()> {
+    // 自動差分インデックス実行
+    ensure_index_updated(index_path)?;
+    
     let storage = IndexStorage::open(index_path)?;
     let graph: CodeGraph = storage
         .load_data("graph")?
@@ -1109,6 +1148,144 @@ fn execute_lsp_command(command: LspCommands) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+/// インデックスが最新かチェックし、必要に応じて差分インデックスを実行
+fn ensure_index_updated(index_path: &str) -> Result<()> {
+    use self::differential_indexer::DifferentialIndexer;
+    use self::git_diff::GitDiffDetector;
+    use std::path::Path;
+    use std::time::Instant;
+    
+    // インデックスファイルが存在しない場合はスキップ
+    if !Path::new(index_path).exists() {
+        info!("Index file does not exist, skipping auto-update");
+        return Ok(());
+    }
+    
+    // ストレージからメタデータを読み込み
+    let storage = IndexStorage::open(index_path)?;
+    let metadata = storage.load_metadata()?;
+    
+    if metadata.is_none() {
+        info!("No metadata found in index, skipping auto-update");
+        return Ok(());
+    }
+    
+    let metadata = metadata.unwrap();
+    
+    // プロジェクトルートを取得
+    let project_root = Path::new(&metadata.project_root);
+    if !project_root.exists() {
+        // 相対パスの可能性があるので、現在のディレクトリも試す
+        let current_dir = std::env::current_dir()?;
+        if !current_dir.exists() {
+            info!("Project root not found, skipping auto-update");
+            return Ok(());
+        }
+    }
+    
+    // Git差分検知を使用して変更をチェック
+    let mut detector = GitDiffDetector::new(project_root)?;
+    
+    // 前回のGitコミットハッシュと比較
+    let current_commit = detector.get_head_commit();
+    let needs_update = if let Some(ref saved_commit) = metadata.git_commit_hash {
+        current_commit.as_ref() != Some(saved_commit)
+    } else {
+        // Gitコミットハッシュがない場合はファイルハッシュで比較
+        let changes = detector.detect_changes_since(None)?;
+        !changes.is_empty()
+    };
+    
+    if needs_update {
+        info!("Changes detected, running differential index...");
+        let start = Instant::now();
+        
+        // 差分インデックスを実行
+        let mut indexer = DifferentialIndexer::new(index_path, project_root)?;
+        let result = indexer.index_differential()?;
+        
+        let elapsed = start.elapsed();
+        info!(
+            "Differential index completed in {:.2}s: {} files modified, {} symbols updated",
+            elapsed.as_secs_f64(),
+            result.files_modified,
+            result.symbols_updated
+        );
+        
+        // 変更があった場合は警告を表示
+        if result.files_modified > 0 || result.symbols_updated > 0 {
+            println!(
+                "⚡ Auto-updated index: {} files changed, {} symbols updated ({:.2}s)",
+                result.files_modified,
+                result.symbols_updated,
+                elapsed.as_secs_f64()
+            );
+        }
+    } else {
+        debug!("No changes detected, using existing index");
+    }
+    
+    Ok(())
+}
+
+/// コールヒエラルキー表示前の自動更新チェック
+fn ensure_index_updated_for_symbol(index_path: &str, symbol: &str) -> Result<()> {
+    // まず通常の差分インデックスを実行
+    ensure_index_updated(index_path)?;
+    
+    // シンボルが存在するファイルの特定と追加チェック（オプション）
+    let storage = IndexStorage::open(index_path)?;
+    if let Ok(Some(graph)) = storage.load_data::<CodeGraph>("graph") {
+        if let Some(symbol_info) = graph.find_symbol(symbol) {
+            debug!(
+                "Symbol '{}' found in file: {}",
+                symbol, symbol_info.file_path
+            );
+            
+            // そのファイルが最近変更されていれば、関連ファイルも含めて再インデックス
+            // （ここは将来的な拡張ポイント）
+        }
+    }
+    
+    Ok(())
+}
+
+/// 差分インデックスコマンドの実行
+fn run_differential_index(project_path: &str, output_path: &str, force: bool) -> Result<()> {
+    use self::differential_indexer::DifferentialIndexer;
+    use std::path::Path;
+    use std::time::Instant;
+    
+    let project = Path::new(project_path);
+    let start = Instant::now();
+    
+    let mut indexer = DifferentialIndexer::new(output_path, project)?;
+    
+    let result = if force {
+        info!("Forcing full reindex...");
+        indexer.full_reindex()?
+    } else {
+        info!("Running differential index...");
+        indexer.index_differential()?
+    };
+    
+    let elapsed = start.elapsed();
+    
+    println!("Differential index completed in {:.2}s:", elapsed.as_secs_f64());
+    println!("  Files added: {}", result.files_added);
+    println!("  Files modified: {}", result.files_modified);
+    println!("  Files deleted: {}", result.files_deleted);
+    println!("  Symbols added: {}", result.symbols_added);
+    println!("  Symbols updated: {}", result.symbols_updated);
+    println!("  Symbols deleted: {}", result.symbols_deleted);
+    
+    if result.files_added == 0 && result.files_modified == 0 && result.files_deleted == 0 {
+        println!("No changes detected - index is up to date!");
+    }
+    
     Ok(())
 }
 // Test 1755525843

@@ -8,7 +8,25 @@ pub struct IndexStorage {
 
 impl IndexStorage {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let db = sled::open(path)?;
+        let config = sled::Config::new()
+            .path(path)
+            .cache_capacity(128 * 1024 * 1024) // 128MB cache
+            .flush_every_ms(Some(1000)) // Flush every second
+            .mode(sled::Mode::HighThroughput); // Optimized for throughput
+        
+        let db = config.open()?;
+        Ok(Self { db })
+    }
+    
+    /// Open for read-only operations (same as open but with smaller cache)
+    pub fn open_read_only<P: AsRef<Path>>(path: P) -> Result<Self> {
+        // sledのread_onlyモードは削除されたので、小さいキャッシュで代用
+        let config = sled::Config::new()
+            .path(path)
+            .cache_capacity(64 * 1024 * 1024) // 64MB cache for read operations
+            .flush_every_ms(Some(5000)); // Less frequent flushes for read-heavy workloads
+        
+        let db = config.open()?;
         Ok(Self { db })
     }
 

@@ -18,7 +18,37 @@ pub struct IncrementalStorage {
 
 impl IncrementalStorage {
     pub fn open(path: &str) -> Result<Self> {
-        let db = sled::open(path)?;
+        let config = sled::Config::new()
+            .path(path)
+            .cache_capacity(128 * 1024 * 1024) // 128MB cache
+            .flush_every_ms(Some(1000)) // Flush every second
+            .mode(sled::Mode::HighThroughput); // Optimized for throughput
+        
+        let db = config.open()?;
+
+        let index_tree = db.open_tree("incremental_index")?;
+        let file_tree = db.open_tree("file_metadata")?;
+        let symbol_tree = db.open_tree("symbols")?;
+        let edge_tree = db.open_tree("edges")?;
+
+        Ok(Self {
+            db,
+            index_tree,
+            file_tree,
+            symbol_tree,
+            edge_tree,
+        })
+    }
+    
+    /// Open for read operations (smaller cache to reduce lock contention)
+    pub fn open_read_only(path: &str) -> Result<Self> {
+        // sledのread_onlyモードは削除されたので、小さいキャッシュで代用
+        let config = sled::Config::new()
+            .path(path)
+            .cache_capacity(64 * 1024 * 1024) // 64MB cache for read operations
+            .flush_every_ms(Some(5000)); // Less frequent flushes for read-heavy workloads
+        
+        let db = config.open()?;
 
         let index_tree = db.open_tree("incremental_index")?;
         let file_tree = db.open_tree("file_metadata")?;

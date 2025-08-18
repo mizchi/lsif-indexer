@@ -5,15 +5,16 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Crates.io](https://img.shields.io/crates/v/lsif-indexer.svg)](https://crates.io/crates/lsif-indexer)
 
-高速で拡張可能なコードインデックス作成ツール。Language Server Protocol (LSP) を使用して、複数の言語に対応したコード解析を実現。
+LSIFベースの高速コードインデックス・グラフ検索システム。AI支援開発ツールとの統合を前提に設計され、大規模コードベースの構造を効率的に解析し、シンボル間の関係をグラフとして管理します。Language Server Protocol (LSP) と LSIF (Language Server Index Format) を活用し、言語に依存しない汎用的なコード解析を実現。
 
 ## 特徴
 
-- 🚀 **高速処理**: 並列処理により最大59倍の高速化
-- 🔍 **高度な解析**: 定義・参照検索、コールグラフ、デッドコード検出
-- 🌍 **多言語対応**: Rust (rust-analyzer), TypeScript/JavaScript (tsgo)
-- 💾 **効率的なストレージ**: キャッシュとインクリメンタル更新で90%の時間削減
-- 📊 **リアルタイム進捗**: プログレスバーと詳細な統計情報
+- 🚀 **高速処理**: 並列処理により最大59倍の高速化、xxHash3による高速差分検知
+- 🔍 **高度な解析**: 定義・参照検索、コールグラフ、デッドコード検出、型階層分析
+- 🌍 **多言語対応**: Rust (rust-analyzer), TypeScript/JavaScript (typescript-language-server)
+- 💾 **効率的なストレージ**: Git差分検知とコンテンツハッシュによる差分インデックス、90%の時間削減
+- 📊 **グラフ構造**: Cypher風クエリによる複雑な依存関係の検索
+- 🤖 **AI最適化**: コードグラフをAIが理解しやすい形式で提供、コンテキスト生成支援
 
 ## インストール
 
@@ -34,16 +35,16 @@ cargo build --release
 
 ```bash
 # Rustプロジェクトをインデックス化
-lsif-indexer --files="**/*.rs" --output=index.db
+lsif-indexer index-project --project . --output index.db --language rust
 
 # TypeScriptプロジェクトをインデックス化
-lsif-indexer --files="**/*.ts" --language=typescript
+lsif-indexer index-project --project . --output index.db --language typescript
 
-# カスタムLSPサーバーを使用
-lsif-indexer --bin="rust-analyzer" --files="src/**/*.rs"
+# 差分インデックス（Git差分検知とxxHash3による高速処理）
+lsif-indexer differential-index --project . --output index.db
 
-# 並列処理とキャッシュを有効化（デフォルト）
-lsif-indexer --parallel --cache --files="**/*.rs"
+# LSIFフォーマットでエクスポート
+lsif-indexer export-lsif --index index.db --output output.lsif
 ```
 
 ### 高度な使い方
@@ -66,19 +67,22 @@ lsif-indexer --verbose --files="**/*.rs"
 
 ```bash
 # 定義を検索
-lsif-indexer query --db=index.db definition src/main.rs 10 15
+lsif-indexer query --index index.db --query-type definition --file src/main.rs --line 10 --column 15
 
 # 参照を検索
-lsif-indexer query --db=index.db references "MyStruct"
+lsif-indexer query --index index.db --query-type references --file src/lib.rs --line 20 --column 10
 
 # コールグラフを表示
-lsif-indexer query --db=index.db call-hierarchy "main" --depth=5
+lsif-indexer call-hierarchy --index index.db --symbol "main" --direction full --max-depth 5
 
 # デッドコードを検出
-lsif-indexer query --db=index.db dead-code
+lsif-indexer show-dead-code --index index.db
 
 # 型関係を解析
-lsif-indexer query --db=index.db type-relations "User"
+lsif-indexer type-relations --index index.db --type-symbol "User" --max-depth 3 --hierarchy
+
+# Cypher風グラフクエリ
+lsif-indexer query-pattern --index index.db --pattern "MATCH (s:Struct {name: 'Config'})<-[:USES]-(f:Function) RETURN f"
 ```
 
 ### 高度なLSP連携機能
@@ -151,20 +155,23 @@ lsif-indexer stats --db=index.db
 
 ## パフォーマンス
 
-### ベンチマーク結果
+### ベンチマーク結果（自己インデックス実測）
 
-| プロジェクト | ファイル数 | インデックス時間 | スループット |
-|-------------|-----------|-----------------|-------------|
-| 小規模 (100) | 100 | 5秒 | 20 files/sec |
-| 中規模 (1,000) | 1,000 | 30秒 | 33 files/sec |
-| 大規模 (10,000) | 10,000 | 4分 | 42 files/sec |
+| 操作 | 時間 | 詳細 |
+|------|------|------|
+| 初回フルインデックス | 0.7-1.2秒 | 全ファイル解析、シンボル抽出 |
+| 差分インデックス | 0.06-0.12秒 | Git差分検知、変更ファイルのみ処理 |
+| ファイル変更後の再インデックス | 0.08秒 | xxHash3による高速ハッシュ比較 |
+| メモリ使用量 | 50-100MB | 10万シンボル規模 |
 
 ### 最適化技術
 
+- **Git差分検知**: git2-rsによる高速な変更検出
+- **xxHash3**: SHA256より10-100倍高速なハッシュ計算
 - **並列処理**: Rayon による自動並列化
-- **キャッシュ**: LRU キャッシュで頻繁アクセスを高速化
+- **メモリプール**: UltraFastStorageによる効率的なメモリ管理
 - **差分更新**: 変更ファイルのみ処理で 90% 時間削減
-- **バッチ処理**: I/O 効率を最大化
+- **キャッシュ戦略**: LRU キャッシュとプリフェッチで頻繁アクセスを高速化
 
 ## 開発
 
@@ -296,24 +303,85 @@ bin = "typescript-language-server"
 extensions = ["ts", "tsx", "js", "jsx"]
 ```
 
+## AI統合での活用
+
+### コード理解支援
+
+```rust
+use lsif_indexer::core::CodeGraph;
+use lsif_indexer::cli::storage::IndexStorage;
+
+// AIがコードベースを理解するためのコンテキスト生成
+let storage = IndexStorage::open("index.db")?;
+let graph: CodeGraph = storage.load_data("graph")?.unwrap();
+
+// シンボルのコンテキストを取得（定義、参照、依存関係）
+let symbol = graph.find_symbol("MyFunction")?;
+let references = graph.find_references("MyFunction");
+let call_hierarchy = graph.get_call_hierarchy("MyFunction");
+// -> AIが関数の役割と影響範囲を理解
+```
+
+### リファクタリング提案
+
+```rust
+use lsif_indexer::cli::differential_indexer::DifferentialIndexer;
+
+// 未使用コードの検出
+let indexer = DifferentialIndexer::new("index.db", ".")?;
+let result = indexer.index_differential()?;
+// -> AIがデッドコードの削除やリファクタリングを提案
+
+// 型の階層関係分析
+let analyzer = TypeRelationsAnalyzer::new(&graph);
+let hierarchy = analyzer.find_type_hierarchy("BaseClass");
+// -> AIが継承構造の改善を提案
+```
+
+### コード生成支援
+
+```rust
+use lsif_indexer::core::{QueryEngine, QueryParser};
+
+// 既存のパターンを学習
+let pattern = QueryParser::parse("MATCH (f:Function)-[:CALLS]->(g:Function) WHERE f.name CONTAINS 'test'")?;
+let engine = QueryEngine::new(&graph);
+let results = engine.execute(&pattern);
+// -> AIがテストパターンを学習して新しいテストを生成
+```
+
+### 差分インデックスによる効率化
+
+```rust
+// Git差分とxxHash3による高速な変更検知
+let mut detector = GitDiffDetector::new(".")?;
+let changes = detector.detect_changes_since(None)?;
+// -> AIが変更の影響範囲を即座に把握
+
+// 差分のみを再インデックス（0.06-0.12秒）
+let result = indexer.index_differential()?;
+println!("Files modified: {}, Symbols updated: {}", 
+         result.files_modified, result.symbols_updated);
+```
+
 ## API
 
 ライブラリとして使用:
 
 ```rust
 use lsif_indexer::cli::parallel_storage::ParallelIndexStorage;
-use lsif_indexer::core::EnhancedCodeGraph;
+use lsif_indexer::core::CodeGraph;
 
 // インデックスを作成
 let storage = ParallelIndexStorage::open("index.db")?;
-let mut graph = EnhancedCodeGraph::new();
+let mut graph = CodeGraph::new();
 
 // シンボルを追加
-graph.add_symbol_enhanced(symbol);
+graph.add_symbol(symbol);
 
 // クエリ実行
-let definition = graph.find_definition_enhanced("file.rs#10:5")?;
-let references = graph.find_references_enhanced("MyStruct");
+let definition = graph.find_definition("file.rs#10:5")?;
+let references = graph.find_references("MyStruct");
 let dead_code = graph.find_dead_code();
 ```
 
