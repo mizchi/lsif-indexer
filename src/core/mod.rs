@@ -17,4 +17,4 @@ pub use call_hierarchy::{CallHierarchy, CallHierarchyAnalyzer, format_hierarchy}
 pub use incremental::{IncrementalIndex, FileUpdate, UpdateResult, BatchUpdateResult, calculate_file_hash};
 pub use definition_chain::{DefinitionChain, DefinitionChainAnalyzer, format_definition_chain};
 pub use type_relations::{TypeRelations, TypeRelationsAnalyzer, TypeHierarchy, RelationGroups, format_type_relations};
-pub use graph_query::{QueryPattern, QueryParser, QueryEngine, QueryResult, format_query_results};
+pub use graph_query::{QueryPattern, QueryParser, QueryEngine, QueryResult, format_query_results};// Test 1755525843

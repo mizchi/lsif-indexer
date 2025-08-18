@@ -59,6 +59,12 @@ glob = "0.3"
 notify = "6.0"
 walkdir = "2.4"
 
+# Git操作
+git2 = "0.18"
+
+# ハッシュ計算
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+
 # プログレスバー
 indicatif = "0.17"
 

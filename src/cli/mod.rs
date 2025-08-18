@@ -12,6 +12,8 @@ pub mod lsp_integration;
 pub mod lsp_features;
 pub mod lsp_commands;
 pub mod ultra_fast_storage;
+pub mod git_diff;
+pub mod differential_indexer;
 
 // Re-export commonly used types
 pub use ultra_fast_storage::{UltraFastStorage, MemoryPoolStorage};
@@ -422,6 +424,8 @@ fn import_lsif(input_path: &str, output_path: &str) -> Result<()> {
         project_root: std::env::current_dir()?.to_string_lossy().to_string(),
         files_count: 1,
         symbols_count: graph.symbol_count(),
+        git_commit_hash: None,
+        file_hashes: std::collections::HashMap::new(),
     };
     
     storage.save_metadata(&metadata)?;
@@ -487,6 +491,8 @@ fn generate_index(source_path: &str, output_path: &str, language: Option<&str>) 
         project_root: std::env::current_dir()?.to_string_lossy().to_string(),
         files_count: 1,
         symbols_count: graph.symbol_count(),
+        git_commit_hash: None,
+        file_hashes: std::collections::HashMap::new(),
     };
     
     storage.save_metadata(&metadata)?;
@@ -853,6 +859,8 @@ fn index_project(project_path: &str, output_path: &str, language: &str) -> Resul
         project_root: project_root.canonicalize()?.to_string_lossy().to_string(),
         files_count: 0,  // TODO: Track actual file count
         symbols_count: graph.symbol_count(),
+        git_commit_hash: None,
+        file_hashes: std::collections::HashMap::new(),
     };
     
     storage.save_metadata(&metadata)?;
@@ -985,6 +993,8 @@ fn execute_lsp_command(command: LspCommands) -> Result<()> {
                 project_root: std::fs::canonicalize(&project)?.to_string_lossy().to_string(),
                 files_count: 0,  // TODO: Track actual file count
                 symbols_count: enhanced_index.symbols.len(),
+                git_commit_hash: None,
+                file_hashes: std::collections::HashMap::new(),
             };
             
             storage.save_metadata(&metadata)?;
@@ -1000,3 +1010,4 @@ fn execute_lsp_command(command: LspCommands) -> Result<()> {
     
     Ok(())
 }
+// Test 1755525843

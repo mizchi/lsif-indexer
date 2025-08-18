@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 pub struct IndexStorage {
-    db: sled::Db,
+    pub(crate) db: sled::Db,
 }
 
 impl IndexStorage {
@@ -53,6 +53,10 @@ pub struct IndexMetadata {
     pub project_root: String,
     pub files_count: usize,
     pub symbols_count: usize,
+    /// Gitコミットハッシュ（インデックス時点）
+    pub git_commit_hash: Option<String>,
+    /// ファイルごとのコンテンツハッシュ
+    pub file_hashes: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

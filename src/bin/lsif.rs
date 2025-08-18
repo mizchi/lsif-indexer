@@ -161,6 +161,36 @@ enum Commands {
         #[arg(short, long, default_value = "./index.db")]
         db: PathBuf,
     },
+    
+    /// Perform differential indexing (only index changed files)
+    Diff {
+        /// Database path
+        #[arg(short, long, default_value = "./index.db")]
+        db: PathBuf,
+        
+        /// Force full reindex
+        #[arg(short, long)]
+        full: bool,
+        
+        /// Show detailed progress
+        #[arg(short, long)]
+        verbose: bool,
+    },
+    
+    /// Restore index from saved metadata (useful after git operations)
+    Restore {
+        /// Database path
+        #[arg(short, long, default_value = "./index.db")]
+        db: PathBuf,
+        
+        /// Target git commit to restore to
+        #[arg(short, long)]
+        commit: Option<String>,
+        
+        /// Show what would be done without actually doing it
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -316,6 +346,14 @@ fn main() -> Result<()> {
         }
         Some(Commands::Interactive { db }) => {
             run_interactive_mode(&db)?;
+        }
+        Some(Commands::Diff { db, full, verbose }) => {
+            execute_differential_index(&db, full, verbose)?;
+        }
+        Some(Commands::Restore { db, commit, dry_run }) => {
+            #[path = "../lsif_restore.rs"]
+            mod lsif_restore;
+            lsif_restore::execute_restore(&db, commit, dry_run)?;
         }
         None => {
             // Default action: index files
@@ -1044,6 +1082,55 @@ fn execute_find(db: &Path, what: FindType) -> Result<()> {
             }
         }
     }
+    
+    Ok(())
+}
+
+fn execute_differential_index(db: &Path, full: bool, verbose: bool) -> Result<()> {
+    use lsif_indexer::cli::differential_indexer::DifferentialIndexer;
+    
+    // ログレベルを設定
+    if verbose {
+        tracing::subscriber::set_global_default(
+            tracing_subscriber::FmtSubscriber::builder()
+                .with_max_level(tracing::Level::DEBUG)
+                .finish()
+        ).ok();
+    }
+    
+    // 現在のディレクトリをプロジェクトルートとする
+    let project_root = std::env::current_dir()?;
+    
+    println!("🔍 Starting differential indexing...");
+    println!("Project root: {}", project_root.display());
+    println!("Database: {}", db.display());
+    
+    // 差分インデクサーを作成
+    let mut indexer = DifferentialIndexer::new(db, &project_root)?;
+    
+    // インデックス実行
+    let result = if full {
+        println!("Performing full reindex...");
+        indexer.full_reindex()?
+    } else {
+        indexer.index_differential()?
+    };
+    
+    // 結果を表示
+    println!("\n✅ Differential indexing complete!");
+    println!("┌─────────────────────────────────────┐");
+    println!("│ Files:                              │");
+    println!("│   Added:    {:>5}                   │", result.files_added);
+    println!("│   Modified: {:>5}                   │", result.files_modified);
+    println!("│   Deleted:  {:>5}                   │", result.files_deleted);
+    println!("├─────────────────────────────────────┤");
+    println!("│ Symbols:                            │");
+    println!("│   Added:    {:>5}                   │", result.symbols_added);
+    println!("│   Updated:  {:>5}                   │", result.symbols_updated);
+    println!("│   Deleted:  {:>5}                   │", result.symbols_deleted);
+    println!("├─────────────────────────────────────┤");
+    println!("│ Time: {:.2}s                         │", result.duration.as_secs_f64());
+    println!("└─────────────────────────────────────┘");
     
     Ok(())
 }
