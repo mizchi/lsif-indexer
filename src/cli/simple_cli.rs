@@ -408,25 +408,39 @@ fn find_references_recursive(db_path: &str, file: &str, line: u32, column: u32, 
         character: column - 1 
     };
     
-    // 最も近いシンボルを探す
+    // 最も近いシンボルを探す（行が一致するものを優先）
     let mut target_symbol: Option<&crate::core::Symbol> = None;
     for symbol in graph.get_all_symbols() {
         if symbol.file_path == file && symbol.range.start.line == position.line {
+            // 同じ行にあるシンボルを優先
             target_symbol = Some(symbol);
             break;
+        } else if symbol.file_path == file 
+            && symbol.range.start.line <= position.line 
+            && symbol.range.end.line >= position.line {
+            // 範囲内にあるシンボル
+            target_symbol = Some(symbol);
         }
     }
     
     if let Some(symbol) = target_symbol {
-        // 同じ名前のシンボルをすべて探す（簡易的な参照検索）
-        let refs: Vec<_> = graph.get_all_symbols()
-            .filter(|s| s.name == symbol.name && s.id != symbol.id)
-            .collect();
+        // グラフから実際の参照を取得
+        let refs = graph.find_references(&symbol.id);
+        
+        // 参照エッジがない場合は、同じ名前のシンボルを探す（簡易版）
+        let refs = if refs.is_empty() {
+            graph.get_all_symbols()
+                .filter(|s| s.name == symbol.name && s.id != symbol.id)
+                .collect::<Vec<_>>()
+        } else {
+            refs
+        };
         
         if refs.is_empty() {
             println!("🔗 No references found for '{}'", symbol.name);
+            println!("   (Note: Full reference tracking is not yet implemented)");
         } else {
-            println!("🔗 Found {} references for '{}':", refs.len(), symbol.name);
+            println!("🔗 Found {} occurrences of '{}' (name-based search):", refs.len(), symbol.name);
             for (i, r) in refs.iter().take(MAX_CHANGES_DISPLAY).enumerate() {
                 println!("  {} {} at {}:{}:{}", 
                     i + 1,
