@@ -1,9 +1,10 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use clap::{Parser, Subcommand, ValueEnum};
 use glob::glob;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+use std::io::{self, Write};
 use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
 
@@ -120,6 +121,71 @@ enum Commands {
     /// Advanced LSP functionality
     #[command(subcommand)]
     Lsp(lsif_indexer::cli::lsp_commands::LspSubcommand),
+    
+    /// Search symbols in the index
+    Search {
+        /// Search query (symbol name or pattern)
+        query: String,
+        
+        /// Database path
+        #[arg(short, long, default_value = "./index.db")]
+        db: PathBuf,
+        
+        /// Filter by symbol type (function, struct, enum, etc.)
+        #[arg(short = 't', long)]
+        symbol_type: Option<String>,
+        
+        /// Filter by file pattern
+        #[arg(short = 'f', long)]
+        file: Option<String>,
+        
+        /// Show detailed information
+        #[arg(short = 'd', long)]
+        detailed: bool,
+    },
+    
+    /// Find symbol definition or references
+    Find {
+        /// What to find
+        #[command(subcommand)]
+        what: FindType,
+        
+        /// Database path
+        #[arg(short, long, default_value = "./index.db")]
+        db: PathBuf,
+    },
+    
+    /// Interactive mode for exploring the index
+    Interactive {
+        /// Database path
+        #[arg(short, long, default_value = "./index.db")]
+        db: PathBuf,
+    },
+}
+
+#[derive(Subcommand)]
+enum FindType {
+    /// Find symbol definition
+    Definition {
+        /// Symbol name
+        symbol: String,
+    },
+    
+    /// Find symbol references
+    References {
+        /// Symbol name
+        symbol: String,
+    },
+    
+    /// Find symbol by location
+    At {
+        /// File path
+        file: PathBuf,
+        /// Line number
+        line: u32,
+        /// Column number
+        column: u32,
+    },
 }
 
 #[derive(Subcommand)]
@@ -241,6 +307,15 @@ fn main() -> Result<()> {
                 };
                 lsp_command.execute().await
             })?;
+        }
+        Some(Commands::Search { query, db, symbol_type, file, detailed }) => {
+            execute_search(&db, &query, symbol_type, file, detailed)?;
+        }
+        Some(Commands::Find { what, db }) => {
+            execute_find(&db, what)?;
+        }
+        Some(Commands::Interactive { db }) => {
+            run_interactive_mode(&db)?;
         }
         None => {
             // Default action: index files
@@ -774,4 +849,335 @@ impl Storage for MemoryPoolStorage {
     fn flush(&self) -> Result<()> {
         self.flush()
     }
+}
+
+// 新しい検索機能の実装
+fn execute_search(db: &Path, query: &str, symbol_type: Option<String>, file_pattern: Option<String>, detailed: bool) -> Result<()> {
+    let storage = IndexStorage::open(db)?;
+    
+    println!("=== Searching for '{}' ===", query);
+    if let Some(ref t) = symbol_type {
+        println!("Filter: type = {}", t);
+    }
+    if let Some(ref f) = file_pattern {
+        println!("Filter: file = {}", f);
+    }
+    println!();
+    
+    let mut found_count = 0;
+    let query_lower = query.to_lowercase();
+    
+    // sledデータベースのキーを取得して走査
+    let keys = storage.list_keys()?;
+    for key in keys {
+        // メタデータキーをスキップ
+        if key.starts_with("__") {
+            continue;
+        }
+        
+        // シンボルデータをロード
+        if let Ok(symbol_data) = storage.load_data::<Symbol>(&key) {
+            if let Some(symbol) = symbol_data {
+                // クエリマッチング
+                if !symbol.name.to_lowercase().contains(&query_lower) {
+                    continue;
+                }
+                
+                // タイプフィルタ
+                if let Some(ref t) = symbol_type {
+                    let symbol_type_str = format!("{:?}", symbol.kind).to_lowercase();
+                    if !symbol_type_str.contains(&t.to_lowercase()) {
+                        continue;
+                    }
+                }
+                
+                // ファイルフィルタ
+                if let Some(ref f) = file_pattern {
+                    if !symbol.file_path.contains(f) {
+                        continue;
+                    }
+                }
+                
+                // 結果を表示
+                found_count += 1;
+                println!("[{}] {} ({})", 
+                    found_count,
+                    symbol.name,
+                    format!("{:?}", symbol.kind)
+                );
+                println!("  📍 {}:{}:{}", 
+                    symbol.file_path,
+                    symbol.range.start.line + 1,
+                    symbol.range.start.character + 1
+                );
+                
+                if detailed {
+                    if let Some(ref doc) = symbol.documentation {
+                        println!("  📝 {}", doc);
+                    }
+                }
+                println!();
+            }
+        }
+    }
+    
+    if found_count == 0 {
+        println!("No symbols found matching '{}'", query);
+        println!("\n💡 Tip: Try a broader search or check your filters");
+    } else {
+        println!("Found {} matching symbols", found_count);
+    }
+    
+    Ok(())
+}
+
+fn execute_find(db: &Path, what: FindType) -> Result<()> {
+    let storage = IndexStorage::open(db)?;
+    
+    match what {
+        FindType::Definition { symbol } => {
+            println!("=== Finding definition of '{}' ===\n", symbol);
+            
+            let symbol_lower = symbol.to_lowercase();
+            let mut found = false;
+            
+            for entry in std::fs::read_dir(db)? {
+                if let Ok(entry) = entry {
+                    let key = entry.file_name().to_string_lossy().to_string();
+                    
+                    if let Ok(symbol_data) = storage.load_data::<Symbol>(&key) {
+                        if let Some(sym) = symbol_data {
+                            if sym.name.to_lowercase() == symbol_lower {
+                                println!("✅ Definition found:");
+                                println!("   Name: {}", sym.name);
+                                println!("   Type: {:?}", sym.kind);
+                                println!("   Location: {}:{}:{}", 
+                                    sym.file_path,
+                                    sym.range.start.line + 1,
+                                    sym.range.start.character + 1
+                                );
+                                if let Some(ref doc) = sym.documentation {
+                                    println!("   Documentation: {}", doc);
+                                }
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if !found {
+                println!("❌ No definition found for '{}'", symbol);
+                println!("\n💡 Tip: Use 'lsif search {}' to find similar symbols", symbol);
+            }
+        }
+        
+        FindType::References { symbol } => {
+            println!("=== Finding references to '{}' ===\n", symbol);
+            
+            let symbol_lower = symbol.to_lowercase();
+            let mut references = Vec::new();
+            
+            // この実装は簡易版。実際の参照解析にはグラフ構造が必要
+            for entry in std::fs::read_dir(db)? {
+                if let Ok(entry) = entry {
+                    let key = entry.file_name().to_string_lossy().to_string();
+                    
+                    if let Ok(symbol_data) = storage.load_data::<Symbol>(&key) {
+                        if let Some(sym) = symbol_data {
+                            // 名前に含まれていれば参照の可能性あり（簡易実装）
+                            if key.contains(&symbol_lower) || sym.name.contains(&symbol) {
+                                references.push((sym.file_path.clone(), sym.range.start.line + 1));
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if references.is_empty() {
+                println!("No references found for '{}'", symbol);
+            } else {
+                println!("Found {} potential references:", references.len());
+                for (file, line) in references.iter().take(20) {
+                    println!("  📍 {}:{}", file, line);
+                }
+                if references.len() > 20 {
+                    println!("  ... and {} more", references.len() - 20);
+                }
+            }
+        }
+        
+        FindType::At { file, line, column } => {
+            println!("=== Finding symbol at {}:{}:{} ===\n", file.display(), line, column);
+            
+            let file_str = file.to_string_lossy().to_string();
+            let mut found = false;
+            
+            for entry in std::fs::read_dir(db)? {
+                if let Ok(entry) = entry {
+                    let key = entry.file_name().to_string_lossy().to_string();
+                    
+                    if let Ok(symbol_data) = storage.load_data::<Symbol>(&key) {
+                        if let Some(sym) = symbol_data {
+                            if sym.file_path.contains(&file_str) {
+                                // 行番号が範囲内かチェック
+                                if sym.range.start.line < line && sym.range.end.line >= line {
+                                    println!("Found: {} ({:?})", sym.name, sym.kind);
+                                    println!("  Range: {}:{} - {}:{}", 
+                                        sym.range.start.line + 1,
+                                        sym.range.start.character + 1,
+                                        sym.range.end.line + 1,
+                                        sym.range.end.character + 1
+                                    );
+                                    found = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if !found {
+                println!("No symbol found at this location");
+                println!("\n💡 Tip: Try nearby lines or use 'lsif lsp symbols {}' to see all symbols in the file", file.display());
+            }
+        }
+    }
+    
+    Ok(())
+}
+
+fn run_interactive_mode(db: &Path) -> Result<()> {
+    println!("🚀 LSIF Interactive Explorer");
+    println!("Type 'help' for commands, 'quit' to exit\n");
+    
+    let storage = IndexStorage::open(db)?;
+    let mut last_results = Vec::new();
+    
+    loop {
+        print!("> ");
+        io::stdout().flush()?;
+        
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let input = input.trim();
+        
+        if input.is_empty() {
+            continue;
+        }
+        
+        let parts: Vec<&str> = input.split_whitespace().collect();
+        let command = parts[0];
+        
+        match command {
+            "help" | "h" => {
+                println!("Commands:");
+                println!("  search <query>  - Search for symbols");
+                println!("  find <symbol>   - Find symbol definition");
+                println!("  refs <symbol>   - Find symbol references");
+                println!("  last            - Show last search results");
+                println!("  stats           - Show database statistics");
+                println!("  clear           - Clear screen");
+                println!("  quit            - Exit interactive mode");
+            }
+            
+            "search" | "s" => {
+                if parts.len() < 2 {
+                    println!("Usage: search <query>");
+                    continue;
+                }
+                let query = parts[1..].join(" ");
+                last_results.clear();
+                
+                println!("\nSearching for '{}'...\n", query);
+                let query_lower = query.to_lowercase();
+                
+                for entry in std::fs::read_dir(db)? {
+                    if let Ok(entry) = entry {
+                        let key = entry.file_name().to_string_lossy().to_string();
+                        
+                        if let Ok(symbol_data) = storage.load_data::<Symbol>(&key) {
+                            if let Some(symbol) = symbol_data {
+                                if symbol.name.to_lowercase().contains(&query_lower) {
+                                    last_results.push(symbol.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if last_results.is_empty() {
+                    println!("No results found");
+                } else {
+                    println!("Found {} results:", last_results.len());
+                    for (i, symbol) in last_results.iter().enumerate().take(10) {
+                        println!("  [{}] {} - {}:{}", 
+                            i + 1,
+                            symbol.name,
+                            symbol.file_path,
+                            symbol.range.start.line + 1
+                        );
+                    }
+                    if last_results.len() > 10 {
+                        println!("  ... and {} more", last_results.len() - 10);
+                    }
+                }
+            }
+            
+            "find" | "f" => {
+                if parts.len() < 2 {
+                    println!("Usage: find <symbol>");
+                    continue;
+                }
+                let symbol = parts[1..].join(" ");
+                execute_find(db, FindType::Definition { symbol })?;
+            }
+            
+            "refs" | "r" => {
+                if parts.len() < 2 {
+                    println!("Usage: refs <symbol>");
+                    continue;
+                }
+                let symbol = parts[1..].join(" ");
+                execute_find(db, FindType::References { symbol })?;
+            }
+            
+            "last" | "l" => {
+                if last_results.is_empty() {
+                    println!("No previous results");
+                } else {
+                    println!("Last {} results:", last_results.len());
+                    for (i, symbol) in last_results.iter().enumerate() {
+                        println!("  [{}] {} - {}:{}", 
+                            i + 1,
+                            symbol.name,
+                            symbol.file_path,
+                            symbol.range.start.line + 1
+                        );
+                    }
+                }
+            }
+            
+            "stats" => {
+                show_stats(db)?;
+            }
+            
+            "clear" | "cls" => {
+                print!("\x1B[2J\x1B[1;1H");
+            }
+            
+            "quit" | "q" | "exit" => {
+                println!("Goodbye! 👋");
+                break;
+            }
+            
+            _ => {
+                println!("Unknown command: '{}'. Type 'help' for available commands.", command);
+            }
+        }
+        println!();
+    }
+    
+    Ok(())
 }

@@ -3,3 +3,8 @@
 Cargo.lock
 *.db
 *.index
+
+# Temporary files
+/tmp/
+test-*
+self-index*

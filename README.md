@@ -166,6 +166,61 @@ lsif-indexer stats --db=index.db
 - **差分更新**: 変更ファイルのみ処理で 90% 時間削減
 - **バッチ処理**: I/O 効率を最大化
 
+## 開発
+
+### Makefile
+
+プロジェクトには開発タスクを簡単に実行できるMakefileが含まれています：
+
+```bash
+# ビルド
+make build        # リリースビルド
+make check        # コード品質チェック（clippy, fmt）
+
+# テスト
+make test         # 全てのテストを実行
+make test-unit    # ユニットテストのみ
+make test-reference  # 参照解析テストを実行
+
+# クリーンアップ
+make clean        # 全てクリーン（ビルド含む）
+make clean-temp   # 一時ファイルのみクリーン
+
+# セルフインデックス
+make self-index   # 自身のコードベースをインデックス化
+make interactive  # インタラクティブモードで探索
+
+# その他
+make fmt          # コードフォーマット
+make bench        # ベンチマーク実行
+make help         # ヘルプ表示
+```
+
+### スクリプト
+
+`scripts/`ディレクトリには便利なスクリプトが含まれています：
+
+- `clean.sh` - 一時ファイルとテストアーティファクトをクリーンアップ
+- `self-index.sh` - LSIF Indexer自身をインデックス化
+
+### ディレクトリ構造
+
+```
+lsif-indexer/
+├── src/           # ソースコード
+├── tests/         # 統合テスト
+├── benches/       # ベンチマーク
+├── scripts/       # ユーティリティスクリプト
+├── tmp/           # 一時ファイル（gitignore対象）
+└── examples/      # 使用例
+```
+
+### 一時ファイル管理
+
+- `test-*` および `self-index*` ファイルは自動的にgitignoreされます
+- `tmp/`ディレクトリは一時的なインデックスファイル用です
+- `make clean-temp`で簡単にクリーンアップできます
+
 ## 使用例
 
 ### React プロジェクト
