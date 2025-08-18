@@ -10,7 +10,7 @@ use tracing::info;
 use super::lsp_adapter::{GenericLspClient, LspAdapter};
 
 /// 高度なLSP機能を提供するクライアント
-pub struct AdvancedLspClient {
+pub struct LspClient {
     pub client: Arc<Mutex<GenericLspClient>>,
     /// ファイルごとの診断情報を保持
     diagnostics: Arc<Mutex<HashMap<Url, Vec<Diagnostic>>>>,
@@ -18,7 +18,7 @@ pub struct AdvancedLspClient {
     progress: Arc<Mutex<HashMap<ProgressToken, WorkDoneProgress>>>,
 }
 
-impl AdvancedLspClient {
+impl LspClient {
     pub fn new(adapter: Box<dyn LspAdapter>) -> Result<Self> {
         let client = GenericLspClient::new(adapter)?;
         
@@ -307,12 +307,12 @@ impl AdvancedLspClient {
 
 /// 診断情報を監視するワーカー
 pub struct DiagnosticsWatcher {
-    client: Arc<AdvancedLspClient>,
+    client: Arc<LspClient>,
     rx: mpsc::Receiver<PublishDiagnosticsParams>,
 }
 
 impl DiagnosticsWatcher {
-    pub fn new(client: Arc<AdvancedLspClient>) -> (Self, mpsc::Sender<PublishDiagnosticsParams>) {
+    pub fn new(client: Arc<LspClient>) -> (Self, mpsc::Sender<PublishDiagnosticsParams>) {
         let (tx, rx) = mpsc::channel(100);
         (Self { client, rx }, tx)
     }
@@ -327,12 +327,12 @@ impl DiagnosticsWatcher {
 
 /// プログレス情報を監視するワーカー
 pub struct ProgressWatcher {
-    client: Arc<AdvancedLspClient>,
+    client: Arc<LspClient>,
     rx: mpsc::Receiver<ProgressParams>,
 }
 
 impl ProgressWatcher {
-    pub fn new(client: Arc<AdvancedLspClient>) -> (Self, mpsc::Sender<ProgressParams>) {
+    pub fn new(client: Arc<LspClient>) -> (Self, mpsc::Sender<ProgressParams>) {
         let (tx, rx) = mpsc::channel(100);
         (Self { client, rx }, tx)
     }
@@ -351,11 +351,11 @@ impl ProgressWatcher {
 
 /// LSPベースのコード解析ユーティリティ
 pub struct LspCodeAnalyzer {
-    client: Arc<AdvancedLspClient>,
+    client: Arc<LspClient>,
 }
 
 impl LspCodeAnalyzer {
-    pub fn new(client: Arc<AdvancedLspClient>) -> Self {
+    pub fn new(client: Arc<LspClient>) -> Self {
         Self { client }
     }
     
@@ -544,7 +544,7 @@ mod tests {
     #[ignore] // Requires rust-analyzer to be installed
     fn test_advanced_lsp_features() {
         let adapter = Box::new(RustAnalyzerAdapter);
-        let client = Arc::new(AdvancedLspClient::new(adapter).unwrap());
+        let client = Arc::new(LspClient::new(adapter).unwrap());
         
         // Test hover
         let hover_params = HoverParams {

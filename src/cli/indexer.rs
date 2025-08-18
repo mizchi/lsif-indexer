@@ -12,19 +12,19 @@ use super::lsp_adapter::{LspAdapter, GenericLspClient};
 use tracing::{info, debug, warn};
 
 /// Enhanced indexer that captures reference relationships using LSP
-pub struct EnhancedIndexer {
+pub struct Indexer {
     graph: CodeGraph,
     file_symbols: HashMap<String, Vec<Symbol>>,
     processed_files: HashSet<PathBuf>,
 }
 
-impl Default for EnhancedIndexer {
+impl Default for Indexer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl EnhancedIndexer {
+impl Indexer {
     pub fn new() -> Self {
         Self {
             graph: CodeGraph::new(),
@@ -364,8 +364,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_enhanced_indexer_creation() {
-        let indexer = EnhancedIndexer::new();
+    fn test_indexer_creation() {
+        let indexer = Indexer::new();
         assert_eq!(indexer.graph.symbol_count(), 0);
         assert!(indexer.file_symbols.is_empty());
         assert!(indexer.processed_files.is_empty());

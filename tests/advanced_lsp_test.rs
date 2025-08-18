@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use lsif_indexer::cli::advanced_lsp_features::*;
+    use lsif_indexer::cli::lsp_features::*;
     use lsif_indexer::cli::lsp_adapter::*;
+    use lsif_indexer::cli::lsp_commands::{LspCommand, LspSubcommand};
     use lsp_types::*;
     use std::sync::Arc;
     use tempfile::TempDir;
@@ -25,7 +26,7 @@ mod tests {
     #[ignore] // 実際のrust-analyzerが必要
     fn test_rust_analyzer_integration() {
         let adapter = Box::new(RustAnalyzerAdapter);
-        let client = AdvancedLspClient::new(adapter);
+        let client = LspClient::new(adapter);
         
         assert!(client.is_ok());
     }
@@ -34,7 +35,7 @@ mod tests {
     #[ignore] // 実際のTypeScript LSPが必要
     fn test_typescript_lsp_integration() {
         let adapter = Box::new(TypeScriptAdapter);
-        let client = AdvancedLspClient::new(adapter);
+        let client = LspClient::new(adapter);
         
         assert!(client.is_ok());
     }
@@ -63,7 +64,7 @@ fn main() {
 "#).unwrap();
         
         let adapter = Box::new(RustAnalyzerAdapter);
-        let client = AdvancedLspClient::new(adapter).unwrap();
+        let client = LspClient::new(adapter).unwrap();
         
         let uri = Url::from_file_path(&test_file).unwrap();
         let hover_result = client.hover(HoverParams {
@@ -94,7 +95,7 @@ fn main() {
 "#).unwrap();
         
         let adapter = Box::new(RustAnalyzerAdapter);
-        let client = AdvancedLspClient::new(adapter).unwrap();
+        let client = LspClient::new(adapter).unwrap();
         
         let uri = Url::from_file_path(&test_file).unwrap();
         let completion_result = client.completion(CompletionParams {
@@ -156,7 +157,7 @@ fn main() {
 "#).unwrap();
         
         let adapter = Box::new(RustAnalyzerAdapter);
-        let client = Arc::new(AdvancedLspClient::new(adapter).unwrap());
+        let client = Arc::new(LspClient::new(adapter).unwrap());
         let analyzer = LspCodeAnalyzer::new(client);
         
         let uri = Url::from_file_path(&test_file).unwrap();
@@ -177,7 +178,7 @@ fn main() {
     #[ignore] // 実際のLSPサーバーが必要
     fn test_diagnostics_watcher() {
         let adapter = Box::new(RustAnalyzerAdapter);
-        let client = Arc::new(AdvancedLspClient::new(adapter).unwrap());
+        let client = Arc::new(LspClient::new(adapter).unwrap());
         
         let (watcher, tx) = DiagnosticsWatcher::new(client.clone());
         
@@ -287,6 +288,7 @@ fn main() {
 
 #[cfg(test)]
 mod command_tests {
+    use lsif_indexer::cli::lsp_commands::{LspCommand, LspSubcommand};
     use tempfile::TempDir;
     use std::fs;
     

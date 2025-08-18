@@ -5,11 +5,11 @@ use tracing::{info, warn};
 
 use crate::core::graph::{Symbol, SymbolKind as LSIFSymbolKind, Range};
 use crate::core::enhanced_graph::{EnhancedIndex, CallEdge, Reference};
-use super::advanced_lsp_client::AdvancedLspClient;
+use super::lsp_client::LspClient;
 use super::lsp_adapter::detect_language;
 
 pub struct LspIntegration {
-    client: AdvancedLspClient,
+    client: LspClient,
     root_path: PathBuf,
 }
 
@@ -19,7 +19,7 @@ impl LspIntegration {
         let adapter = detect_language(&sample_file.to_string_lossy())
             .ok_or_else(|| anyhow!("Unable to detect language for project"))?;
         
-        let client = AdvancedLspClient::new(adapter)?;
+        let client = LspClient::new(adapter)?;
         
         Ok(Self {
             client,

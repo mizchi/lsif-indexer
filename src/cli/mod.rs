@@ -7,10 +7,9 @@ pub mod lsp_indexer;
 pub mod call_hierarchy_cmd;
 pub mod incremental_storage;
 pub mod lsp_adapter;
-pub mod enhanced_indexer;
-pub mod advanced_lsp_client;
+pub mod indexer;
 pub mod lsp_integration;
-pub mod advanced_lsp_features;
+pub mod lsp_features;
 pub mod lsp_commands;
 pub mod ultra_fast_storage;
 
@@ -24,9 +23,8 @@ use crate::core::{
     CodeGraph, generate_lsif, parse_lsif
 };
 use self::storage::{IndexStorage, IndexMetadata, IndexFormat};
-use self::lsp_client::LspClient;
 use self::lsp_indexer::LspIndexer;
-use self::lsp_adapter::LspAdapter;
+use self::lsp_adapter::{LspAdapter, GenericLspClient, RustAnalyzerAdapter};
 use tracing::info;
 
 #[derive(Parser)]
@@ -468,9 +466,9 @@ fn generate_index(source_path: &str, output_path: &str, language: Option<&str>) 
             syms
         } else {
             // Fallback to rust-analyzer for backward compatibility
-            let mut lsp_client = LspClient::spawn_rust_analyzer()?;
-            let syms = lsp_client.get_document_symbols(&file_uri)?;
-            lsp_client.shutdown()?;
+            let mut client = GenericLspClient::new(Box::new(RustAnalyzerAdapter))?;
+            let syms = client.get_document_symbols(&file_uri)?;
+            client.shutdown()?;
             syms
         }
     };
@@ -562,11 +560,11 @@ fn update_incremental(index_path: &str, source_path: &str, detect_dead: bool) ->
     }
     
     // Get symbols from LSP
-    let mut lsp_client = LspClient::spawn_rust_analyzer()?;
+    let mut client = GenericLspClient::new(Box::new(RustAnalyzerAdapter))?;
     let abs_path = fs::canonicalize(source_path)?;
     let file_uri = format!("file://{}", abs_path.display());
-    let lsp_symbols = lsp_client.get_document_symbols(&file_uri)?;
-    lsp_client.shutdown()?;
+    let lsp_symbols = client.get_document_symbols(&file_uri)?;
+    client.shutdown()?;
     
     // Convert LSP symbols to our Symbol format
     let mut indexer = LspIndexer::new(source_path.to_string());
@@ -825,7 +823,7 @@ fn execute_query_pattern(index_path: &str, pattern: &str, limit: usize) -> Resul
 }
 
 fn index_project(project_path: &str, output_path: &str, language: &str) -> Result<()> {
-    use self::enhanced_indexer::EnhancedIndexer;
+    use self::indexer::Indexer;
     use self::lsp_adapter::{RustAnalyzerAdapter, TypeScriptAdapter};
     use std::path::Path;
     
@@ -841,7 +839,7 @@ fn index_project(project_path: &str, output_path: &str, language: &str) -> Resul
     };
     
     // Create enhanced indexer and index the project
-    let mut indexer = EnhancedIndexer::new();
+    let mut indexer = Indexer::new();
     indexer.index_project(project_root, adapter)?;
     
     // Save the graph

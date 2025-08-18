@@ -1,7 +1,7 @@
 use anyhow::Result;
 use lsif_indexer::cli::{
-    advanced_lsp_client::AdvancedLspClient,
-    advanced_lsp_features::{AdvancedLspClient as FeatureClient, DependencyGraph, LspCodeAnalyzer},
+    lsp_client::LspClient,
+    lsp_features::{LspClient as FeatureClient, DependencyGraph, LspCodeAnalyzer},
     lsp_adapter::{detect_language, LspAdapter, RustAnalyzerAdapter, TypeScriptAdapter},
     lsp_commands::*,
     lsp_integration::LspIntegration,
@@ -16,7 +16,7 @@ use tempfile::TempDir;
 #[ignore] // Requires rust-analyzer to be installed
 fn test_lsp_client_basic() -> Result<()> {
     let adapter = Box::new(RustAnalyzerAdapter);
-    let client = AdvancedLspClient::new(adapter)?;
+    let client = LspClient::new(adapter)?;
 
     // Test basic functionality
     let test_file = PathBuf::from("src/lib.rs");
@@ -179,7 +179,7 @@ mod edge_case_tests {
         fs::write(&empty_file, "").unwrap();
 
         let adapter = Box::new(RustAnalyzerAdapter);
-        if let Ok(client) = AdvancedLspClient::new(adapter) {
+        if let Ok(client) = LspClient::new(adapter) {
             let uri = Url::from_file_path(&empty_file).unwrap();
             let symbols = client.document_symbols(uri);
 
@@ -204,7 +204,7 @@ fn broken_function(
         .unwrap();
 
         let adapter = Box::new(RustAnalyzerAdapter);
-        if let Ok(client) = AdvancedLspClient::new(adapter) {
+        if let Ok(client) = LspClient::new(adapter) {
             let uri = Url::from_file_path(&invalid_file).unwrap();
 
             // 構文エラーがあっても診断情報を取得できることを確認
@@ -233,7 +233,7 @@ fn こんにちは() {
         .unwrap();
 
         let adapter = Box::new(RustAnalyzerAdapter);
-        if let Ok(client) = AdvancedLspClient::new(adapter) {
+        if let Ok(client) = LspClient::new(adapter) {
             let uri = Url::from_file_path(&unicode_file).unwrap();
             let symbols = client.document_symbols(uri);
 
@@ -274,7 +274,7 @@ fn function_{}() -> i32 {{
         fs::write(&large_file, content).unwrap();
 
         let adapter = Box::new(RustAnalyzerAdapter);
-        if let Ok(client) = AdvancedLspClient::new(adapter) {
+        if let Ok(client) = LspClient::new(adapter) {
             let uri = Url::from_file_path(&large_file).unwrap();
             let start = Instant::now();
             let symbols = client.document_symbols(uri);
@@ -392,7 +392,7 @@ fn main() {
             (ts_file, Box::new(TypeScriptAdapter) as Box<dyn LspAdapter>),
             (js_file, Box::new(TypeScriptAdapter) as Box<dyn LspAdapter>), // JS も TypeScript adapter で処理
         ] {
-            if let Ok(client) = AdvancedLspClient::new(adapter) {
+            if let Ok(client) = LspClient::new(adapter) {
                 let uri = Url::from_file_path(&file).unwrap();
                 let symbols = client.document_symbols(uri);
 
