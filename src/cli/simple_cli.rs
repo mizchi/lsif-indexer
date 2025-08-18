@@ -310,21 +310,40 @@ fn find_definition(db_path: &str, file: &str, line: u32, column: u32) -> Result<
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif reindex' first."))?;
 
-    let symbol_id = format!("{}#{}:{}", file, line, column);
+    // まず指定位置にあるシンボルを探す
+    let position = crate::core::Position { 
+        line: line - 1,  // 0-based indexに変換
+        character: column - 1 
+    };
     
-    if let Some(def) = graph.find_definition(&symbol_id) {
-        println!("📍 Definition found:");
-        println!("   {} at {}:{}:{}", 
-            def.name, 
-            def.file_path, 
-            def.range.start.line + 1,
-            def.range.start.character + 1
+    // 最も近いシンボルを探す（行が一致するものを優先）
+    let mut best_match: Option<&crate::core::Symbol> = None;
+    for symbol in graph.get_all_symbols() {
+        if symbol.file_path == file && symbol.range.start.line == position.line {
+            // 同じ行にあるシンボルを優先
+            best_match = Some(symbol);
+            break;
+        } else if symbol.file_path == file 
+            && symbol.range.start.line <= position.line 
+            && symbol.range.end.line >= position.line {
+            // 範囲内にあるシンボル
+            best_match = Some(symbol);
+        }
+    }
+    
+    if let Some(symbol) = best_match {
+        println!("📍 Symbol found: {}", symbol.name);
+        println!("   Type: {:?}", symbol.kind);
+        println!("   Location: {}:{}:{}", 
+            symbol.file_path, 
+            symbol.range.start.line + 1,
+            symbol.range.start.character + 1
         );
-        if let Some(doc) = &def.documentation {
+        if let Some(doc) = &symbol.documentation {
             println!("   📖 {}", doc);
         }
     } else {
-        println!("❌ No definition found at {}:{}:{}", file, line, column);
+        println!("❌ No symbol found at {}:{}:{}", file, line, column);
     }
 
     Ok(())
@@ -337,25 +356,46 @@ fn find_references_recursive(db_path: &str, file: &str, line: u32, column: u32, 
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif reindex' first."))?;
 
-    let symbol_id = format!("{}#{}:{}", file, line, column);
-    let refs = graph.find_references(&symbol_id);
+    // まず指定位置にあるシンボルを探す
+    let position = crate::core::Position { 
+        line: line - 1,  // 0-based indexに変換
+        character: column - 1 
+    };
     
-    if refs.is_empty() {
-        println!("❌ No references found at {}:{}:{}", file, line, column);
+    // 最も近いシンボルを探す
+    let mut target_symbol: Option<&crate::core::Symbol> = None;
+    for symbol in graph.get_all_symbols() {
+        if symbol.file_path == file && symbol.range.start.line == position.line {
+            target_symbol = Some(symbol);
+            break;
+        }
+    }
+    
+    if let Some(symbol) = target_symbol {
+        // 同じ名前のシンボルをすべて探す（簡易的な参照検索）
+        let refs: Vec<_> = graph.get_all_symbols()
+            .filter(|s| s.name == symbol.name && s.id != symbol.id)
+            .collect();
+        
+        if refs.is_empty() {
+            println!("🔗 No references found for '{}'", symbol.name);
+        } else {
+            println!("🔗 Found {} references for '{}':", refs.len(), symbol.name);
+            for (i, r) in refs.iter().take(MAX_CHANGES_DISPLAY).enumerate() {
+                println!("  {} {} at {}:{}:{}", 
+                    i + 1,
+                    r.name, 
+                    r.file_path, 
+                    r.range.start.line + 1,
+                    r.range.start.character + 1
+                );
+            }
+            if refs.len() > MAX_CHANGES_DISPLAY {
+                println!("  ... and {} more", refs.len() - MAX_CHANGES_DISPLAY);
+            }
+        }
     } else {
-        println!("🔗 Found {} references:", refs.len());
-        for (i, r) in refs.iter().take(MAX_CHANGES_DISPLAY).enumerate() {
-            println!("  {} {} at {}:{}:{}", 
-                i + 1,
-                r.name, 
-                r.file_path, 
-                r.range.start.line + 1,
-                r.range.start.character + 1
-            );
-        }
-        if refs.len() > MAX_CHANGES_DISPLAY {
-            println!("  ... and {} more", refs.len() - MAX_CHANGES_DISPLAY);
-        }
+        println!("❌ No symbol found at {}:{}:{}", file, line, column);
     }
 
     Ok(())
