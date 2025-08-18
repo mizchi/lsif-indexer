@@ -350,7 +350,7 @@ fn find_definition(db_path: &str, file: &str, line: u32, column: u32) -> Result<
     if let Some(symbol) = best_match {
         println!("📍 Symbol found: {}", symbol.name);
         println!("   Type: {:?}", symbol.kind);
-        println!("   Location: {}:{}:{}", 
+        println!("   Location: {} {} {}", 
             symbol.file_path, 
             symbol.range.start.line + 1,
             symbol.range.start.character + 1
@@ -359,7 +359,7 @@ fn find_definition(db_path: &str, file: &str, line: u32, column: u32) -> Result<
             println!("   📖 {doc}");
         }
     } else {
-        println!("❌ No symbol found at {file}:{line}:{column}");
+        println!("❌ No symbol found at {file} {line} {column}");
     }
 
     Ok(())
@@ -398,7 +398,7 @@ fn find_references_recursive(db_path: &str, file: &str, line: u32, column: u32, 
         } else {
             println!("🔗 Found {} references for '{}':", refs.len(), symbol.name);
             for (i, r) in refs.iter().take(MAX_CHANGES_DISPLAY).enumerate() {
-                println!("  {} {} at {}:{}:{}", 
+                println!("  {} {} at {} {} {}", 
                     i + 1,
                     r.name, 
                     r.file_path, 
@@ -411,7 +411,7 @@ fn find_references_recursive(db_path: &str, file: &str, line: u32, column: u32, 
             }
         }
     } else {
-        println!("❌ No symbol found at {file}:{line}:{column}");
+        println!("❌ No symbol found at {file} {line} {column}");
     }
 
     Ok(())
@@ -551,7 +551,7 @@ fn show_graph_diff(db_path: &str, project_root: &str, base: Option<&str>, relate
     
     println!("🔄 Changed symbols: {}", changed_symbols.len());
     for (i, symbol) in changed_symbols.iter().take(10).enumerate() {
-        println!("  {} {} ({:?}) at {}:{}", 
+        println!("  {} {} ({:?}) at {} {}", 
             i + 1,
             symbol.name,
             symbol.kind,
@@ -673,7 +673,7 @@ fn find_type_definition(db_path: &str, file: &str, line: u32, column: u32, depth
 
     let symbol_id = format!("{file}#{line}:{column}");
     
-    println!("🔷 Type definition for {file}:{line}:{column} (depth: {depth})");
+    println!("🔷 Type definition for {file} {line} {column} (depth: {depth})");
     
     // Find the symbol and its type
     if let Some(symbol) = graph.find_symbol(&symbol_id) {
@@ -685,7 +685,7 @@ fn find_type_definition(db_path: &str, file: &str, line: u32, column: u32, depth
             println!("  Documentation: {doc}");
         }
     } else {
-        println!("❌ No symbol found at {file}:{line}:{column}");
+        println!("❌ No symbol found at {file} {line} {column}");
     }
     
     Ok(())
@@ -798,12 +798,13 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize) -> Result<
     } else {
         println!("  Found {} symbols:", matches.len());
         for (i, symbol) in matches.iter().enumerate() {
-            println!("  {} {:?} {} at {}:{}", 
+            println!("  {} {:?} {} at {} {} {}", 
                 i + 1,
                 symbol.kind,
                 symbol.name,
                 symbol.file_path,
-                symbol.range.start.line + 1
+                symbol.range.start.line + 1,
+                symbol.range.start.character + 1
             );
         }
     }
