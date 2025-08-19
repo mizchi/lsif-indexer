@@ -98,6 +98,7 @@ fn find_references_in_file(
             let is_definition = is_definition_context(line, start_col) && 
                                matches!(target_kind, SymbolKind::Function | SymbolKind::Method | 
                                                     SymbolKind::Struct | SymbolKind::Class | 
+                                                    SymbolKind::Interface | SymbolKind::Enum |
                                                     SymbolKind::Variable | SymbolKind::Constant);
             
             // 文字列リテラルやコメント内は除外
@@ -148,10 +149,10 @@ fn build_search_pattern(name: &str, kind: &SymbolKind) -> String {
             // 関数名の後に空白と括弧、またはジェネリクスが来る
             format!(r"\b{}\b", escaped)  // シンプルに単語境界のみでマッチ
         }
-        SymbolKind::Class | SymbolKind::Struct => {
+        SymbolKind::Class | SymbolKind::Struct | SymbolKind::Interface => {
             // 型参照または定義
             // 構造体名は単体で使われるか、::でメソッドアクセスされる
-            format!(r"\b{}(?:\b|::)", escaped)
+            format!(r"\b{}\b", escaped)  // TypeScriptでは::は使わないので単純に
         }
         SymbolKind::Variable | SymbolKind::Constant => {
             // 変数参照
@@ -182,36 +183,69 @@ fn is_source_file(path: &Path) -> bool {
 
 /// 定義のコンテキストかを判定
 fn is_definition_context(line: &str, position: usize) -> bool {
+    // 現在位置が単語の先頭かを確認
+    if position > 0 {
+        let prev_char = line.chars().nth(position - 1);
+        if let Some(ch) = prev_char {
+            if ch.is_alphanumeric() || ch == '_' {
+                // 単語の途中なので定義ではない
+                return false;
+            }
+        }
+    }
+    
     // 位置より前の部分を取得
     let before = &line[..position.min(line.len())];
-    let trimmed = before.trim_end();
     
-    // 定義パターン（より正確に）
-    let definition_patterns = [
-        ("fn ", true),          // 関数定義
-        ("function ", true),    // JavaScriptなど
-        ("def ", true),         // Python
-        ("struct ", true),      // 構造体定義
-        ("class ", true),       // クラス定義
-        ("interface ", true),   // インターフェース
-        ("let ", true),         // 変数定義
-        ("const ", true),       // 定数定義
-        ("var ", true),         // 変数定義
-        ("type ", true),        // 型エイリアス
-        ("enum ", true),        // 列挙型
-        ("impl ", false),       // implブロックはそれ自体が定義ではない
+    // 前方の最後の単語を取得
+    let words: Vec<&str> = before.split_whitespace().collect();
+    if words.is_empty() {
+        return false;
+    }
+    
+    // 定義パターン
+    let definition_keywords = [
+        "export function",  // TypeScript export
+        "export class",     // TypeScript export  
+        "export interface", // TypeScript export
+        "export const",     // TypeScript export
+        "export type",      // TypeScript export
+        "export enum",      // TypeScript export
+        "export async function", // TypeScript async export
+        "async function",   // JavaScript/TypeScript async
+        "function",        // JavaScript/TypeScript
+        "class",           // クラス定義
+        "interface",       // インターフェース
+        "type",            // 型エイリアス  
+        "enum",            // 列挙型
+        "fn",              // Rust 関数定義
+        "struct",          // 構造体定義
+        "def",             // Python
     ];
     
-    // キーワードの直前にあるかチェック
-    for (keyword, is_definition_keyword) in definition_patterns.iter() {
-        if let Some(keyword_pos) = trimmed.rfind(keyword) {
-            // キーワードの後の部分をチェック
-            let after_keyword = &trimmed[keyword_pos + keyword.len()..];
-            
-            // キーワードの直後か、またはスペースのみの場合
-            if after_keyword.is_empty() || after_keyword.chars().all(char::is_whitespace) {
-                return *is_definition_keyword;
+    // 前方の単語列が定義パターンに一致するか
+    for keyword in definition_keywords.iter() {
+        let keyword_words: Vec<&str> = keyword.split_whitespace().collect();
+        if words.len() >= keyword_words.len() {
+            let start_idx = words.len() - keyword_words.len();
+            let matching_part = &words[start_idx..];
+            if matching_part == keyword_words.as_slice() {
+                return true;
             }
+        }
+    }
+    
+    // 変数定義の特別処理 (const/let/var name = ...)
+    if words.len() >= 2 {
+        let last_word = words[words.len() - 1];
+        let second_last = words[words.len() - 2];
+        
+        // 現在位置が変数名の開始位置かつ、直前がconst/let/varの場合
+        if (second_last == "const" || second_last == "let" || second_last == "var" || 
+            second_last == "export" && words.len() >= 3 && 
+            (words[words.len() - 3] == "const" || words[words.len() - 3] == "let" || words[words.len() - 3] == "var")) &&
+           !last_word.contains('=') {
+            return true;
         }
     }
     
