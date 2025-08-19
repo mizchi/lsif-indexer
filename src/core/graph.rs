@@ -42,6 +42,7 @@ pub enum SymbolKind {
     Operator,
     TypeParameter,
     Parameter,
+    Reference,
     Unknown,
 }
 

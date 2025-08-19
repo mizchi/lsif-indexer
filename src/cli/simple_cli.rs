@@ -53,7 +53,7 @@ pub enum SimpleCommands {
         /// Column number (1-based, optional)
         column: Option<u32>,
         /// Maximum depth for recursive search
-        #[arg(short, long, default_value = "1")]
+        #[arg(long, default_value = "1")]
         depth: usize,
     },
 
