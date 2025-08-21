@@ -284,7 +284,6 @@ impl GitDiffDetector {
                     || name == "node_modules"
                     || name == ".idea"
                     || name == ".vscode"
-                    || name == "tmp"
                 {
                     return true;
                 }
