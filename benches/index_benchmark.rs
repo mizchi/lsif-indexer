@@ -541,22 +541,20 @@ fn benchmark_incremental_updates(c: &mut Criterion) {
 }
 
 fn benchmark_storage_operations(c: &mut Criterion) {
-    use lsif_indexer::cli::incremental_storage::IncrementalStorage;
     use tempfile::tempdir;
 
     let mut group = c.benchmark_group("storage_operations");
 
     // Create test data
-    let mut index = IncrementalIndex::new();
+    let mut graph = CodeGraph::new();
     for i in 0..100 {
-        index
-            .add_symbol(Symbol {
-                id: format!("sym_{i}"),
-                name: format!("function_{i}"),
-                kind: SymbolKind::Function,
-                file_path: format!("file_{}.rs", i / 10),
-                range: Range {
-                    start: Position {
+        graph.add_symbol(Symbol {
+            id: format!("sym_{i}"),
+            name: format!("function_{i}"),
+            kind: SymbolKind::Function,
+            file_path: format!("file_{}.rs", i / 10),
+            range: Range {
+                start: Position {
                         line: i * 10,
                         character: 0,
                     },
@@ -571,28 +569,12 @@ fn benchmark_storage_operations(c: &mut Criterion) {
     }
 
     let dir = tempdir().unwrap();
-    let db_path = dir.path().join("bench.db");
+    let db_path = dir.path();
 
     // Benchmark full save
     group.bench_function("storage_full_save", |b| {
-        let storage = IncrementalStorage::open(db_path.to_str().unwrap()).unwrap();
-        b.iter(|| storage.save_full(black_box(&index)).unwrap())
-    });
-
-    // Benchmark incremental save
-    group.bench_function("storage_incremental_save", |b| {
-        let storage = IncrementalStorage::open(db_path.to_str().unwrap()).unwrap();
-
-        let mut result = lsif_indexer::core::incremental::UpdateResult::default();
-        result.added_symbols.insert("new_sym".to_string());
-        result.updated_symbols.insert("sym_0".to_string());
-        result.removed_symbols.insert("sym_99".to_string());
-
-        b.iter(|| {
-            storage
-                .save_incremental(black_box(&index), black_box(&result))
-                .unwrap()
-        })
+        let storage = IndexStorage::open(db_path).unwrap();
+        b.iter(|| storage.save_data("graph", black_box(&graph)).unwrap())
     });
 
     group.finish();

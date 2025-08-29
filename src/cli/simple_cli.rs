@@ -1084,59 +1084,8 @@ fn rebuild_index(db_path: &str, project_root: &str, force: bool, verbose: bool) 
 }
 
 /// public_onlyオプション付き
-fn show_unused_code(db_path: &str, public_only: bool) -> Result<()> {
-    use crate::cli::incremental_storage::IncrementalStorage;
-
-    let storage = IncrementalStorage::open(db_path)?;
-    let index = storage.load_or_create_index()?;
-    let mut dead_symbols = index.get_dead_symbols().clone();
-
-    // Filter public only if requested
-    if public_only {
-        dead_symbols.retain(|symbol_id| {
-            // Check if symbol is public (simplified check)
-            symbol_id.contains("pub ") || !symbol_id.contains("fn ")
-        });
-    }
-
-    if dead_symbols.is_empty() {
-        println!(
-            "✨ No unused {} code detected!",
-            if public_only { "public" } else { "" }
-        );
-    } else {
-        println!(
-            "💀 Found {} unused {} symbols:",
-            dead_symbols.len(),
-            if public_only { "public" } else { "" }
-        );
-
-        // Group by file
-        let mut by_file: std::collections::HashMap<String, Vec<String>> =
-            std::collections::HashMap::new();
-        for symbol_id in dead_symbols {
-            if let Some(path) = index.symbol_to_file.get(&symbol_id) {
-                by_file
-                    .entry(path.to_string_lossy().to_string())
-                    .or_default()
-                    .push(symbol_id.clone());
-            }
-        }
-
-        for (file, symbols) in by_file.iter().take(10) {
-            println!("\n  {file}:");
-            for symbol in symbols.iter().take(3) {
-                println!("    - {symbol}");
-            }
-            if symbols.len() > 3 {
-                println!("    ... and {} more", symbols.len() - 3);
-            }
-        }
-
-        if by_file.len() > 10 {
-            println!("\n  ... and {} more files", by_file.len() - 10);
-        }
-    }
-
+fn show_unused_code(_db_path: &str, _public_only: bool) -> Result<()> {
+    // Dead code detection needs reimplementation with enhanced graph
+    println!("Dead code detection is currently being refactored.");
     Ok(())
 }

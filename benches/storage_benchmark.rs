@@ -1,5 +1,4 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use lsif_indexer::cli::parallel_storage::ParallelIndexStorage;
 use lsif_indexer::cli::storage::{IndexFormat, IndexMetadata, IndexStorage};
 use lsif_indexer::core::graph::{CodeGraph, Position, Range, Symbol, SymbolKind};
 use tempfile::TempDir;
@@ -51,53 +50,8 @@ fn benchmark_symbol_save(c: &mut Criterion) {
     let mut group = c.benchmark_group("symbol_storage");
 
     for size in [100, 1000, 10000].iter() {
-        // 並列保存のベンチマーク
-        group.bench_with_input(
-            BenchmarkId::new("save_parallel", size),
-            size,
-            |b, &symbol_count| {
-                b.iter_batched(
-                    || {
-                        let temp_dir = TempDir::new().unwrap();
-                        let storage = ParallelIndexStorage::open(temp_dir.path()).unwrap();
-                        let symbols: Vec<(String, Symbol)> = generate_test_symbols(symbol_count)
-                            .into_iter()
-                            .map(|s| (s.id.clone(), s))
-                            .collect();
-                        (storage, symbols, temp_dir)
-                    },
-                    |(storage, symbols, _temp_dir)| {
-                        storage.save_symbols_parallel(&symbols).unwrap();
-                    },
-                    BatchSize::SmallInput,
-                );
-            },
-        );
 
-        // チャンク並列保存のベンチマーク
-        group.bench_with_input(
-            BenchmarkId::new("save_chunked_parallel", size),
-            size,
-            |b, &symbol_count| {
-                b.iter_batched(
-                    || {
-                        let temp_dir = TempDir::new().unwrap();
-                        let storage = ParallelIndexStorage::open(temp_dir.path()).unwrap();
-                        let symbols: Vec<(String, Symbol)> = generate_test_symbols(symbol_count)
-                            .into_iter()
-                            .map(|s| (s.id.clone(), s))
-                            .collect();
-                        (storage, symbols, temp_dir)
-                    },
-                    |(storage, symbols, _temp_dir)| {
-                        let chunk_size = if symbol_count < 1000 { 10 } else { 100 };
-                        storage.save_symbols_chunked(&symbols, chunk_size).unwrap();
-                    },
-                    BatchSize::SmallInput,
-                );
-            },
-        );
-
+        // Individual symbol saving
         group.bench_with_input(
             BenchmarkId::new("save_individual_symbols", size),
             size,

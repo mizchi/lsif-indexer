@@ -1,4 +1,3 @@
-pub mod cached_storage;
 pub mod call_hierarchy_cmd;
 pub mod common_adapter;
 pub mod differential_indexer;
@@ -7,7 +6,6 @@ pub mod fuzzy_search;
 pub mod generic_helpers;
 pub mod git_diff;
 pub mod go_adapter;
-pub mod incremental_storage;
 pub mod indexer;
 pub mod language_adapter;
 pub mod language_detector;
@@ -19,17 +17,13 @@ pub mod lsp_indexer;
 pub mod lsp_integration;
 pub mod lsp_minimal_client;
 pub mod minimal_language_adapter;
-pub mod optimized_incremental;
-pub mod parallel_storage;
 pub mod python_adapter;
 pub mod reference_finder;
 pub mod simple_cli;
 pub mod storage;
 pub mod typescript_adapter;
-pub mod ultra_fast_storage;
 
 // Re-export commonly used types
-pub use ultra_fast_storage::{MemoryPoolStorage, UltraFastStorage};
 
 use self::lsp_adapter::{GenericLspClient, LspAdapter, RustAnalyzerAdapter};
 use self::lsp_indexer::LspIndexer;
@@ -659,24 +653,33 @@ fn query_index(
 }
 
 fn update_incremental(index_path: &str, source_path: &str, detect_dead: bool) -> Result<()> {
-    use self::incremental_storage::IncrementalStorage;
     use crate::core::calculate_file_hash;
 
-    // Open incremental storage
-    let storage = IncrementalStorage::open(index_path)?;
+    // Open storage
+    let storage = IndexStorage::open(index_path)?;
 
-    // Load or create index
-    let mut index = storage.load_or_create_index()?;
+    // Load or create metadata
+    let mut metadata = storage.load_metadata().unwrap_or(None).unwrap_or(IndexMetadata {
+        format: IndexFormat::Lsif,
+        version: "1.0.0".to_string(),
+        created_at: chrono::Utc::now(),
+        project_root: ".".to_string(),
+        files_count: 0,
+        symbols_count: 0,
+        git_commit_hash: None,
+        file_hashes: std::collections::HashMap::new(),
+    });
 
     // Read source file
     let content = fs::read_to_string(source_path)?;
     let file_hash = calculate_file_hash(&content);
 
     // Check if update is needed
-    let path = std::path::Path::new(source_path);
-    if !index.needs_update(path, &file_hash) {
-        println!("File {source_path} is up to date");
-        return Ok(());
+    if let Some(existing_hash) = metadata.file_hashes.get(source_path) {
+        if existing_hash == &file_hash {
+            println!("File {source_path} is up to date");
+            return Ok(());
+        }
     }
 
     // Get symbols from LSP
@@ -692,76 +695,35 @@ fn update_incremental(index_path: &str, source_path: &str, detect_dead: bool) ->
     let graph = indexer.into_graph();
     let symbols: Vec<_> = graph.get_all_symbols().cloned().collect();
 
-    // Update index
-    let result = index.update_file(path, symbols, file_hash)?;
+    // Update metadata
+    metadata.file_hashes.insert(source_path.to_string(), file_hash);
+    metadata.symbols_count = symbols.len();
+    metadata.files_count = metadata.file_hashes.len();
 
-    // Save incremental changes
-    let metrics = storage.save_incremental(&index, &result)?;
+    // Save symbols and metadata
+    for symbol in &symbols {
+        storage.save_data(&symbol.id, symbol)?;
+    }
+    storage.save_metadata(&metadata)?;
 
-    println!("Update complete: {}", metrics.summary());
-    println!("  Added: {} symbols", result.added_symbols.len());
-    println!("  Updated: {} symbols", result.updated_symbols.len());
-    println!("  Removed: {} symbols", result.removed_symbols.len());
+    println!("Update complete");
+    println!("  Total symbols: {}", symbols.len());
 
     if detect_dead {
-        println!(
-            "\nDead code detected: {} symbols",
-            result.dead_symbols.len()
-        );
-        for symbol_id in result.dead_symbols.iter().take(10) {
-            println!("  - {symbol_id}");
-        }
-        if result.dead_symbols.len() > 10 {
-            println!("  ... and {} more", result.dead_symbols.len() - 10);
-        }
+        println!("\nDead code detection is currently being refactored.");
     }
 
     // Show storage stats
-    let stats = storage.get_stats()?;
     println!("\nStorage stats:");
-    println!("  Total symbols: {}", stats.total_symbols);
-    println!("  Total files: {}", stats.total_files);
-    println!("  DB size: {} KB", stats.db_size_bytes / 1024);
+    println!("  Total files: {}", metadata.files_count);
+    println!("  Total symbols: {}", metadata.symbols_count);
 
     Ok(())
 }
 
-fn show_dead_code(index_path: &str) -> Result<()> {
-    use self::incremental_storage::IncrementalStorage;
-
-    let storage = IncrementalStorage::open(index_path)?;
-    let index = storage.load_or_create_index()?;
-
-    let dead_symbols = index.get_dead_symbols();
-
-    if dead_symbols.is_empty() {
-        println!("No dead code detected.");
-    } else {
-        println!("Dead code found: {} symbols", dead_symbols.len());
-
-        // Group by file
-        let mut by_file: std::collections::HashMap<String, Vec<String>> =
-            std::collections::HashMap::new();
-        for symbol_id in dead_symbols {
-            if let Some(path) = index.symbol_to_file.get(symbol_id) {
-                by_file
-                    .entry(path.to_string_lossy().to_string())
-                    .or_default()
-                    .push(symbol_id.clone());
-            }
-        }
-
-        for (file, symbols) in by_file {
-            println!("\n{file}:");
-            for symbol in symbols.iter().take(5) {
-                println!("  - {symbol}");
-            }
-            if symbols.len() > 5 {
-                println!("  ... and {} more", symbols.len() - 5);
-            }
-        }
-    }
-
+fn show_dead_code(_index_path: &str) -> Result<()> {
+    // Dead code detection needs reimplementation
+    println!("Dead code detection is currently being refactored.");
     Ok(())
 }
 

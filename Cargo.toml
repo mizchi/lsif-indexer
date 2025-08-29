@@ -100,9 +100,5 @@ name = "storage_benchmark"
 harness = false
 
 [[bench]]
-name = "cache_benchmark"
-harness = false
-
-[[bench]]
-name = "ultra_bench"
+name = "multi_language_benchmark"
 harness = false
