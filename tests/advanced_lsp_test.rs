@@ -8,19 +8,6 @@ mod tests {
     use std::sync::Arc;
     use tempfile::TempDir;
 
-    /// テスト用のモックLSPアダプター
-    struct MockLspAdapter;
-
-    impl LspAdapter for MockLspAdapter {
-        fn spawn_command(&self) -> anyhow::Result<std::process::Child> {
-            // 実際のLSPサーバーを起動しない
-            Err(anyhow::anyhow!("Mock adapter - no real LSP"))
-        }
-
-        fn language_id(&self) -> &str {
-            "mock"
-        }
-    }
 
     #[test]
     #[ignore] // 実際のrust-analyzerが必要

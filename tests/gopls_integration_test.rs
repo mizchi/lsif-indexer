@@ -62,35 +62,3 @@ fn test_gopls_lsp_communication() {
 }
 
 // ヘルパー関数: テスト環境のセットアップ
-fn setup_test_go_project() -> TempDir {
-    let temp_dir = TempDir::new().unwrap();
-    let project_path = temp_dir.path();
-
-    // go.modの作成
-    std::fs::write(project_path.join("go.mod"), "module test\n\ngo 1.21\n").unwrap();
-
-    // main.goの作成（簡易版）
-    std::fs::write(
-        project_path.join("main.go"),
-        r#"package main
-
-import "fmt"
-
-type Example struct {
-    Value int
-}
-
-func (e *Example) GetValue() int {
-    return e.Value
-}
-
-func main() {
-    e := &Example{Value: 42}
-    fmt.Println(e.GetValue())
-}
-"#,
-    )
-    .unwrap();
-
-    temp_dir
-}

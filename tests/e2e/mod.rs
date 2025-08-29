@@ -337,23 +337,4 @@ impl TestOutput {
         }
         Ok(())
     }
-    
-    /// Assert that the stderr contains a string
-    pub fn assert_stderr_contains(&self, text: &str) -> Result<()> {
-        if !self.stderr.contains(text) {
-            anyhow::bail!(
-                "stderr does not contain '{}'\nActual stderr:\n{}",
-                text,
-                self.stderr
-            );
-        }
-        Ok(())
-    }
-}
-
-/// Create a simple test fixture file
-pub fn create_fixture_file(dir: &Path, name: &str, content: &str) -> Result<PathBuf> {
-    let file_path = dir.join(name);
-    fs::write(&file_path, content)?;
-    Ok(file_path)
 }

@@ -448,32 +448,6 @@ impl MinimalLspClient {
         Ok(())
     }
 
-    fn read_message(&mut self) -> Result<Value> {
-        // ヘッダーを読む
-        let mut content_length = 0;
-        loop {
-            let mut line = String::new();
-            self.stdout.read_line(&mut line)?;
-
-            if line == "\r\n" || line == "\n" {
-                break;
-            }
-
-            if let Some(length_str) = line.strip_prefix("Content-Length: ") {
-                content_length = length_str
-                    .trim()
-                    .parse()
-                    .map_err(|_| anyhow!("Invalid content length"))?;
-            }
-        }
-
-        // コンテンツを読む
-        let mut buffer = vec![0u8; content_length];
-        self.stdout.read_exact(&mut buffer)?;
-
-        let content = String::from_utf8(buffer)?;
-        serde_json::from_str(&content).map_err(|e| anyhow!("Failed to parse JSON: {}", e))
-    }
 
     fn try_read_message(&mut self, timeout: Duration) -> Result<Option<Value>> {
         use std::io::ErrorKind;
