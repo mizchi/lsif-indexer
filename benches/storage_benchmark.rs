@@ -179,8 +179,7 @@ fn benchmark_symbol_load(c: &mut Criterion) {
 
                 b.iter(|| {
                     for i in 0..symbol_count {
-                        let _: Option<Symbol> =
-                            storage.load_data(&format!("symbol_{i}")).unwrap();
+                        let _: Option<Symbol> = storage.load_data(&format!("symbol_{i}")).unwrap();
                     }
                 });
             },

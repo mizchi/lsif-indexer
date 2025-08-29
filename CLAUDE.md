@@ -2,6 +2,22 @@
 
 このドキュメントは、LSIF Indexerの開発とメンテナンスに必要な手順を記載しています。
 
+## 重要な開発ルール
+
+### 一時ファイルの生成場所
+
+**すべての一時ファイル（テスト用DBファイル、キャッシュファイル等）は必ず `tmp/` ディレクトリ以下に生成すること。**
+
+- テスト実行時: `tmp/test-*.db`
+- ベンチマーク実行時: `tmp/bench-*.db`
+- デバッグ実行時: `tmp/debug-*.db`
+- その他の一時ファイル: `tmp/` 以下の適切な場所
+
+```bash
+# tmpディレクトリの作成（必要に応じて）
+mkdir -p tmp/
+```
+
 ## 開発環境セットアップ
 
 ### 必要なツール
@@ -88,20 +104,58 @@ cargo bench -- --baseline main
 
 ```bash
 # 自身のコードベースをインデックス（最も実践的なテスト）
-cargo run --release -- index-project -p . -o self-index.db -l rust
+cargo run --release -- index-project -p . -o tmp/self-index.db -l rust
 
 # 差分インデックスのテスト
 echo "// test" >> src/main.rs
-cargo run --release -- differential-index -p . -o self-index.db
+cargo run --release -- differential-index -p . -o tmp/self-index.db
 # Expected: 0.06-0.12秒で完了
 
 # 生成されたインデックスを検証
-cargo run --release -- query -i self-index.db --query-type definition -f src/main.rs -l 10 -c 5
-cargo run --release -- show-dead-code -i self-index.db
-cargo run --release -- call-hierarchy -i self-index.db -s "main" -d full
+cargo run --release -- query -i tmp/self-index.db --query-type definition -f src/main.rs -l 10 -c 5
+cargo run --release -- show-dead-code -i tmp/self-index.db
+cargo run --release -- call-hierarchy -i tmp/self-index.db -s "main" -d full
 ```
 
 ### 3. 品質チェック
+
+#### テストカバレッジ計測
+
+```bash
+# cargo-llvm-covのインストール（初回のみ）
+cargo install cargo-llvm-cov
+
+# カバレッジレポート生成（HTML形式）
+mkdir -p tmp
+cargo llvm-cov --lib --html --output-dir tmp/coverage-report
+
+# カバレッジサマリーの表示
+cargo llvm-cov --lib --summary-only
+
+# 統合テストを含む全テストのカバレッジ
+cargo llvm-cov --html --output-dir tmp/coverage-report
+
+# カバレッジレポートの閲覧
+# ブラウザで tmp/coverage-report/html/index.html を開く
+```
+
+##### 現在のカバレッジ状況
+
+| メトリクス | 現在値 | 目標値 |
+|-----------|--------|--------|
+| ライン | 32.91% | > 70% |
+| 関数 | 33.98% | > 80% |
+| リージョン | 35.14% | > 75% |
+
+##### カバレッジが低いモジュール（優先改善対象）
+
+| モジュール | 現在のカバレッジ | 理由 |
+|-----------|------------------|------|
+| cli/mod.rs | 0% | CLIメインモジュール（統合テスト必要） |
+| cli/differential_indexer.rs | 0% | 差分インデックサー（モック化必要） |
+| cli/lsp_minimal_client.rs | 0.93% | LSPクライアント（モックサーバー必要） |
+| cli/simple_cli.rs | 0% | CLIコマンド実装（統合テスト必要） |
+| core/lsif.rs | 0% | LSIF形式処理（テスト追加必要） |
 
 #### Clippy（Lintツール）
 
@@ -151,7 +205,7 @@ cargo audit
 
 | メトリクス | 目標値 | 測定方法 |
 |-----------|--------|----------|
-| 初回フルインデックス | < 1.5秒 | `cargo run --release -- index-project -p . -o test.db` |
+| 初回フルインデックス | < 1.5秒 | `cargo run --release -- index-project -p . -o tmp/test.db` |
 | 差分インデックス | < 0.15秒 | ファイル変更後の `differential-index` |
 | メモリ使用量 | < 150MB | `/usr/bin/time -v` で測定 |
 | ファイル処理速度 | > 30 files/sec | ベンチマーク結果 |
@@ -170,7 +224,7 @@ cargo audit
 
 ```bash
 # テスト用の一時ファイルをクリーンアップ
-rm -rf test-* self-index* tmp/
+rm -rf tmp/
 
 # キャッシュをクリア
 cargo clean
@@ -194,10 +248,10 @@ taskset -c 0 cargo bench
 ```bash
 # プロファイリング
 cargo install flamegraph
-cargo flamegraph --bin lsif-indexer -- index-project -p . -o test.db
+cargo flamegraph --bin lsif-indexer -- index-project -p . -o tmp/test.db
 
 # メモリプロファイリング
-valgrind --tool=massif cargo run --release -- index-project -p . -o test.db
+valgrind --tool=massif cargo run --release -- index-project -p . -o tmp/test.db
 ms_print massif.out.*
 ```
 
@@ -219,7 +273,8 @@ ms_print massif.out.*
 - name: Self-index test
   run: |
     cargo build --release
-    time ./target/release/lsif-indexer index-project -p . -o ci-test.db
+    mkdir -p tmp
+    time ./target/release/lsif-indexer index-project -p . -o tmp/ci-test.db
 ```
 
 ## 開発のベストプラクティス
@@ -242,10 +297,10 @@ ms_print massif.out.*
 
 ```bash
 # デバッグビルドで詳細ログ
-RUST_LOG=debug cargo run -- index-project -p . -o debug.db
+RUST_LOG=debug cargo run -- index-project -p . -o tmp/debug.db
 
 # 特定モジュールのログのみ
-RUST_LOG=lsif_indexer::cli::git_diff=trace cargo run -- differential-index -p . -o debug.db
+RUST_LOG=lsif_indexer::cli::git_diff=trace cargo run -- differential-index -p . -o tmp/debug.db
 ```
 
 ## メトリクス収集
@@ -255,14 +310,15 @@ RUST_LOG=lsif_indexer::cli::git_diff=trace cargo run -- differential-index -p . 
 ```bash
 # パフォーマンステスト自動化スクリプト
 #!/bin/bash
+mkdir -p tmp
 echo "=== Performance Test $(date) ===" | tee -a performance.log
 
 # フルインデックス
-time cargo run --release -- index-project -p . -o perf-test.db 2>&1 | tee -a performance.log
+time cargo run --release -- index-project -p . -o tmp/perf-test.db 2>&1 | tee -a performance.log
 
 # 差分インデックス
 echo "// test" >> src/lib.rs
-time cargo run --release -- differential-index -p . -o perf-test.db 2>&1 | tee -a performance.log
+time cargo run --release -- differential-index -p . -o tmp/perf-test.db 2>&1 | tee -a performance.log
 git checkout src/lib.rs
 
 # ベンチマーク結果

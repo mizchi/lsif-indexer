@@ -338,9 +338,7 @@ fn test_performance_with_many_files() -> Result<()> {
     let diff_duration = start.elapsed();
 
     assert_eq!(result.files_modified, 1);
-    println!(
-        "Differential indexing of 1 changed file: {diff_duration:?}"
-    );
+    println!("Differential indexing of 1 changed file: {diff_duration:?}");
 
     // 差分インデックスの方が圧倒的に速いことを確認
     assert!(diff_duration < initial_duration / 10);

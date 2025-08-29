@@ -1,12 +1,12 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use lsif_indexer::cli::go_adapter::GoAdapter;
-use lsif_indexer::cli::python_adapter::PythonAdapter;
-use lsif_indexer::cli::typescript_adapter::TypeScriptAdapter;
 use lsif_indexer::cli::lsp_minimal_client::MinimalLspClient;
 use lsif_indexer::cli::minimal_language_adapter::MinimalLanguageAdapter;
+use lsif_indexer::cli::python_adapter::PythonAdapter;
+use lsif_indexer::cli::typescript_adapter::TypeScriptAdapter;
+use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-use std::fs;
 
 /// 言語別のLSPインデックス性能測定
 
@@ -53,42 +53,38 @@ fn benchmark_language_indexing(c: &mut Criterion) {
 
 fn benchmark_file_size_scaling(c: &mut Criterion) {
     let mut group = c.benchmark_group("file_size_scaling");
-    
+
     // 異なるサイズのファイルでのパフォーマンス測定
     let sizes = vec![100, 500, 1000, 5000];
-    
+
     for size in sizes {
         let file_content = generate_test_code(size);
         let file_path = format!("/tmp/test_{}_lines.py", size);
         fs::write(&file_path, &file_content).unwrap();
-        
-        group.bench_with_input(
-            BenchmarkId::from_parameter(size),
-            &size,
-            |b, _size| {
-                b.iter(|| {
-                    let adapter = Box::new(PythonAdapter::new());
-                    if let Ok(mut client) = MinimalLspClient::new(adapter) {
-                        let project_path = PathBuf::from("/tmp");
-                        let _ = client.initialize(&project_path);
-                        let file = PathBuf::from(&file_path);
-                        let _ = client.get_document_symbols(&file);
-                        let _ = client.shutdown();
-                    }
-                });
-            },
-        );
+
+        group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _size| {
+            b.iter(|| {
+                let adapter = Box::new(PythonAdapter::new());
+                if let Ok(mut client) = MinimalLspClient::new(adapter) {
+                    let project_path = PathBuf::from("/tmp");
+                    let _ = client.initialize(&project_path);
+                    let file = PathBuf::from(&file_path);
+                    let _ = client.get_document_symbols(&file);
+                    let _ = client.shutdown();
+                }
+            });
+        });
     }
-    
+
     group.finish();
 }
 
 fn benchmark_concurrent_processing(c: &mut Criterion) {
     let mut group = c.benchmark_group("concurrent_processing");
-    
+
     // 並列処理のベンチマーク
     let thread_counts = vec![1, 2, 4, 8];
-    
+
     for threads in thread_counts {
         group.bench_with_input(
             BenchmarkId::from_parameter(threads),
@@ -100,7 +96,7 @@ fn benchmark_concurrent_processing(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
@@ -111,7 +107,7 @@ fn extract_symbols_from_project(
     project_path: &PathBuf,
 ) -> usize {
     let mut total_symbols = 0;
-    
+
     if let Ok(mut client) = MinimalLspClient::new(adapter) {
         if client.initialize(project_path).is_ok() {
             // プロジェクト内のファイルを処理
@@ -128,42 +124,42 @@ fn extract_symbols_from_project(
             let _ = client.shutdown();
         }
     }
-    
+
     black_box(total_symbols)
 }
 
 fn generate_test_code(lines: usize) -> String {
     let mut code = String::new();
-    
+
     // ヘッダー
     code.push_str("# Auto-generated test file\n\n");
-    
+
     // クラス定義
     for i in 0..lines / 20 {
         code.push_str(&format!("class TestClass{}:\n", i));
         code.push_str(&format!("    def __init__(self):\n"));
         code.push_str(&format!("        self.value = {}\n\n", i));
-        
+
         // メソッド
         for j in 0..5 {
             code.push_str(&format!("    def method_{}(self, x):\n", j));
             code.push_str(&format!("        return x * {}\n\n", j + 1));
         }
     }
-    
+
     // 関数定義
     for i in 0..lines / 10 {
         code.push_str(&format!("def function_{}(a, b):\n", i));
         code.push_str(&format!("    return a + b + {}\n\n", i));
     }
-    
+
     code
 }
 
 fn process_files_concurrently(thread_count: usize) {
     use std::sync::Arc;
     use std::thread;
-    
+
     let files: Vec<PathBuf> = vec![
         PathBuf::from("test-go-project/main.go"),
         PathBuf::from("test-go-project/utils.go"),
@@ -172,10 +168,10 @@ fn process_files_concurrently(thread_count: usize) {
         PathBuf::from("test-typescript-project/calculator.ts"),
         PathBuf::from("test-typescript-project/utils.ts"),
     ];
-    
+
     let chunk_size = (files.len() + thread_count - 1) / thread_count;
     let chunks: Vec<_> = files.chunks(chunk_size).map(|c| c.to_vec()).collect();
-    
+
     let handles: Vec<_> = chunks
         .into_iter()
         .map(|chunk| {
@@ -183,7 +179,7 @@ fn process_files_concurrently(thread_count: usize) {
                 for file in chunk {
                     if file.exists() {
                         // ファイルごとに適切なアダプタを選択
-                        let adapter: Box<dyn MinimalLanguageAdapter> = 
+                        let adapter: Box<dyn MinimalLanguageAdapter> =
                             if file.extension().map_or(false, |e| e == "go") {
                                 Box::new(GoAdapter)
                             } else if file.extension().map_or(false, |e| e == "py") {
@@ -191,7 +187,7 @@ fn process_files_concurrently(thread_count: usize) {
                             } else {
                                 Box::new(TypeScriptAdapter::new())
                             };
-                        
+
                         if let Ok(mut client) = MinimalLspClient::new(adapter) {
                             if let Some(parent) = file.parent() {
                                 let _ = client.initialize(parent);
@@ -204,7 +200,7 @@ fn process_files_concurrently(thread_count: usize) {
             })
         })
         .collect();
-    
+
     for handle in handles {
         let _ = handle.join();
     }

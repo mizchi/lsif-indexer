@@ -1,10 +1,9 @@
-/// 言語自動検出とアダプタ選択モジュール
-
-use std::path::Path;
-use crate::cli::minimal_language_adapter::MinimalLanguageAdapter;
 use crate::cli::go_adapter::GoAdapter;
+use crate::cli::minimal_language_adapter::MinimalLanguageAdapter;
 use crate::cli::python_adapter::PythonAdapter;
 use crate::cli::typescript_adapter::TypeScriptAdapter;
+/// 言語自動検出とアダプタ選択モジュール
+use std::path::Path;
 
 /// サポートされている言語
 #[derive(Debug, Clone, PartialEq)]
@@ -29,7 +28,7 @@ impl Language {
             _ => Language::Unknown,
         }
     }
-    
+
     /// 言語の表示名
     pub fn name(&self) -> &str {
         match self {
@@ -41,7 +40,7 @@ impl Language {
             Language::Unknown => "Unknown",
         }
     }
-    
+
     /// 言語の拡張子リスト
     pub fn extensions(&self) -> Vec<&str> {
         match self {
@@ -64,9 +63,10 @@ pub fn detect_project_language(project_path: &Path) -> Language {
     if project_path.join("go.mod").exists() {
         return Language::Go;
     }
-    if project_path.join("requirements.txt").exists() 
+    if project_path.join("requirements.txt").exists()
         || project_path.join("setup.py").exists()
-        || project_path.join("pyproject.toml").exists() {
+        || project_path.join("pyproject.toml").exists()
+    {
         return Language::Python;
     }
     if project_path.join("package.json").exists() {
@@ -76,10 +76,10 @@ pub fn detect_project_language(project_path: &Path) -> Language {
         }
         return Language::JavaScript;
     }
-    
+
     // ファイル拡張子から判定
     let mut file_counts = std::collections::HashMap::new();
-    
+
     if let Ok(entries) = std::fs::read_dir(project_path) {
         for entry in entries.flatten() {
             let path = entry.path();
@@ -92,16 +92,22 @@ pub fn detect_project_language(project_path: &Path) -> Language {
             }
         }
     }
-    
+
     // 最も多い拡張子から言語を判定
-    for lang in &[Language::Rust, Language::Go, Language::Python, Language::TypeScript, Language::JavaScript] {
+    for lang in &[
+        Language::Rust,
+        Language::Go,
+        Language::Python,
+        Language::TypeScript,
+        Language::JavaScript,
+    ] {
         for ext in lang.extensions() {
             if file_counts.get(ext).copied().unwrap_or(0) > 0 {
                 return lang.clone();
             }
         }
     }
-    
+
     Language::Unknown
 }
 
@@ -138,7 +144,7 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::TempDir;
-    
+
     #[test]
     fn test_language_from_str() {
         assert_eq!(Language::from_str("rust"), Language::Rust);
@@ -148,46 +154,55 @@ mod tests {
         assert_eq!(Language::from_str("javascript"), Language::JavaScript);
         assert_eq!(Language::from_str("unknown"), Language::Unknown);
     }
-    
+
     #[test]
     fn test_detect_rust_project() {
         let temp_dir = TempDir::new().unwrap();
         fs::write(temp_dir.path().join("Cargo.toml"), "[package]").unwrap();
-        
+
         assert_eq!(detect_project_language(temp_dir.path()), Language::Rust);
     }
-    
+
     #[test]
     fn test_detect_go_project() {
         let temp_dir = TempDir::new().unwrap();
         fs::write(temp_dir.path().join("go.mod"), "module test").unwrap();
-        
+
         assert_eq!(detect_project_language(temp_dir.path()), Language::Go);
     }
-    
+
     #[test]
     fn test_detect_python_project() {
         let temp_dir = TempDir::new().unwrap();
         fs::write(temp_dir.path().join("requirements.txt"), "flask==2.0").unwrap();
-        
+
         assert_eq!(detect_project_language(temp_dir.path()), Language::Python);
     }
-    
+
     #[test]
     fn test_detect_typescript_project() {
         let temp_dir = TempDir::new().unwrap();
         fs::write(temp_dir.path().join("package.json"), "{}").unwrap();
         fs::write(temp_dir.path().join("tsconfig.json"), "{}").unwrap();
-        
-        assert_eq!(detect_project_language(temp_dir.path()), Language::TypeScript);
+
+        assert_eq!(
+            detect_project_language(temp_dir.path()),
+            Language::TypeScript
+        );
     }
-    
+
     #[test]
     fn test_detect_file_language() {
         assert_eq!(detect_file_language(Path::new("test.rs")), Language::Rust);
         assert_eq!(detect_file_language(Path::new("main.go")), Language::Go);
         assert_eq!(detect_file_language(Path::new("app.py")), Language::Python);
-        assert_eq!(detect_file_language(Path::new("index.ts")), Language::TypeScript);
-        assert_eq!(detect_file_language(Path::new("script.js")), Language::JavaScript);
+        assert_eq!(
+            detect_file_language(Path::new("index.ts")),
+            Language::TypeScript
+        );
+        assert_eq!(
+            detect_file_language(Path::new("script.js")),
+            Language::JavaScript
+        );
     }
 }

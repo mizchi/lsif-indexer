@@ -1,6 +1,6 @@
-use std::process::{Command, Child, Stdio};
+use crate::cli::common_adapter::{c_style_comments, spawn_lsp_server};
+use crate::cli::minimal_language_adapter::{CommentStyles, MinimalLanguageAdapter};
 use anyhow::Result;
-use crate::cli::minimal_language_adapter::{MinimalLanguageAdapter, CommentStyles};
 
 /// TypeScript/JavaScript言語のアダプタ実装
 /// typescript-language-serverを使用してTS/JSコードを解析
@@ -14,35 +14,39 @@ impl TypeScriptAdapter {
     pub fn new() -> Self {
         Self { js_only: false }
     }
-    
+
     /// JavaScriptのみをサポートするアダプタを作成
     pub fn javascript_only() -> Self {
         Self { js_only: true }
     }
-    
+
     /// TypeScriptの定義キーワードかどうかを判定
     pub fn is_definition_keyword(&self, keyword: &str) -> bool {
         let js_keywords = matches!(
             keyword,
             "function" | "const" | "let" | "var" | "class" | "async" | "import" | "export"
         );
-        
+
         if self.js_only {
             js_keywords
         } else {
-            js_keywords || matches!(
-                keyword,
-                "interface" | "type" | "enum" | "namespace" | "module" | "declare"
-            )
+            js_keywords
+                || matches!(
+                    keyword,
+                    "interface" | "type" | "enum" | "namespace" | "module" | "declare"
+                )
         }
     }
-    
+
     /// TypeScript/JavaScript特有の参照パターンを構築
     pub fn build_reference_pattern(&self, name: &str, is_module: bool) -> String {
         if is_module {
             // モジュール参照の場合、ドットチェーンやimport文を考慮
-            format!(r#"(?:import\s+.*\s+from\s+['"]{}['"]|\b{}(?:\.\w+)*\b)"#, 
-                regex::escape(name), regex::escape(name))
+            format!(
+                r#"(?:import\s+.*\s+from\s+['"]{}['"]|\b{}(?:\.\w+)*\b)"#,
+                regex::escape(name),
+                regex::escape(name)
+            )
         } else {
             // 通常の識別子（オプショナルチェーンも考慮）
             format!(r"\b{}(?:\??\.\w+)*\b", regex::escape(name))
@@ -73,22 +77,15 @@ impl MinimalLanguageAdapter for TypeScriptAdapter {
         }
     }
 
-    fn spawn_lsp_command(&self) -> Result<Child> {
-        // typescript-language-serverを起動
-        let child = Command::new("typescript-language-server")
-            .arg("--stdio")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        Ok(child)
+    fn spawn_lsp_command(&self) -> Result<std::process::Child> {
+        spawn_lsp_server("typescript-language-server", &["--stdio"])
     }
 
     fn comment_styles(&self) -> CommentStyles {
-        CommentStyles {
-            line_comment: vec!["//"],
-            block_comment: vec![("/*", "*/"), ("/**", "*/")],  // JSDocも含む
-        }
+        // 基本的にC言語スタイルだが、JSDocも考慮
+        let mut styles = c_style_comments();
+        styles.block_comment.push(("/**", "*/"));
+        styles
     }
 }
 
@@ -141,17 +138,17 @@ mod tests {
     #[test]
     fn test_typescript_definition_keywords() {
         let adapter = TypeScriptAdapter::new();
-        
+
         // JavaScript共通キーワード
         assert!(adapter.is_definition_keyword("function"));
         assert!(adapter.is_definition_keyword("class"));
         assert!(adapter.is_definition_keyword("const"));
-        
+
         // TypeScript固有キーワード
         assert!(adapter.is_definition_keyword("interface"));
         assert!(adapter.is_definition_keyword("type"));
         assert!(adapter.is_definition_keyword("enum"));
-        
+
         // 制御構文（定義ではない）
         assert!(!adapter.is_definition_keyword("if"));
         assert!(!adapter.is_definition_keyword("for"));
@@ -160,11 +157,11 @@ mod tests {
     #[test]
     fn test_javascript_definition_keywords() {
         let adapter = TypeScriptAdapter::javascript_only();
-        
+
         // JavaScript共通キーワード
         assert!(adapter.is_definition_keyword("function"));
         assert!(adapter.is_definition_keyword("class"));
-        
+
         // TypeScript固有キーワード（JSモードでは定義として扱わない）
         assert!(!adapter.is_definition_keyword("interface"));
         assert!(!adapter.is_definition_keyword("type"));
@@ -175,6 +172,6 @@ mod tests {
         let adapter = TypeScriptAdapter::new();
         let styles = adapter.comment_styles();
         assert_eq!(styles.line_comment, vec!["//"]);
-        assert_eq!(styles.block_comment.len(), 2);  // /* */ と /** */
+        assert_eq!(styles.block_comment.len(), 2); // /* */ と /** */
     }
 }

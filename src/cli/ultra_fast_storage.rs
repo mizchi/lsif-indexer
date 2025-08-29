@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 pub struct UltraFastStorage {
     db: Arc<sled::Db>,
     write_buffer: Arc<RwLock<Vec<u8>>>,
+    #[allow(dead_code)]
     batch_size: usize,
 }
 
@@ -191,6 +192,7 @@ impl UltraFastStorage {
     }
 
     // ヘルパーメソッド
+    #[allow(dead_code)]
     fn fast_serialize<T: Serialize>(&self, value: &T) -> Result<Vec<u8>> {
         let mut buffer = Vec::with_capacity(256);
         bincode::serialize_into(&mut buffer, value)?;

@@ -5,8 +5,8 @@ use std::time::{Duration, Instant};
 use tracing::{debug, info};
 
 use crate::cli::git_diff::{FileChange, FileChangeStatus, GitDiffDetector};
-use crate::cli::storage::IndexStorage;
 use crate::cli::reference_finder;
+use crate::cli::storage::IndexStorage;
 use crate::core::{CodeGraph, Symbol, SymbolKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -117,7 +117,9 @@ impl DifferentialIndexer {
         };
 
         // 既存のCodeGraphを読み込むか新規作成
-        let mut graph = self.storage.load_data::<CodeGraph>("graph")?
+        let mut graph = self
+            .storage
+            .load_data::<CodeGraph>("graph")?
             .unwrap_or_else(CodeGraph::new);
 
         // ファイルごとに処理
@@ -133,54 +135,60 @@ impl DifferentialIndexer {
                 FileChangeStatus::Added => {
                     result.files_added += 1;
                     let symbols = self.extract_symbols_from_file(&change.path)?;
-                    debug!("Extracted {} symbols from {}", symbols.len(), change.path.display());
+                    debug!(
+                        "Extracted {} symbols from {}",
+                        symbols.len(),
+                        change.path.display()
+                    );
                     result.symbols_added += symbols.len();
-                    
+
                     // グラフにシンボルを追加
                     for symbol in symbols {
                         debug!("Adding symbol: {} ({})", symbol.name, symbol.id);
                         graph.add_symbol(symbol);
                     }
-                    
+
                     // 参照を検出してエッジを追加
                     self.add_references_to_graph(&mut graph, &change.path)?;
                 }
                 FileChangeStatus::Modified | FileChangeStatus::Renamed { .. } => {
                     result.files_modified += 1;
-                    
+
                     // 既存のシンボルを削除
                     let path_str = change.path.to_string_lossy();
-                    let old_symbols: Vec<_> = graph.get_all_symbols()
+                    let old_symbols: Vec<_> = graph
+                        .get_all_symbols()
                         .filter(|s| s.file_path == path_str)
                         .map(|s| s.id.clone())
                         .collect();
-                    
+
                     for id in &old_symbols {
                         graph.remove_symbol(id);
                     }
                     result.symbols_deleted += old_symbols.len();
-                    
+
                     // 新しいシンボルを追加
                     let symbols = self.extract_symbols_from_file(&change.path)?;
                     result.symbols_updated += symbols.len();
-                    
+
                     for symbol in symbols {
                         graph.add_symbol(symbol);
                     }
-                    
+
                     // 参照を検出してエッジを追加
                     self.add_references_to_graph(&mut graph, &change.path)?;
                 }
                 FileChangeStatus::Deleted => {
                     result.files_deleted += 1;
-                    
+
                     // シンボルを削除
                     let path_str = change.path.to_string_lossy();
-                    let old_symbols: Vec<_> = graph.get_all_symbols()
+                    let old_symbols: Vec<_> = graph
+                        .get_all_symbols()
                         .filter(|s| s.file_path == path_str)
                         .map(|s| s.id.clone())
                         .collect();
-                    
+
                     for id in &old_symbols {
                         graph.remove_symbol(id);
                     }
@@ -191,23 +199,24 @@ impl DifferentialIndexer {
                     if let Some(ref hash) = change.content_hash {
                         if self.is_file_changed(&change.path, hash)? {
                             result.files_modified += 1;
-                            
+
                             // 既存のシンボルを削除
                             let path_str = change.path.to_string_lossy();
-                            let old_symbols: Vec<_> = graph.get_all_symbols()
+                            let old_symbols: Vec<_> = graph
+                                .get_all_symbols()
                                 .filter(|s| s.file_path == path_str)
                                 .map(|s| s.id.clone())
                                 .collect();
-                            
+
                             for id in &old_symbols {
                                 graph.remove_symbol(id);
                             }
                             result.symbols_deleted += old_symbols.len();
-                            
+
                             // 新しいシンボルを追加
                             let symbols = self.extract_symbols_from_file(&change.path)?;
                             result.symbols_updated += symbols.len();
-                            
+
                             for symbol in symbols {
                                 graph.add_symbol(symbol);
                             }
@@ -225,7 +234,10 @@ impl DifferentialIndexer {
         // ファイルハッシュを保存
         if let Some(ref mut metadata) = self.metadata {
             metadata.file_content_hashes.extend(new_file_hashes.clone());
-            debug!("Updated file hashes: {} total", metadata.file_content_hashes.len());
+            debug!(
+                "Updated file hashes: {} total",
+                metadata.file_content_hashes.len()
+            );
         }
 
         // メタデータを更新
@@ -246,7 +258,6 @@ impl DifferentialIndexer {
         Ok(result)
     }
 
-
     /// ファイルが変更されているかをハッシュで確認
     fn is_file_changed(&self, path: &Path, new_hash: &str) -> Result<bool> {
         if let Some(ref metadata) = self.metadata {
@@ -264,21 +275,33 @@ impl DifferentialIndexer {
 
         // ファイル拡張子で言語を判定
         let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
-        debug!("Processing file: {} (extension: {})", path.display(), extension);
+        debug!(
+            "Processing file: {} (extension: {})",
+            path.display(),
+            extension
+        );
 
         match extension {
             "rs" => {
                 // Rustファイルの解析
                 let content = std::fs::read_to_string(path)?;
                 let rust_symbols = self.extract_rust_symbols(path, &content)?;
-                debug!("Found {} Rust symbols in {}", rust_symbols.len(), path.display());
+                debug!(
+                    "Found {} Rust symbols in {}",
+                    rust_symbols.len(),
+                    path.display()
+                );
                 symbols.extend(rust_symbols);
             }
             "ts" | "tsx" | "js" | "jsx" => {
                 // TypeScript/JavaScriptファイルの解析
                 let content = std::fs::read_to_string(path)?;
                 let ts_symbols = self.extract_typescript_symbols(path, &content)?;
-                debug!("Found {} TypeScript symbols in {}", ts_symbols.len(), path.display());
+                debug!(
+                    "Found {} TypeScript symbols in {}",
+                    ts_symbols.len(),
+                    path.display()
+                );
                 symbols.extend(ts_symbols);
             }
             _ => {
@@ -512,19 +535,19 @@ impl DifferentialIndexer {
     /// プロジェクト内の全ファイルをスキャン
     fn scan_all_files(&self) -> Result<Vec<FileChange>> {
         let mut changes = Vec::new();
-        
+
         for entry in walkdir::WalkDir::new(&self.project_root)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file())
         {
             let path = entry.path();
-            
+
             // .gitディレクトリ、targetディレクトリなどを除外
             if self.should_exclude(path) {
                 continue;
             }
-            
+
             // 対象ファイルのみ処理
             let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
             if matches!(ext, "rs" | "ts" | "tsx" | "js" | "jsx") {
@@ -536,7 +559,7 @@ impl DifferentialIndexer {
                 });
             }
         }
-        
+
         Ok(changes)
     }
 
@@ -544,29 +567,30 @@ impl DifferentialIndexer {
     fn should_exclude(&self, path: &Path) -> bool {
         for component in path.components() {
             if let Some(name) = component.as_os_str().to_str() {
-                if matches!(name, ".git" | "target" | "node_modules" | ".idea" | ".vscode" | "tmp") {
+                if matches!(
+                    name,
+                    ".git" | "target" | "node_modules" | ".idea" | ".vscode" | "tmp"
+                ) {
                     return true;
                 }
             }
         }
         false
     }
-    
+
     /// ファイルから参照を検出してグラフにエッジを追加
     fn add_references_to_graph(&self, graph: &mut CodeGraph, file_path: &Path) -> Result<()> {
         // グラフの中のすべてのシンボルを取得
-        let all_symbols: Vec<_> = graph.get_all_symbols()
+        let all_symbols: Vec<_> = graph
+            .get_all_symbols()
             .map(|s| (s.name.clone(), s.id.clone(), s.kind.clone()))
             .collect();
-        
+
         // 各シンボルに対して、このファイル内での参照を検索
         for (name, symbol_id, kind) in all_symbols {
-            let references = reference_finder::find_all_references(
-                &self.project_root,
-                &name,
-                &kind
-            )?;
-            
+            let references =
+                reference_finder::find_all_references(&self.project_root, &name, &kind)?;
+
             // このファイル内の参照のみを処理
             let file_path_str = file_path.to_string_lossy();
             for ref_item in references {
@@ -577,41 +601,43 @@ impl DifferentialIndexer {
                         graph,
                         &ref_item.symbol.file_path,
                         ref_item.symbol.range.start.line,
-                        ref_item.symbol.range.start.character
+                        ref_item.symbol.range.start.character,
                     ) {
                         // 参照エッジを追加
-                        if let (Some(from_idx), Some(to_idx)) = 
-                            (graph.get_node_index(&source_symbol.id), graph.get_node_index(&symbol_id)) {
+                        if let (Some(from_idx), Some(to_idx)) = (
+                            graph.get_node_index(&source_symbol.id),
+                            graph.get_node_index(&symbol_id),
+                        ) {
                             graph.add_edge(from_idx, to_idx, crate::core::EdgeKind::Reference);
                             debug!(
                                 "Added reference edge: {} -> {}",
-                                source_symbol.id,
-                                symbol_id
+                                source_symbol.id, symbol_id
                             );
                         }
                     }
                 }
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// 指定位置のシンボルを探す
     fn find_symbol_at_position(
         &self,
         graph: &CodeGraph,
         file_path: &str,
         line: u32,
-        character: u32
+        character: u32,
     ) -> Option<Symbol> {
-        graph.get_all_symbols()
+        graph
+            .get_all_symbols()
             .filter(|s| s.file_path == file_path)
             .find(|s| {
-                s.range.start.line <= line &&
-                s.range.end.line >= line &&
-                s.range.start.character <= character &&
-                s.range.end.character >= character
+                s.range.start.line <= line
+                    && s.range.end.line >= line
+                    && s.range.start.character <= character
+                    && s.range.end.character >= character
             })
             .cloned()
     }

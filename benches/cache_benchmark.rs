@@ -174,9 +174,8 @@ fn benchmark_cache_memory(c: &mut Criterion) {
                     // ランダムアクセスパターン
                     for _ in 0..100 {
                         let idx = (rand::random::<usize>() % (size * 2)) as usize;
-                        let _: Option<Symbol> = storage
-                            .load_data_cached(&format!("symbol_{idx}"))
-                            .unwrap();
+                        let _: Option<Symbol> =
+                            storage.load_data_cached(&format!("symbol_{idx}")).unwrap();
                     }
                 });
             },

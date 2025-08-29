@@ -1,6 +1,6 @@
-use std::process::{Command, Child, Stdio};
+use crate::cli::common_adapter::{is_command_available, python_style_comments, spawn_lsp_server};
+use crate::cli::minimal_language_adapter::{CommentStyles, MinimalLanguageAdapter};
 use anyhow::Result;
-use crate::cli::minimal_language_adapter::{MinimalLanguageAdapter, CommentStyles};
 
 /// Python言語のアダプタ実装
 /// pylspまたはpyrightを使用してPythonコードを解析
@@ -13,34 +13,25 @@ impl PythonAdapter {
     /// 新しいPythonアダプタを作成
     pub fn new() -> Self {
         // pyrightを優先、なければpylspを使用
-        let lsp_server = if Self::is_command_available("pyright-langserver") {
+        let lsp_server = if is_command_available("pyright-langserver") {
             "pyright".to_string()
-        } else if Self::is_command_available("pylsp") {
+        } else if is_command_available("pylsp") {
             "pylsp".to_string()
         } else {
             // デフォルトはpyright（インストールを促すため）
             "pyright".to_string()
         };
-        
+
         Self { lsp_server }
     }
-    
+
     /// 指定したLSPサーバーでアダプタを作成
     pub fn with_server(lsp_server: &str) -> Self {
         Self {
             lsp_server: lsp_server.to_string(),
         }
     }
-    
-    /// コマンドが利用可能かチェック
-    fn is_command_available(cmd: &str) -> bool {
-        Command::new("which")
-            .arg(cmd)
-            .output()
-            .map(|output| output.status.success())
-            .unwrap_or(false)
-    }
-    
+
     /// Pythonの定義キーワードかどうかを判定
     pub fn is_definition_keyword(&self, keyword: &str) -> bool {
         matches!(
@@ -48,7 +39,7 @@ impl PythonAdapter {
             "def" | "class" | "async" | "lambda" | "import" | "from"
         )
     }
-    
+
     /// Python特有の参照パターンを構築
     pub fn build_reference_pattern(&self, name: &str, is_module: bool) -> String {
         if is_module {
@@ -76,34 +67,22 @@ impl MinimalLanguageAdapter for PythonAdapter {
         vec!["py", "pyi"]
     }
 
-    fn spawn_lsp_command(&self) -> Result<Child> {
-        let child = match self.lsp_server.as_str() {
-            "pyright" => {
-                // Pyrightサーバーを起動
-                Command::new("pyright-langserver")
-                    .arg("--stdio")
-                    .stdin(Stdio::piped())
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
-                    .spawn()?
-            }
+    fn spawn_lsp_command(&self) -> Result<std::process::Child> {
+        // Pythonサーバーの起動前に少し待機（安定性向上のため）
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        
+        match self.lsp_server.as_str() {
+            "pyright" => spawn_lsp_server("pyright-langserver", &["--stdio"]),
             "pylsp" | _ => {
-                // Python LSPサーバーを起動
-                Command::new("pylsp")
-                    .stdin(Stdio::piped())
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
-                    .spawn()?
+                // pylspの場合は、より安全な設定で起動
+                spawn_lsp_server("pylsp", &["-v"])
+                    .or_else(|_| spawn_lsp_server("pylsp", &[]))
             }
-        };
-        Ok(child)
+        }
     }
 
     fn comment_styles(&self) -> CommentStyles {
-        CommentStyles {
-            line_comment: vec!["#"],
-            block_comment: vec![("\"\"\"", "\"\"\""), ("'''", "'''")],
-        }
+        python_style_comments()
     }
 }
 

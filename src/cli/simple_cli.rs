@@ -177,7 +177,7 @@ fn parse_location(file: &str, line: Option<u32>, column: Option<u32>) -> (String
     if file.contains(':') && line.is_none() {
         // 最後の2つのコロンで分割（ファイルパスにコロンが含まれる可能性を考慮）
         let parts: Vec<&str> = file.rsplitn(3, ':').collect();
-        
+
         if parts.len() == 3 {
             // file:line:column形式
             // rsplitnは逆順なので、parts[0]がcolumn、parts[1]がline、parts[2]がfile
@@ -192,13 +192,9 @@ fn parse_location(file: &str, line: Option<u32>, column: Option<u32>) -> (String
             }
         }
     }
-    
+
     // 通常の引数形式
-    (
-        file.to_string(),
-        line.unwrap_or(1),
-        column.unwrap_or(1),
-    )
+    (file.to_string(), line.unwrap_or(1), column.unwrap_or(1))
 }
 
 impl SimpleCli {
@@ -218,14 +214,28 @@ impl SimpleCli {
                 let (file_path, line_num, col_num) = parse_location(&file, line, column);
                 find_definition(&db_path, &file_path, line_num, col_num)?;
             }
-            SimpleCommands::References { file, line, column, depth } => {
+            SimpleCommands::References {
+                file,
+                line,
+                column,
+                depth,
+            } => {
                 let (file_path, line_num, col_num) = parse_location(&file, line, column);
                 find_references_recursive(&db_path, &file_path, line_num, col_num, depth)?;
             }
-            SimpleCommands::CallHierarchy { symbol, depth, direction } => {
+            SimpleCommands::CallHierarchy {
+                symbol,
+                depth,
+                direction,
+            } => {
                 show_call_hierarchy(&db_path, &symbol, depth, &direction)?;
             }
-            SimpleCommands::TypeDefinition { file, line, column, depth } => {
+            SimpleCommands::TypeDefinition {
+                file,
+                line,
+                column,
+                depth,
+            } => {
                 let (file_path, line_num, col_num) = parse_location(&file, line, column);
                 find_type_definition(&db_path, &file_path, line_num, col_num, depth)?;
             }
@@ -235,10 +245,18 @@ impl SimpleCli {
             SimpleCommands::Symbols { file, kind } => {
                 show_document_symbols(&db_path, file.as_deref(), kind.as_deref())?;
             }
-            SimpleCommands::WorkspaceSymbols { query, limit, fuzzy } => {
+            SimpleCommands::WorkspaceSymbols {
+                query,
+                limit,
+                fuzzy,
+            } => {
                 search_workspace_symbols(&db_path, &query, limit, fuzzy)?;
             }
-            SimpleCommands::Graph { pattern, limit, depth } => {
+            SimpleCommands::Graph {
+                pattern,
+                limit,
+                depth,
+            } => {
                 execute_graph_query(&db_path, &pattern, limit, depth)?;
             }
             SimpleCommands::Unused { public_only } => {
@@ -247,7 +265,11 @@ impl SimpleCli {
             SimpleCommands::Index { force, verbose } => {
                 rebuild_index(&db_path, &project_root, force, verbose)?;
             }
-            SimpleCommands::Diff { base, related, depth } => {
+            SimpleCommands::Diff {
+                base,
+                related,
+                depth,
+            } => {
                 show_graph_diff(&db_path, &project_root, base.as_deref(), related, depth)?;
             }
             SimpleCommands::Status => {
@@ -265,19 +287,19 @@ impl SimpleCli {
 /// 自動インデックス実行（変更検知と差分更新）
 fn auto_index(db_path: &str, project_root: &str) -> Result<()> {
     let project_path = Path::new(project_root);
-    
+
     // インデックスファイルが存在しない場合は初回インデックス
     if !Path::new(db_path).exists() {
         println!("🔍 Creating initial index...");
         let start = Instant::now();
-        
+
         let mut indexer = DifferentialIndexer::new(db_path, project_path)?;
         let result = indexer.index_differential()?;
-        
+
         // 初回は Modified として扱われるので、適切に表示
         let total_files = result.files_added + result.files_modified;
         let total_symbols = result.symbols_added + result.symbols_updated;
-        
+
         println!(
             "✅ Initial index created in {:.2}s ({} files, {} symbols)",
             start.elapsed().as_secs_f64(),
@@ -291,7 +313,7 @@ fn auto_index(db_path: &str, project_root: &str) -> Result<()> {
     let storage = IndexStorage::open_read_only(db_path)?;
     let metadata = storage.load_metadata()?;
     drop(storage); // 読み取り後すぐに解放
-    
+
     if metadata.is_none() {
         info!("No metadata found, creating new index");
         let mut indexer = DifferentialIndexer::new(db_path, project_path)?;
@@ -301,18 +323,22 @@ fn auto_index(db_path: &str, project_root: &str) -> Result<()> {
 
     // Git差分検知
     let mut detector = GitDiffDetector::new(project_path)?;
-    let all_changes = detector.detect_changes_since(metadata.as_ref().and_then(|m| m.git_commit_hash.as_deref()))?;
-    
+    let all_changes = detector
+        .detect_changes_since(metadata.as_ref().and_then(|m| m.git_commit_hash.as_deref()))?;
+
     // インデックス対象のファイルのみフィルタリング
-    let changes: Vec<_> = all_changes.into_iter()
+    let changes: Vec<_> = all_changes
+        .into_iter()
         .filter(|change| {
-            let ext = change.path.extension()
+            let ext = change
+                .path
+                .extension()
                 .and_then(|s| s.to_str())
                 .unwrap_or("");
             matches!(ext, "rs" | "ts" | "tsx" | "js" | "jsx")
         })
         .collect();
-    
+
     if changes.is_empty() {
         debug!("No indexable changes detected");
         return Ok(());
@@ -338,7 +364,7 @@ fn auto_index(db_path: &str, project_root: &str) -> Result<()> {
     let start = Instant::now();
     let mut indexer = DifferentialIndexer::new(db_path, project_path)?;
     let result = indexer.index_differential()?;
-    
+
     if result.files_modified > 0 || result.files_added > 0 || result.files_deleted > 0 {
         println!(
             "✅ Index updated in {:.2}s ({} modified, {} added, {} deleted)",
@@ -360,11 +386,11 @@ fn find_definition(db_path: &str, file: &str, line: u32, column: u32) -> Result<
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif reindex' first."))?;
 
     // まず指定位置にあるシンボルを探す
-    let position = crate::core::Position { 
-        line: line - 1,  // 0-based indexに変換
-        character: column - 1 
+    let position = crate::core::Position {
+        line: line - 1, // 0-based indexに変換
+        character: column - 1,
     };
-    
+
     // 最も近いシンボルを探す（行が一致するものを優先）
     let mut best_match: Option<&crate::core::Symbol> = None;
     for symbol in graph.get_all_symbols() {
@@ -372,19 +398,21 @@ fn find_definition(db_path: &str, file: &str, line: u32, column: u32) -> Result<
             // 同じ行にあるシンボルを優先
             best_match = Some(symbol);
             break;
-        } else if symbol.file_path == file 
-            && symbol.range.start.line <= position.line 
-            && symbol.range.end.line >= position.line {
+        } else if symbol.file_path == file
+            && symbol.range.start.line <= position.line
+            && symbol.range.end.line >= position.line
+        {
             // 範囲内にあるシンボル
             best_match = Some(symbol);
         }
     }
-    
+
     if let Some(symbol) = best_match {
         println!("📍 Symbol found: {}", symbol.name);
         println!("   Type: {:?}", symbol.kind);
-        println!("   Location: {}:{}:{}", 
-            symbol.file_path, 
+        println!(
+            "   Location: {}:{}:{}",
+            symbol.file_path,
             symbol.range.start.line + 1,
             symbol.range.start.character + 1
         );
@@ -399,26 +427,33 @@ fn find_definition(db_path: &str, file: &str, line: u32, column: u32) -> Result<
 }
 
 /// 参照を再帰的に検索
-fn find_references_recursive(db_path: &str, file: &str, line: u32, column: u32, _depth: usize) -> Result<()> {
+fn find_references_recursive(
+    db_path: &str,
+    file: &str,
+    line: u32,
+    column: u32,
+    _depth: usize,
+) -> Result<()> {
     use crate::cli::reference_finder;
     use std::path::Path;
-    
+
     let storage = IndexStorage::open_read_only(db_path)?;
     let graph: CodeGraph = storage
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif reindex' first."))?;
-        
+
     // メタデータからプロジェクトルートを取得
-    let metadata = storage.load_metadata()?
+    let metadata = storage
+        .load_metadata()?
         .ok_or_else(|| anyhow::anyhow!("No metadata found in index"))?;
     let project_root = Path::new(&metadata.project_root);
 
     // まず指定位置にあるシンボルを探す
-    let position = crate::core::Position { 
-        line: line - 1,  // 0-based indexに変換
-        character: column - 1 
+    let position = crate::core::Position {
+        line: line - 1, // 0-based indexに変換
+        character: column - 1,
     };
-    
+
     // 最も近いシンボルを探す（行が一致するものを優先）
     let mut target_symbol: Option<&crate::core::Symbol> = None;
     for symbol in graph.get_all_symbols() {
@@ -426,39 +461,45 @@ fn find_references_recursive(db_path: &str, file: &str, line: u32, column: u32, 
             // 同じ行にあるシンボルを優先
             target_symbol = Some(symbol);
             break;
-        } else if symbol.file_path == file 
-            && symbol.range.start.line <= position.line 
-            && symbol.range.end.line >= position.line {
+        } else if symbol.file_path == file
+            && symbol.range.start.line <= position.line
+            && symbol.range.end.line >= position.line
+        {
             // 範囲内にあるシンボル
             target_symbol = Some(symbol);
         }
     }
-    
+
     if let Some(symbol) = target_symbol {
-        println!("🔗 Finding references for '{}' ({:?})...", symbol.name, symbol.kind);
-        
+        println!(
+            "🔗 Finding references for '{}' ({:?})...",
+            symbol.name, symbol.kind
+        );
+
         // 実際のファイル内容を検索して参照を見つける
-        let references = reference_finder::find_all_references(
-            project_root,
-            &symbol.name,
-            &symbol.kind
-        )?;
-        
+        let references =
+            reference_finder::find_all_references(project_root, &symbol.name, &symbol.kind)?;
+
         if references.is_empty() {
             println!("No references found for '{}'", symbol.name);
         } else {
             // 定義と使用を分けてカウント
             let definitions: Vec<_> = references.iter().filter(|r| r.is_definition).collect();
             let usages: Vec<_> = references.iter().filter(|r| !r.is_definition).collect();
-            
-            println!("Found {} references ({} definitions, {} usages):", 
-                references.len(), definitions.len(), usages.len());
-            
+
+            println!(
+                "Found {} references ({} definitions, {} usages):",
+                references.len(),
+                definitions.len(),
+                usages.len()
+            );
+
             // 定義を表示
             if !definitions.is_empty() {
                 println!("\n📝 Definitions:");
                 for (i, ref_item) in definitions.iter().take(MAX_CHANGES_DISPLAY).enumerate() {
-                    println!("  {} {} at {}:{}:{}", 
+                    println!(
+                        "  {} {} at {}:{}:{}",
                         i + 1,
                         ref_item.symbol.name,
                         ref_item.symbol.file_path,
@@ -467,12 +508,13 @@ fn find_references_recursive(db_path: &str, file: &str, line: u32, column: u32, 
                     );
                 }
             }
-            
+
             // 使用箇所を表示
             if !usages.is_empty() {
                 println!("\n🔍 Usages:");
                 for (i, ref_item) in usages.iter().take(MAX_CHANGES_DISPLAY).enumerate() {
-                    println!("  {} {} at {}:{}:{}", 
+                    println!(
+                        "  {} {} at {}:{}:{}",
                         i + 1,
                         ref_item.symbol.name,
                         ref_item.symbol.file_path,
@@ -493,35 +535,41 @@ fn find_references_recursive(db_path: &str, file: &str, line: u32, column: u32, 
 }
 
 /// コールヒエラルキーを表示
-fn show_call_hierarchy(db_path: &str, symbol: &str, max_depth: usize, direction: &str) -> Result<()> {
+fn show_call_hierarchy(
+    db_path: &str,
+    symbol: &str,
+    max_depth: usize,
+    direction: &str,
+) -> Result<()> {
     use crate::cli::call_hierarchy_cmd;
-    
+
     let dir_symbol = match direction {
         "incoming" => "⬅️",
         "outgoing" => "➡️",
         _ => "↔️",
     };
-    
+
     println!("{dir_symbol} Call hierarchy for '{symbol}' ({direction})");
     call_hierarchy_cmd::show_call_hierarchy(db_path, symbol, direction, max_depth)?;
-    
+
     Ok(())
 }
 
 /// 型情報を表示
+#[allow(dead_code)]
 fn show_type_info(db_path: &str, type_name: &str, show_hierarchy: bool) -> Result<()> {
     use crate::core::TypeRelationsAnalyzer;
-    
+
     let storage = IndexStorage::open_read_only(db_path)?;
     let graph: CodeGraph = storage
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif reindex' first."))?;
 
     let analyzer = TypeRelationsAnalyzer::new(&graph);
-    
+
     if show_hierarchy {
         let hierarchy = analyzer.find_type_hierarchy(type_name);
-        
+
         println!("🔺 Type hierarchy for '{type_name}':");
         if !hierarchy.parents.is_empty() {
             println!("  Parents:");
@@ -542,25 +590,25 @@ fn show_type_info(db_path: &str, type_name: &str, show_hierarchy: bool) -> Resul
     } else {
         println!("❌ Type '{type_name}' not found");
     }
-    
+
     Ok(())
 }
 
 /// グラフクエリを実行（拡張版）
 fn execute_graph_query(db_path: &str, pattern: &str, limit: usize, _depth: usize) -> Result<()> {
     use crate::core::{QueryEngine, QueryParser};
-    
+
     let storage = IndexStorage::open_read_only(db_path)?;
     let graph: CodeGraph = storage
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif reindex' first."))?;
 
-    let query_pattern = QueryParser::parse(pattern)
-        .map_err(|e| anyhow::anyhow!("Failed to parse query: {}", e))?;
-    
+    let query_pattern =
+        QueryParser::parse(pattern).map_err(|e| anyhow::anyhow!("Failed to parse query: {}", e))?;
+
     let engine = QueryEngine::new(&graph);
     let results = engine.execute(&query_pattern);
-    
+
     if results.matches.is_empty() {
         println!("❌ No matches found for pattern: {pattern}");
     } else {
@@ -572,47 +620,59 @@ fn execute_graph_query(db_path: &str, pattern: &str, limit: usize, _depth: usize
             }
         }
         if results.matches.len() > limit {
-            println!("  ... {} more matches (use --limit to see more)", results.matches.len() - limit);
+            println!(
+                "  ... {} more matches (use --limit to see more)",
+                results.matches.len() - limit
+            );
         }
     }
-    
+
     Ok(())
 }
 
 /// グラフ上の差分を表示
-fn show_graph_diff(db_path: &str, project_root: &str, base: Option<&str>, related: bool, depth: usize) -> Result<()> {
+fn show_graph_diff(
+    db_path: &str,
+    project_root: &str,
+    base: Option<&str>,
+    related: bool,
+    depth: usize,
+) -> Result<()> {
     let storage = IndexStorage::open_read_only(db_path)?;
     let graph: CodeGraph = storage
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif index' first."))?;
-    
+
     let metadata = storage.load_metadata()?;
-    
+
     // Git差分を取得
     let mut detector = GitDiffDetector::new(project_root)?;
     let base_commit = base.or(metadata.as_ref().and_then(|m| m.git_commit_hash.as_deref()));
     let changes = detector.detect_changes_since(base_commit)?;
-    
+
     // インデックス対象のファイルのみフィルタリング
-    let indexable_changes: Vec<_> = changes.into_iter()
+    let indexable_changes: Vec<_> = changes
+        .into_iter()
         .filter(|change| {
-            let ext = change.path.extension()
+            let ext = change
+                .path
+                .extension()
                 .and_then(|s| s.to_str())
                 .unwrap_or("");
             matches!(ext, "rs" | "ts" | "tsx" | "js" | "jsx")
         })
         .collect();
-    
+
     if indexable_changes.is_empty() {
         println!("📊 No changes detected");
         return Ok(());
     }
-    
+
     println!("📊 Graph diff (depth: {depth}):");
     println!("  Base: {}", base_commit.unwrap_or("initial"));
     println!("  Changes: {} files", indexable_changes.len());
     println!();
-    
+
     // 変更されたファイルのシンボルを収集
     let mut changed_symbols = Vec::new();
     for change in &indexable_changes {
@@ -623,10 +683,11 @@ fn show_graph_diff(db_path: &str, project_root: &str, base: Option<&str>, relate
             }
         }
     }
-    
+
     println!("🔄 Changed symbols: {}", changed_symbols.len());
     for (i, symbol) in changed_symbols.iter().take(10).enumerate() {
-        println!("  {} {} ({:?}) at {}:{}:{}", 
+        println!(
+            "  {} {} ({:?}) at {}:{}:{}",
             i + 1,
             symbol.name,
             symbol.kind,
@@ -638,11 +699,11 @@ fn show_graph_diff(db_path: &str, project_root: &str, base: Option<&str>, relate
     if changed_symbols.len() > 10 {
         println!("  ... and {} more", changed_symbols.len() - 10);
     }
-    
+
     if related && depth > 0 {
         println!();
         println!("🔗 Related symbols (depth {depth}):");
-        
+
         // 関連するシンボルを探す（同じ名前のシンボル = 簡易版）
         let mut related_symbols = std::collections::HashSet::new();
         for symbol in &changed_symbols {
@@ -652,7 +713,7 @@ fn show_graph_diff(db_path: &str, project_root: &str, base: Option<&str>, relate
                 }
             }
         }
-        
+
         for (i, (name, path)) in related_symbols.iter().take(15).enumerate() {
             println!("  {} {} in {}", i + 1, name, path);
         }
@@ -660,7 +721,7 @@ fn show_graph_diff(db_path: &str, project_root: &str, base: Option<&str>, relate
             println!("  ... and {} more", related_symbols.len() - 15);
         }
     }
-    
+
     Ok(())
 }
 
@@ -671,10 +732,10 @@ fn show_status(db_path: &str, project_root: &str) -> Result<()> {
         println!("   Run any command to create an initial index");
         return Ok(());
     }
-    
+
     let storage = IndexStorage::open_read_only(db_path)?;
     let metadata = storage.load_metadata()?;
-    
+
     if let Some(meta) = metadata {
         println!("📊 Index Status:");
         println!("  Database: {db_path}");
@@ -682,15 +743,15 @@ fn show_status(db_path: &str, project_root: &str) -> Result<()> {
         println!("  Created: {}", meta.created_at.format("%Y-%m-%d %H:%M:%S"));
         println!("  Files: {}", meta.files_count);
         println!("  Symbols: {}", meta.symbols_count);
-        
+
         if let Some(commit) = &meta.git_commit_hash {
             println!("  Git commit: {}", &commit[..8.min(commit.len())]);
         }
-        
+
         // 変更チェック
         let mut detector = GitDiffDetector::new(project_root)?;
         let changes = detector.detect_changes_since(meta.git_commit_hash.as_deref())?;
-        
+
         if changes.is_empty() {
             println!("  Status: ✅ Up to date");
         } else {
@@ -700,25 +761,25 @@ fn show_status(db_path: &str, project_root: &str) -> Result<()> {
     } else {
         println!("⚠️  Index exists but no metadata found");
     }
-    
+
     // ディスク使用量
     if let Ok(file_meta) = std::fs::metadata(db_path) {
         let size_mb = file_meta.len() as f64 / (1024.0 * 1024.0);
         println!("  Disk usage: {size_mb:.2} MB");
     }
-    
+
     Ok(())
 }
 
 /// インデックスをエクスポート
 fn export_index(db_path: &str, format: &str, output: &str) -> Result<()> {
     use crate::core::generate_lsif;
-    
+
     let storage = IndexStorage::open_read_only(db_path)?;
     let graph: CodeGraph = storage
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif index' first."))?;
-    
+
     match format {
         "lsif" => {
             println!("📦 Exporting to LSIF format...");
@@ -731,26 +792,35 @@ fn export_index(db_path: &str, format: &str, output: &str) -> Result<()> {
             std::fs::write(output, &json_content)?;
         }
         _ => {
-            return Err(anyhow::anyhow!("Unsupported format: {}. Use 'lsif' or 'json'", format));
+            return Err(anyhow::anyhow!(
+                "Unsupported format: {}. Use 'lsif' or 'json'",
+                format
+            ));
         }
     }
-    
+
     println!("✅ Exported to {output}");
-    
+
     Ok(())
 }
 
 /// 型定義を検索
-fn find_type_definition(db_path: &str, file: &str, line: u32, column: u32, depth: usize) -> Result<()> {
+fn find_type_definition(
+    db_path: &str,
+    file: &str,
+    line: u32,
+    column: u32,
+    depth: usize,
+) -> Result<()> {
     let storage = IndexStorage::open_read_only(db_path)?;
     let graph: CodeGraph = storage
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif index' first."))?;
 
     let symbol_id = format!("{file}#{line}:{column}");
-    
+
     println!("🔷 Type definition for {file}:{line}:{column} (depth: {depth})");
-    
+
     // Find the symbol and its type
     if let Some(symbol) = graph.find_symbol(&symbol_id) {
         // Note: type_ref field might not exist in current Symbol struct
@@ -763,7 +833,7 @@ fn find_type_definition(db_path: &str, file: &str, line: u32, column: u32, depth
     } else {
         println!("❌ No symbol found at {file}:{line}:{column}");
     }
-    
+
     Ok(())
 }
 
@@ -773,9 +843,9 @@ fn find_implementations(db_path: &str, type_name: &str, depth: usize) -> Result<
     let graph: CodeGraph = storage
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif index' first."))?;
-    
+
     println!("🔨 Implementations of '{type_name}' (depth: {depth})");
-    
+
     // Find all implementations
     // Note: implements field might not exist in current Symbol struct
     // Using name matching as a workaround
@@ -786,13 +856,14 @@ fn find_implementations(db_path: &str, type_name: &str, depth: usize) -> Result<
             implementations.push(symbol);
         }
     }
-    
+
     if implementations.is_empty() {
         println!("  No implementations found");
     } else {
         println!("  Found {} implementations:", implementations.len());
         for (i, impl_symbol) in implementations.iter().take(10).enumerate() {
-            println!("  {} {} at {}:{}:{}", 
+            println!(
+                "  {} {} at {}:{}:{}",
                 i + 1,
                 impl_symbol.name,
                 impl_symbol.file_path,
@@ -804,7 +875,7 @@ fn find_implementations(db_path: &str, type_name: &str, depth: usize) -> Result<
             println!("  ... and {} more", implementations.len() - 10);
         }
     }
-    
+
     Ok(())
 }
 
@@ -814,30 +885,36 @@ fn show_document_symbols(db_path: &str, file: Option<&str>, kind: Option<&str>) 
     let graph: CodeGraph = storage
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif index' first."))?;
-    
+
     let target_file = file.unwrap_or(".");
     println!("📄 Document symbols in '{target_file}'");
-    
-    let mut symbols: Vec<_> = graph.get_all_symbols()
+
+    let mut symbols: Vec<_> = graph
+        .get_all_symbols()
         .filter(|s| file.is_none() || s.file_path.contains(target_file))
         .collect();
-    
+
     // Filter by kind if specified
     if let Some(kind_filter) = kind {
-        symbols.retain(|s| format!("{:?}", s.kind).to_lowercase().contains(&kind_filter.to_lowercase()));
+        symbols.retain(|s| {
+            format!("{:?}", s.kind)
+                .to_lowercase()
+                .contains(&kind_filter.to_lowercase())
+        });
     }
-    
+
     if symbols.is_empty() {
         println!("  No symbols found");
     } else {
         println!("  Found {} symbols:", symbols.len());
-        
+
         // Group by file
-        let mut by_file: std::collections::HashMap<&str, Vec<&crate::core::Symbol>> = std::collections::HashMap::new();
+        let mut by_file: std::collections::HashMap<&str, Vec<&crate::core::Symbol>> =
+            std::collections::HashMap::new();
         for symbol in symbols.iter() {
             by_file.entry(&symbol.file_path).or_default().push(symbol);
         }
-        
+
         for (file_path, file_symbols) in by_file.iter().take(5) {
             println!("\n  {file_path}:");
             for symbol in file_symbols.iter().take(10) {
@@ -847,31 +924,31 @@ fn show_document_symbols(db_path: &str, file: Option<&str>, kind: Option<&str>) 
                 println!("    ... and {} more", file_symbols.len() - 10);
             }
         }
-        
+
         if by_file.len() > 5 {
             println!("\n  ... and {} more files", by_file.len() - 5);
         }
     }
-    
+
     Ok(())
 }
 
 /// ワークスペースシンボルを検索
 fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: bool) -> Result<()> {
     use crate::cli::fuzzy_search::{fuzzy_search, needs_fuzzy_search};
-    
+
     let storage = IndexStorage::open_read_only(db_path)?;
     let graph: CodeGraph = storage
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif index' first."))?;
-    
+
     if fuzzy {
         println!("🔍 Fuzzy searching workspace for '{query}'");
-        
+
         // Collect all symbols for fuzzy search
         let all_symbols: Vec<_> = graph.get_all_symbols().cloned().collect();
         let matches = fuzzy_search(query, &all_symbols);
-        
+
         if matches.is_empty() {
             println!("  No symbols found matching '{query}'");
             println!("  💡 Tips:");
@@ -880,11 +957,16 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: boo
             println!("     - Abbreviations work best with capitals: 'RP' for names with R and P");
         } else {
             let limited = matches.into_iter().take(limit).collect::<Vec<_>>();
-            println!("  Found {} symbols (showing top {}):", limited.len(), limited.len());
-            
+            println!(
+                "  Found {} symbols (showing top {}):",
+                limited.len(),
+                limited.len()
+            );
+
             for (i, fuzzy_match) in limited.iter().enumerate() {
                 let symbol = fuzzy_match.symbol;
-                println!("  {} {:?} {} at {}:{}:{} (score: {:.2})", 
+                println!(
+                    "  {} {:?} {} at {}:{}:{} (score: {:.2})",
                     i + 1,
                     symbol.kind,
                     symbol.name,
@@ -897,25 +979,29 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: boo
         }
     } else {
         println!("🔍 Searching workspace for '{query}'");
-        
+
         let query_lower = query.to_lowercase();
-        let matches: Vec<_> = graph.get_all_symbols()
+        let matches: Vec<_> = graph
+            .get_all_symbols()
             .filter(|s| s.name.to_lowercase().contains(&query_lower))
             .take(limit)
             .collect();
-        
+
         if matches.is_empty() {
             println!("  No symbols found matching '{query}'");
-            
+
             // 曖昧検索を提案
             if needs_fuzzy_search(query, 0) {
                 println!("\n  💡 Try fuzzy search: lsif workspace-symbols {query} --fuzzy");
-                
+
                 // プレビューとして少し表示
                 let all_symbols: Vec<_> = graph.get_all_symbols().cloned().collect();
                 let fuzzy_matches = fuzzy_search(query, &all_symbols);
                 if !fuzzy_matches.is_empty() {
-                    println!("     Would find {} symbols like:", fuzzy_matches.len().min(3));
+                    println!(
+                        "     Would find {} symbols like:",
+                        fuzzy_matches.len().min(3)
+                    );
                     for (_i, m) in fuzzy_matches.iter().take(3).enumerate() {
                         println!("       - {}", m.symbol.name);
                     }
@@ -924,7 +1010,8 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: boo
         } else {
             println!("  Found {} symbols:", matches.len());
             for (i, symbol) in matches.iter().enumerate() {
-                println!("  {} {:?} {} at {}:{}:{}", 
+                println!(
+                    "  {} {:?} {} at {}:{}:{}",
                     i + 1,
                     symbol.kind,
                     symbol.name,
@@ -933,14 +1020,14 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: boo
                     symbol.range.start.character + 1
                 );
             }
-            
+
             // 結果が少ない場合は曖昧検索も提案
             if needs_fuzzy_search(query, matches.len()) {
                 println!("\n  💡 For more results, try: lsif workspace-symbols {query} --fuzzy");
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -948,76 +1035,85 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: boo
 fn rebuild_index(db_path: &str, project_root: &str, force: bool, verbose: bool) -> Result<()> {
     let project_path = Path::new(project_root);
     let start = Instant::now();
-    
+
     let mut indexer = DifferentialIndexer::new(db_path, project_path)?;
-    
+
     if verbose {
         println!("🔍 Starting index rebuild...");
         println!("  Database: {db_path}");
         println!("  Project: {project_root}");
     }
-    
+
     let result = if force {
-        if verbose { println!("  Mode: Full reindex (forced)"); }
+        if verbose {
+            println!("  Mode: Full reindex (forced)");
+        }
         indexer.full_reindex()?
     } else {
-        if verbose { println!("  Mode: Differential index"); }
+        if verbose {
+            println!("  Mode: Differential index");
+        }
         indexer.index_differential()?
     };
-    
+
     let elapsed = start.elapsed();
-    
+
     println!("✅ Index rebuilt in {:.2}s:", elapsed.as_secs_f64());
-    println!("  Files: +{} ~{} -{}", 
-        result.files_added, 
-        result.files_modified, 
-        result.files_deleted
+    println!(
+        "  Files: +{} ~{} -{}",
+        result.files_added, result.files_modified, result.files_deleted
     );
-    println!("  Symbols: +{} ~{} -{}", 
-        result.symbols_added, 
-        result.symbols_updated, 
-        result.symbols_deleted
+    println!(
+        "  Symbols: +{} ~{} -{}",
+        result.symbols_added, result.symbols_updated, result.symbols_deleted
     );
-    
+
     if verbose {
         println!("\n📊 Performance metrics:");
-        println!("  Files/sec: {:.1}", 
+        println!(
+            "  Files/sec: {:.1}",
             (result.files_added + result.files_modified) as f64 / elapsed.as_secs_f64()
         );
-        println!("  Symbols/sec: {:.1}", 
+        println!(
+            "  Symbols/sec: {:.1}",
             (result.symbols_added + result.symbols_updated) as f64 / elapsed.as_secs_f64()
         );
     }
-    
+
     Ok(())
 }
 
 /// public_onlyオプション付き
 fn show_unused_code(db_path: &str, public_only: bool) -> Result<()> {
     use crate::cli::incremental_storage::IncrementalStorage;
-    
+
     let storage = IncrementalStorage::open(db_path)?;
     let index = storage.load_or_create_index()?;
     let mut dead_symbols = index.get_dead_symbols().clone();
-    
+
     // Filter public only if requested
     if public_only {
         dead_symbols.retain(|symbol_id| {
             // Check if symbol is public (simplified check)
-            symbol_id.contains("pub ") || !symbol_id.contains("fn ") 
+            symbol_id.contains("pub ") || !symbol_id.contains("fn ")
         });
     }
-    
+
     if dead_symbols.is_empty() {
-        println!("✨ No unused {} code detected!", if public_only { "public" } else { "" });
+        println!(
+            "✨ No unused {} code detected!",
+            if public_only { "public" } else { "" }
+        );
     } else {
-        println!("💀 Found {} unused {} symbols:", 
+        println!(
+            "💀 Found {} unused {} symbols:",
             dead_symbols.len(),
             if public_only { "public" } else { "" }
         );
-        
+
         // Group by file
-        let mut by_file: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        let mut by_file: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
         for symbol_id in dead_symbols {
             if let Some(path) = index.symbol_to_file.get(&symbol_id) {
                 by_file
@@ -1026,7 +1122,7 @@ fn show_unused_code(db_path: &str, public_only: bool) -> Result<()> {
                     .push(symbol_id.clone());
             }
         }
-        
+
         for (file, symbols) in by_file.iter().take(10) {
             println!("\n  {file}:");
             for symbol in symbols.iter().take(3) {
@@ -1036,11 +1132,11 @@ fn show_unused_code(db_path: &str, public_only: bool) -> Result<()> {
                 println!("    ... and {} more", symbols.len() - 3);
             }
         }
-        
+
         if by_file.len() > 10 {
             println!("\n  ... and {} more files", by_file.len() - 10);
         }
     }
-    
+
     Ok(())
 }

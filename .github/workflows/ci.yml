@@ -128,9 +128,11 @@ jobs:
       
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
         
-      - name: Install tarpaulin
-        run: cargo install cargo-tarpaulin
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
         
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -149,12 +151,14 @@ jobs:
             ${{ runner.os }}-cargo-git-
             
       - name: Generate code coverage
-        run: cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
+        run: |
+          mkdir -p tmp
+          cargo llvm-cov --lib --lcov --output-path tmp/lcov.info
         
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          file: ./cobertura.xml
+          file: ./tmp/lcov.info
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 

@@ -256,9 +256,7 @@ fn test_large_graph_performance() {
     let _deserialized: CodeGraph = serde_json::from_str(&json).unwrap();
     let deserialize_time = start.elapsed();
 
-    println!(
-        "Serialize time: {serialize_time:?}, Deserialize time: {deserialize_time:?}"
-    );
+    println!("Serialize time: {serialize_time:?}, Deserialize time: {deserialize_time:?}");
     assert!(serialize_time.as_millis() < 100);
     assert!(deserialize_time.as_millis() < 100);
 }

@@ -1,6 +1,6 @@
-use std::process::{Command, Child, Stdio};
+use crate::cli::common_adapter::{c_style_comments, spawn_lsp_server};
+use crate::cli::minimal_language_adapter::{CommentStyles, MinimalLanguageAdapter};
 use anyhow::Result;
-use crate::cli::minimal_language_adapter::{MinimalLanguageAdapter, CommentStyles};
 
 /// Go言語のアダプタ実装
 /// goplsを使用してGo言語のコードを解析
@@ -15,22 +15,12 @@ impl MinimalLanguageAdapter for GoAdapter {
         vec!["go"]
     }
 
-    fn spawn_lsp_command(&self) -> Result<Child> {
-        // goplsコマンドを起動
-        let child = Command::new("gopls")
-            .arg("serve")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        Ok(child)
+    fn spawn_lsp_command(&self) -> Result<std::process::Child> {
+        spawn_lsp_server("gopls", &["serve"])
     }
 
     fn comment_styles(&self) -> CommentStyles {
-        CommentStyles {
-            line_comment: vec!["//"],
-            block_comment: vec![("/*", "*/")],
-        }
+        c_style_comments()
     }
 }
 
@@ -42,7 +32,7 @@ impl GoAdapter {
             "func" | "var" | "const" | "type" | "struct" | "interface" | "package"
         )
     }
-    
+
     /// Go特有の参照パターンを構築
     pub fn build_reference_pattern(&self, name: &str, is_package: bool) -> String {
         if is_package {

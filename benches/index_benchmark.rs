@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lsif_indexer::core::{
-    generate_lsif, parse_lsif, CallHierarchyAnalyzer, CodeGraph, EdgeKind,
-    FileUpdate, IncrementalIndex, Position, Range, Symbol, SymbolKind,
+    generate_lsif, parse_lsif, CallHierarchyAnalyzer, CodeGraph, EdgeKind, FileUpdate,
+    IncrementalIndex, Position, Range, Symbol, SymbolKind,
 };
 use std::collections::HashMap;
 

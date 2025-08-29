@@ -1,29 +1,31 @@
 pub mod cached_storage;
 pub mod call_hierarchy_cmd;
+pub mod common_adapter;
 pub mod differential_indexer;
+pub mod fallback_indexer;
 pub mod fuzzy_search;
 pub mod generic_helpers;
 pub mod git_diff;
 pub mod go_adapter;
 pub mod incremental_storage;
-pub mod python_adapter;
-pub mod typescript_adapter;
 pub mod indexer;
 pub mod language_adapter;
 pub mod language_detector;
-pub mod minimal_language_adapter;
 pub mod lsp_adapter;
 pub mod lsp_client;
 pub mod lsp_commands;
-pub mod lsp_minimal_client;
 pub mod lsp_features;
 pub mod lsp_indexer;
 pub mod lsp_integration;
+pub mod lsp_minimal_client;
+pub mod minimal_language_adapter;
 pub mod optimized_incremental;
 pub mod parallel_storage;
+pub mod python_adapter;
 pub mod reference_finder;
 pub mod simple_cli;
 pub mod storage;
+pub mod typescript_adapter;
 pub mod ultra_fast_storage;
 
 // Re-export commonly used types
@@ -610,7 +612,7 @@ fn query_index(
 ) -> Result<()> {
     // 自動差分インデックス実行
     ensure_index_updated(index_path)?;
-    
+
     let storage = IndexStorage::open(index_path)?;
     let graph: CodeGraph = storage
         .load_data("graph")?
@@ -1167,24 +1169,24 @@ fn ensure_index_updated(index_path: &str) -> Result<()> {
     use self::git_diff::GitDiffDetector;
     use std::path::Path;
     use std::time::Instant;
-    
+
     // インデックスファイルが存在しない場合はスキップ
     if !Path::new(index_path).exists() {
         info!("Index file does not exist, skipping auto-update");
         return Ok(());
     }
-    
+
     // ストレージからメタデータを読み込み
     let storage = IndexStorage::open(index_path)?;
     let metadata = storage.load_metadata()?;
-    
+
     if metadata.is_none() {
         info!("No metadata found in index, skipping auto-update");
         return Ok(());
     }
-    
+
     let metadata = metadata.unwrap();
-    
+
     // プロジェクトルートを取得
     let project_root = Path::new(&metadata.project_root);
     if !project_root.exists() {
@@ -1195,10 +1197,10 @@ fn ensure_index_updated(index_path: &str) -> Result<()> {
             return Ok(());
         }
     }
-    
+
     // Git差分検知を使用して変更をチェック
     let mut detector = GitDiffDetector::new(project_root)?;
-    
+
     // 前回のGitコミットハッシュと比較
     let current_commit = detector.get_head_commit();
     let needs_update = if let Some(ref saved_commit) = metadata.git_commit_hash {
@@ -1208,15 +1210,15 @@ fn ensure_index_updated(index_path: &str) -> Result<()> {
         let changes = detector.detect_changes_since(None)?;
         !changes.is_empty()
     };
-    
+
     if needs_update {
         info!("Changes detected, running differential index...");
         let start = Instant::now();
-        
+
         // 差分インデックスを実行
         let mut indexer = DifferentialIndexer::new(index_path, project_root)?;
         let result = indexer.index_differential()?;
-        
+
         let elapsed = start.elapsed();
         info!(
             "Differential index completed in {:.2}s: {} files modified, {} symbols updated",
@@ -1224,7 +1226,7 @@ fn ensure_index_updated(index_path: &str) -> Result<()> {
             result.files_modified,
             result.symbols_updated
         );
-        
+
         // 変更があった場合は警告を表示
         if result.files_modified > 0 || result.symbols_updated > 0 {
             println!(
@@ -1237,7 +1239,7 @@ fn ensure_index_updated(index_path: &str) -> Result<()> {
     } else {
         debug!("No changes detected, using existing index");
     }
-    
+
     Ok(())
 }
 
@@ -1245,7 +1247,7 @@ fn ensure_index_updated(index_path: &str) -> Result<()> {
 fn ensure_index_updated_for_symbol(index_path: &str, symbol: &str) -> Result<()> {
     // まず通常の差分インデックスを実行
     ensure_index_updated(index_path)?;
-    
+
     // シンボルが存在するファイルの特定と追加チェック（オプション）
     let storage = IndexStorage::open(index_path)?;
     if let Ok(Some(graph)) = storage.load_data::<CodeGraph>("graph") {
@@ -1254,12 +1256,12 @@ fn ensure_index_updated_for_symbol(index_path: &str, symbol: &str) -> Result<()>
                 "Symbol '{}' found in file: {}",
                 symbol, symbol_info.file_path
             );
-            
+
             // そのファイルが最近変更されていれば、関連ファイルも含めて再インデックス
             // （ここは将来的な拡張ポイント）
         }
     }
-    
+
     Ok(())
 }
 
@@ -1268,12 +1270,12 @@ fn run_differential_index(project_path: &str, output_path: &str, force: bool) ->
     use self::differential_indexer::DifferentialIndexer;
     use std::path::Path;
     use std::time::Instant;
-    
+
     let project = Path::new(project_path);
     let start = Instant::now();
-    
+
     let mut indexer = DifferentialIndexer::new(output_path, project)?;
-    
+
     let result = if force {
         info!("Forcing full reindex...");
         indexer.full_reindex()?
@@ -1281,21 +1283,24 @@ fn run_differential_index(project_path: &str, output_path: &str, force: bool) ->
         info!("Running differential index...");
         indexer.index_differential()?
     };
-    
+
     let elapsed = start.elapsed();
-    
-    println!("Differential index completed in {:.2}s:", elapsed.as_secs_f64());
+
+    println!(
+        "Differential index completed in {:.2}s:",
+        elapsed.as_secs_f64()
+    );
     println!("  Files added: {}", result.files_added);
     println!("  Files modified: {}", result.files_modified);
     println!("  Files deleted: {}", result.files_deleted);
     println!("  Symbols added: {}", result.symbols_added);
     println!("  Symbols updated: {}", result.symbols_updated);
     println!("  Symbols deleted: {}", result.symbols_deleted);
-    
+
     if result.files_added == 0 && result.files_modified == 0 && result.files_deleted == 0 {
         println!("No changes detected - index is up to date!");
     }
-    
+
     Ok(())
 }
 // Test 1755525843

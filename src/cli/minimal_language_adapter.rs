@@ -1,7 +1,6 @@
 /// 最小限の言語アダプター実装
-/// 
+///
 /// 言語非依存設計に基づき、LSPサーバーの起動と基本情報のみを提供
-
 use anyhow::Result;
 use std::process::{Child, Command, Stdio};
 
@@ -10,18 +9,18 @@ use std::process::{Child, Command, Stdio};
 pub trait MinimalLanguageAdapter: Send + Sync {
     /// 言語ID（例: "rust", "typescript"）
     fn language_id(&self) -> &str;
-    
+
     /// サポートする拡張子
     fn supported_extensions(&self) -> Vec<&str>;
-    
+
     /// LSPサーバーを起動
     fn spawn_lsp_command(&self) -> Result<Child>;
-    
+
     /// コメントスタイル（オプション）
     fn comment_styles(&self) -> CommentStyles {
         CommentStyles::default()
     }
-    
+
     /// ソースファイルかを判定
     fn is_source_file(&self, path: &std::path::Path) -> bool {
         if let Some(ext) = path.extension() {
@@ -58,11 +57,11 @@ impl MinimalLanguageAdapter for RustLanguageAdapter {
     fn language_id(&self) -> &str {
         "rust"
     }
-    
+
     fn supported_extensions(&self) -> Vec<&str> {
         vec!["rs"]
     }
-    
+
     fn spawn_lsp_command(&self) -> Result<Child> {
         Command::new("rust-analyzer")
             .stdin(Stdio::piped())
@@ -71,7 +70,7 @@ impl MinimalLanguageAdapter for RustLanguageAdapter {
             .spawn()
             .map_err(|e| anyhow::anyhow!("Failed to start rust-analyzer: {}", e))
     }
-    
+
     fn comment_styles(&self) -> CommentStyles {
         CommentStyles {
             line_comment: vec!["//", "///", "//!"],
@@ -87,11 +86,11 @@ impl MinimalLanguageAdapter for TypeScriptLanguageAdapter {
     fn language_id(&self) -> &str {
         "typescript"
     }
-    
+
     fn supported_extensions(&self) -> Vec<&str> {
         vec!["ts", "tsx", "js", "jsx"]
     }
-    
+
     fn spawn_lsp_command(&self) -> Result<Child> {
         Command::new("npx")
             .arg("-y")
@@ -104,7 +103,7 @@ impl MinimalLanguageAdapter for TypeScriptLanguageAdapter {
             .spawn()
             .map_err(|e| anyhow::anyhow!("Failed to start TypeScript LSP: {}", e))
     }
-    
+
     fn comment_styles(&self) -> CommentStyles {
         CommentStyles {
             line_comment: vec!["//"],
@@ -120,11 +119,11 @@ impl MinimalLanguageAdapter for PythonLanguageAdapter {
     fn language_id(&self) -> &str {
         "python"
     }
-    
+
     fn supported_extensions(&self) -> Vec<&str> {
         vec!["py", "pyi"]
     }
-    
+
     fn spawn_lsp_command(&self) -> Result<Child> {
         Command::new("pylsp")
             .stdin(Stdio::piped())
@@ -141,7 +140,7 @@ impl MinimalLanguageAdapter for PythonLanguageAdapter {
             })
             .map_err(|e| anyhow::anyhow!("Failed to start Python LSP: {}", e))
     }
-    
+
     fn comment_styles(&self) -> CommentStyles {
         CommentStyles {
             line_comment: vec!["#"],
@@ -157,11 +156,11 @@ impl MinimalLanguageAdapter for GoLanguageAdapter {
     fn language_id(&self) -> &str {
         "go"
     }
-    
+
     fn supported_extensions(&self) -> Vec<&str> {
         vec!["go"]
     }
-    
+
     fn spawn_lsp_command(&self) -> Result<Child> {
         Command::new("gopls")
             .stdin(Stdio::piped())
@@ -170,7 +169,7 @@ impl MinimalLanguageAdapter for GoLanguageAdapter {
             .spawn()
             .map_err(|e| anyhow::anyhow!("Failed to start gopls: {}", e))
     }
-    
+
     fn comment_styles(&self) -> CommentStyles {
         CommentStyles {
             line_comment: vec!["//"],
@@ -186,11 +185,11 @@ impl MinimalLanguageAdapter for JavaLanguageAdapter {
     fn language_id(&self) -> &str {
         "java"
     }
-    
+
     fn supported_extensions(&self) -> Vec<&str> {
         vec!["java"]
     }
-    
+
     fn spawn_lsp_command(&self) -> Result<Child> {
         Command::new("jdtls")
             .stdin(Stdio::piped())
@@ -199,7 +198,7 @@ impl MinimalLanguageAdapter for JavaLanguageAdapter {
             .spawn()
             .map_err(|e| anyhow::anyhow!("Failed to start Eclipse JDT Language Server: {}", e))
     }
-    
+
     fn comment_styles(&self) -> CommentStyles {
         CommentStyles {
             line_comment: vec!["//"],
@@ -213,7 +212,7 @@ pub fn detect_language_adapter(file_path: &str) -> Option<Box<dyn MinimalLanguag
     let extension = std::path::Path::new(file_path)
         .extension()
         .and_then(|ext| ext.to_str())?;
-    
+
     match extension {
         "rs" => Some(Box::new(RustLanguageAdapter)),
         "ts" | "tsx" | "js" | "jsx" => Some(Box::new(TypeScriptLanguageAdapter)),
@@ -238,7 +237,7 @@ pub fn supported_languages() -> Vec<(&'static str, Vec<&'static str>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_rust_adapter() {
         let adapter = RustLanguageAdapter;
@@ -246,7 +245,7 @@ mod tests {
         assert_eq!(adapter.supported_extensions(), vec!["rs"]);
         assert_eq!(adapter.comment_styles().line_comment[0], "//");
     }
-    
+
     #[test]
     fn test_typescript_adapter() {
         let adapter = TypeScriptLanguageAdapter;
@@ -254,7 +253,7 @@ mod tests {
         assert!(adapter.supported_extensions().contains(&"ts"));
         assert!(adapter.supported_extensions().contains(&"tsx"));
     }
-    
+
     #[test]
     fn test_python_adapter() {
         let adapter = PythonLanguageAdapter;
@@ -262,7 +261,7 @@ mod tests {
         assert_eq!(adapter.supported_extensions(), vec!["py", "pyi"]);
         assert_eq!(adapter.comment_styles().line_comment[0], "#");
     }
-    
+
     #[test]
     fn test_detect_language() {
         assert!(detect_language_adapter("main.rs").is_some());
@@ -272,7 +271,7 @@ mod tests {
         assert!(detect_language_adapter("App.java").is_some());
         assert!(detect_language_adapter("unknown.xyz").is_none());
     }
-    
+
     #[test]
     fn test_supported_languages() {
         let langs = supported_languages();

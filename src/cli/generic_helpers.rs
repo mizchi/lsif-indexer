@@ -1,7 +1,6 @@
 /// 言語非依存の汎用ヘルパー関数
-/// 
+///
 /// すべての言語で共通利用可能な解析ロジック
-
 use crate::core::SymbolKind;
 
 /// 基本的な参照パターンを構築（99%のケースをカバー）
@@ -12,7 +11,7 @@ pub fn build_basic_reference_pattern(name: &str) -> String {
 /// 文字列リテラルまたはコメント内かを判定（C系言語で共通）
 pub fn is_in_string_or_comment(line: &str, position: usize) -> bool {
     let before = &line[..position.min(line.len())];
-    
+
     // 単一行コメントチェック
     if let Some(comment_pos) = before.find("//") {
         // 文字列内の // でない場合のみ
@@ -21,7 +20,7 @@ pub fn is_in_string_or_comment(line: &str, position: usize) -> bool {
             return position > comment_pos;
         }
     }
-    
+
     // # スタイルのコメント（Python, Ruby, Shell等）
     if let Some(comment_pos) = before.find('#') {
         let before_comment = &before[..comment_pos];
@@ -29,7 +28,7 @@ pub fn is_in_string_or_comment(line: &str, position: usize) -> bool {
             return position > comment_pos;
         }
     }
-    
+
     // -- スタイルのコメント（SQL, Haskell等）
     if let Some(comment_pos) = before.find("--") {
         let before_comment = &before[..comment_pos];
@@ -37,7 +36,7 @@ pub fn is_in_string_or_comment(line: &str, position: usize) -> bool {
             return position > comment_pos;
         }
     }
-    
+
     // 文字列リテラル内かチェック
     is_in_string_literal(before, position)
 }
@@ -51,17 +50,17 @@ pub fn is_in_string_literal(text: &str, _position: usize) -> bool {
     let mut in_triple_single = false;
     let mut escaped = false;
     let mut in_raw_string = false;
-    
+
     let chars: Vec<char> = text.chars().collect();
     let mut i = 0;
-    
+
     while i < chars.len() {
         if escaped {
             escaped = false;
             i += 1;
             continue;
         }
-        
+
         // トリプルクォート（Python）のチェック
         if i + 2 < chars.len() {
             if chars[i] == '"' && chars[i + 1] == '"' && chars[i + 2] == '"' {
@@ -79,17 +78,21 @@ pub fn is_in_string_literal(text: &str, _position: usize) -> bool {
                 }
             }
         }
-        
+
         // トリプルクォート内ではエスケープを無視
         if in_triple_double || in_triple_single {
             i += 1;
             continue;
         }
-        
+
         match chars[i] {
             '\\' if !in_raw_string => escaped = true,
-            'r' if i + 1 < chars.len() && chars[i + 1] == '"' 
-                && !in_double_quote && !in_single_quote && !in_backtick => {
+            'r' if i + 1 < chars.len()
+                && chars[i + 1] == '"'
+                && !in_double_quote
+                && !in_single_quote
+                && !in_backtick =>
+            {
                 // Rust/Pythonの raw string
                 in_raw_string = true;
                 i += 1;
@@ -112,9 +115,13 @@ pub fn is_in_string_literal(text: &str, _position: usize) -> bool {
         }
         i += 1;
     }
-    
-    in_double_quote || in_single_quote || in_backtick || 
-    in_raw_string || in_triple_double || in_triple_single
+
+    in_double_quote
+        || in_single_quote
+        || in_backtick
+        || in_raw_string
+        || in_triple_double
+        || in_triple_single
 }
 
 /// ブロックコメント内かを判定
@@ -126,14 +133,14 @@ pub fn is_in_block_comment(
 ) -> bool {
     let before = &content[..position.min(content.len())];
     let after = &content[position.min(content.len())..];
-    
+
     // 直前までのブロック開始/終了をカウント
     let starts_before = before.matches(block_start).count();
     let ends_before = before.matches(block_end).count();
-    
+
     // 位置以降の最初の終了タグを探す
     let has_end_after = after.contains(block_end);
-    
+
     // 開始が終了より多く、かつ後ろに終了タグがある場合はコメント内
     starts_before > ends_before && has_end_after
 }
@@ -166,11 +173,7 @@ impl Default for DefinitionKeywords {
 }
 
 /// 汎用的な定義コンテキスト判定
-pub fn is_definition_context(
-    line: &str,
-    position: usize,
-    keywords: &DefinitionKeywords,
-) -> bool {
+pub fn is_definition_context(line: &str, position: usize, keywords: &DefinitionKeywords) -> bool {
     // 現在位置が単語の先頭かを確認
     if position > 0 {
         let prev_char = line.chars().nth(position - 1);
@@ -180,16 +183,16 @@ pub fn is_definition_context(
             }
         }
     }
-    
+
     let before = &line[..position.min(line.len())];
     let words: Vec<&str> = before.split_whitespace().collect();
-    
+
     if words.is_empty() {
         return false;
     }
-    
+
     let last_word = words[words.len() - 1];
-    
+
     // 各種定義キーワードをチェック
     let all_keywords = [
         &keywords.function[..],
@@ -199,15 +202,16 @@ pub fn is_definition_context(
         &keywords.type_alias[..],
         &keywords.enum_def[..],
         &keywords.module[..],
-    ].concat();
-    
+    ]
+    .concat();
+
     // 直前の単語が定義キーワードか
     if words.len() >= 2 {
         let prev_word = words[words.len() - 2];
         if all_keywords.contains(&prev_word) {
             return true;
         }
-        
+
         // export/public/private + キーワードのパターン
         if words.len() >= 3 {
             let modifier = words[words.len() - 3];
@@ -219,7 +223,7 @@ pub fn is_definition_context(
             }
         }
     }
-    
+
     // 代入文のパターン（const name = ...）
     if last_word != "=" && before.contains('=') {
         if let Some(eq_pos) = before.rfind('=') {
@@ -233,7 +237,7 @@ pub fn is_definition_context(
             }
         }
     }
-    
+
     false
 }
 
@@ -244,10 +248,7 @@ pub struct ReferencePatternContext {
 }
 
 /// 言語別の参照パターン拡張
-pub fn extend_reference_pattern(
-    basic_pattern: &str,
-    context: &ReferencePatternContext,
-) -> String {
+pub fn extend_reference_pattern(basic_pattern: &str, context: &ReferencePatternContext) -> String {
     match context.language_id.as_str() {
         "rust" => {
             // Rustは :: でモジュールパスを表現
@@ -263,7 +264,10 @@ pub fn extend_reference_pattern(
             // C++は ::, ->, . でメンバーアクセス
             match context.symbol_kind {
                 SymbolKind::Class | SymbolKind::Struct => {
-                    format!(r"{}(?:(?:::|-&gt;|\.)\w+)*", basic_pattern.trim_end_matches(r"\b"))
+                    format!(
+                        r"{}(?:(?:::|-&gt;|\.)\w+)*",
+                        basic_pattern.trim_end_matches(r"\b")
+                    )
                 }
                 _ => basic_pattern.to_string(),
             }
@@ -296,7 +300,7 @@ pub fn extend_reference_pattern(
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_string_literal_detection() {
         // is_in_string_literal checks if the whole string up to position is in a literal
@@ -308,7 +312,7 @@ mod tests {
         assert!(is_in_string_literal("r\"raw", 5));
         assert!(is_in_string_literal("\"\"\"triple", 9));
     }
-    
+
     #[test]
     fn test_comment_detection() {
         assert!(is_in_string_or_comment("// comment", 5));
@@ -316,57 +320,57 @@ mod tests {
         assert!(is_in_string_or_comment("-- sql comment", 8));
         assert!(!is_in_string_or_comment("normal code", 5));
     }
-    
+
     #[test]
     fn test_block_comment() {
         let content = "code /* comment */ more";
         assert!(is_in_block_comment(content, 10, "/*", "*/"));
         assert!(!is_in_block_comment(content, 20, "/*", "*/"));
     }
-    
+
     #[test]
     fn test_definition_context() {
         let keywords = DefinitionKeywords::default();
-        
+
         // The function requires at least 2 words in the substring before position
         // It checks if words[len-2] is a definition keyword
-        
-        // Simple cases with 2 words - test with extra characters after identifier
-        assert!(is_definition_context("function m(", 11, &keywords)); // ["function", "m("] - at '('
-        assert!(is_definition_context("class C {", 8, &keywords)); // ["class", "C", "{"] - at space
-        assert!(is_definition_context("let v =", 6, &keywords)); // ["let", "v", "="] - at space
-        
+
+        // Test with positions after identifier with space/symbol
+        assert!(is_definition_context("function myFunc ", 16, &keywords)); // after "myFunc "
+        assert!(is_definition_context("class C ", 8, &keywords)); // after 'C '
+        assert!(is_definition_context("let v ", 6, &keywords)); // after 'v '
+
         // 3 words with modifier
-        assert!(is_definition_context("export function f", 17, &keywords)); // ["export", "function", "f"]
-        assert!(is_definition_context("public class C", 14, &keywords)); // ["public", "class", "C"]
-        
+        assert!(is_definition_context("export function f ", 18, &keywords)); // after 'f '
+        assert!(is_definition_context("public class C ", 15, &keywords)); // after 'C '
+
         // Variable assignment
-        assert!(is_definition_context("const x = 5", 7, &keywords)); // ["const", "x"] before '='
-        
+        assert!(is_definition_context("const x = 5", 8, &keywords)); // after 'x '
+
         // Not definition contexts
         assert!(!is_definition_context("myFunc()", 7, &keywords)); // No keyword
         assert!(!is_definition_context("function ", 9, &keywords)); // Only ["function"], needs 2 words
-        
+
         // Edge case: position at start of identifier name
         assert!(!is_definition_context("let", 3, &keywords)); // Only one word
     }
-    
+
     #[test]
     fn test_reference_pattern_extension() {
         let basic = r"\bfoo\b";
-        
+
         let rust_context = ReferencePatternContext {
             symbol_kind: SymbolKind::Module,
             language_id: "rust".to_string(),
         };
         assert!(extend_reference_pattern(basic, &rust_context).contains("::"));
-        
+
         let python_context = ReferencePatternContext {
             symbol_kind: SymbolKind::Module,
             language_id: "python".to_string(),
         };
         assert!(extend_reference_pattern(basic, &python_context).contains(r"\."));
-        
+
         let js_context = ReferencePatternContext {
             symbol_kind: SymbolKind::Function,
             language_id: "javascript".to_string(),

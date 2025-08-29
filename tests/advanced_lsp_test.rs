@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use lsif_indexer::cli::lsp_adapter::*;
-    
+
     use lsif_indexer::cli::lsp_features::*;
     use lsp_types::*;
     use std::fs;

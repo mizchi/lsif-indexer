@@ -7,7 +7,7 @@ fn main() -> Result<()> {
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "warn");
     }
-    
+
     // ログ初期化
     tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -21,6 +21,6 @@ fn main() -> Result<()> {
     // CLIパース＆実行
     let cli = SimpleCli::parse();
     cli.execute()?;
-    
+
     Ok(())
 }

@@ -171,9 +171,7 @@ impl GitDiffDetector {
 
         diff.foreach(
             &mut |delta, _progress| {
-                let file_path = delta
-                    .new_file()
-                    .path().map(|p| self.project_root.join(p));
+                let file_path = delta.new_file().path().map(|p| self.project_root.join(p));
 
                 if let Some(path) = file_path {
                     if !processed_paths.contains(&path) {

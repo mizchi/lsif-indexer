@@ -15,6 +15,7 @@ pub struct OptimizedIncrementalIndexer {
     storage: Arc<ParallelIndexStorage>,
     cache: Arc<CachedIndexStorage>,
     file_index: HashMap<PathBuf, FileState>,
+    #[allow(dead_code)]
     dependency_graph: HashMap<String, HashSet<String>>,
     dirty_files: HashSet<PathBuf>,
 }

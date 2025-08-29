@@ -16,38 +16,38 @@ pub struct DefinitionPattern {
 /// パターンの種類
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum PatternType {
-    FunctionDef,      // function, fn, def
-    ClassDef,         // class, struct
-    InterfaceDef,     // interface, trait
-    VariableDef,      // let, const, var
-    TypeDef,          // type, typedef
-    EnumDef,          // enum
-    ModuleDef,        // module, mod
+    FunctionDef,  // function, fn, def
+    ClassDef,     // class, struct
+    InterfaceDef, // interface, trait
+    VariableDef,  // let, const, var
+    TypeDef,      // type, typedef
+    EnumDef,      // enum
+    ModuleDef,    // module, mod
 }
 
 /// 言語アダプターのトレイト
 pub trait LanguageAdapter: Send + Sync {
     /// 言語ID（例: "rust", "typescript"）
     fn language_id(&self) -> &str;
-    
+
     /// サポートする拡張子
     fn supported_extensions(&self) -> Vec<&str>;
-    
+
     /// LSPサーバーを起動
     fn spawn_lsp_command(&self) -> Result<Child>;
-    
+
     /// 定義パターンを取得
     fn definition_patterns(&self) -> Vec<DefinitionPattern>;
-    
+
     /// 参照パターンの正規表現を構築
     fn build_reference_pattern(&self, name: &str, kind: &crate::core::SymbolKind) -> String;
-    
+
     /// 定義コンテキストかを判定
     fn is_definition_context(&self, line: &str, position: usize) -> bool;
-    
+
     /// 文字列リテラルやコメント内かを判定
     fn is_in_string_or_comment(&self, line: &str, position: usize) -> bool;
-    
+
     /// ソースファイルかを判定
     fn is_source_file(&self, path: &std::path::Path) -> bool {
         if let Some(ext) = path.extension() {
@@ -66,11 +66,11 @@ impl LanguageAdapter for RustLanguageAdapter {
     fn language_id(&self) -> &str {
         "rust"
     }
-    
+
     fn supported_extensions(&self) -> Vec<&str> {
         vec!["rs"]
     }
-    
+
     fn spawn_lsp_command(&self) -> Result<Child> {
         Command::new("rust-analyzer")
             .stdin(Stdio::piped())
@@ -79,7 +79,7 @@ impl LanguageAdapter for RustLanguageAdapter {
             .spawn()
             .map_err(|e| anyhow::anyhow!("Failed to start rust-analyzer: {}", e))
     }
-    
+
     fn definition_patterns(&self) -> Vec<DefinitionPattern> {
         vec![
             DefinitionPattern {
@@ -129,11 +129,11 @@ impl LanguageAdapter for RustLanguageAdapter {
             },
         ]
     }
-    
+
     fn build_reference_pattern(&self, name: &str, kind: &crate::core::SymbolKind) -> String {
         use crate::core::SymbolKind;
         let escaped = regex::escape(name);
-        
+
         match kind {
             SymbolKind::Function | SymbolKind::Method => {
                 // 関数は名前の後に括弧かジェネリクス
@@ -149,11 +149,11 @@ impl LanguageAdapter for RustLanguageAdapter {
             }
         }
     }
-    
+
     fn is_definition_context(&self, line: &str, position: usize) -> bool {
         generic_is_definition_context(line, position, &self.definition_patterns())
     }
-    
+
     fn is_in_string_or_comment(&self, line: &str, position: usize) -> bool {
         generic_is_in_string_or_comment(line, position)
     }
@@ -166,11 +166,11 @@ impl LanguageAdapter for TypeScriptLanguageAdapter {
     fn language_id(&self) -> &str {
         "typescript"
     }
-    
+
     fn supported_extensions(&self) -> Vec<&str> {
         vec!["ts", "tsx", "js", "jsx"]
     }
-    
+
     fn spawn_lsp_command(&self) -> Result<Child> {
         Command::new("npx")
             .arg("-y")
@@ -183,7 +183,7 @@ impl LanguageAdapter for TypeScriptLanguageAdapter {
             .spawn()
             .map_err(|e| anyhow::anyhow!("Failed to start TypeScript LSP: {}", e))
     }
-    
+
     fn definition_patterns(&self) -> Vec<DefinitionPattern> {
         vec![
             // Export patterns
@@ -228,7 +228,11 @@ impl LanguageAdapter for TypeScriptLanguageAdapter {
                 requires_name_after: true,
             },
             DefinitionPattern {
-                keywords: vec!["export".to_string(), "async".to_string(), "function".to_string()],
+                keywords: vec![
+                    "export".to_string(),
+                    "async".to_string(),
+                    "function".to_string(),
+                ],
                 pattern_type: PatternType::FunctionDef,
                 requires_name_after: true,
             },
@@ -280,24 +284,28 @@ impl LanguageAdapter for TypeScriptLanguageAdapter {
             },
         ]
     }
-    
+
     fn build_reference_pattern(&self, name: &str, _kind: &crate::core::SymbolKind) -> String {
         let escaped = regex::escape(name);
         // TypeScriptではすべて単純な単語境界でOK（::は使わない）
         format!(r"\b{}\b", escaped)
     }
-    
+
     fn is_definition_context(&self, line: &str, position: usize) -> bool {
         generic_is_definition_context(line, position, &self.definition_patterns())
     }
-    
+
     fn is_in_string_or_comment(&self, line: &str, position: usize) -> bool {
         generic_is_in_string_or_comment(line, position)
     }
 }
 
 /// 汎用的な定義コンテキスト判定
-fn generic_is_definition_context(line: &str, position: usize, patterns: &[DefinitionPattern]) -> bool {
+fn generic_is_definition_context(
+    line: &str,
+    position: usize,
+    patterns: &[DefinitionPattern],
+) -> bool {
     // 現在位置が単語の先頭かを確認
     if position > 0 {
         let prev_char = line.chars().nth(position - 1);
@@ -308,16 +316,16 @@ fn generic_is_definition_context(line: &str, position: usize, patterns: &[Defini
             }
         }
     }
-    
+
     // 位置より前の部分を取得
     let before = &line[..position.min(line.len())];
-    
+
     // 前方の単語列を取得
     let words: Vec<&str> = before.split_whitespace().collect();
     if words.is_empty() {
         return false;
     }
-    
+
     // パターンマッチング
     for pattern in patterns {
         if words.len() >= pattern.keywords.len() {
@@ -329,17 +337,17 @@ fn generic_is_definition_context(line: &str, position: usize, patterns: &[Defini
             }
         }
     }
-    
+
     // 変数定義の特別処理
     if words.len() >= 2 {
         let last_word = words[words.len() - 1];
         let second_last = words[words.len() - 2];
-        
+
         // 変数定義パターン（const/let/var name = ...）
         if matches!(second_last, "const" | "let" | "var") && !last_word.contains('=') {
             return true;
         }
-        
+
         // export const/let/var name = ...
         if second_last == "export" && words.len() >= 3 {
             let third_last = words[words.len() - 3];
@@ -348,14 +356,14 @@ fn generic_is_definition_context(line: &str, position: usize, patterns: &[Defini
             }
         }
     }
-    
+
     false
 }
 
 /// 汎用的な文字列・コメント判定
 fn generic_is_in_string_or_comment(line: &str, position: usize) -> bool {
     let before = &line[..position.min(line.len())];
-    
+
     // 単一行コメントチェック
     if let Some(comment_pos) = before.find("//") {
         // 文字列内の // でない場合のみ
@@ -364,7 +372,7 @@ fn generic_is_in_string_or_comment(line: &str, position: usize) -> bool {
             return position > comment_pos;
         }
     }
-    
+
     // 文字列リテラル内かチェック
     is_in_string_literal(before, position)
 }
@@ -375,17 +383,17 @@ fn is_in_string_literal(text: &str, _position: usize) -> bool {
     let mut in_char = false;
     let mut escaped = false;
     let mut in_raw_string = false;
-    
+
     let chars: Vec<char> = text.chars().collect();
     let mut i = 0;
-    
+
     while i < chars.len() {
         if escaped {
             escaped = false;
             i += 1;
             continue;
         }
-        
+
         match chars[i] {
             '\\' if !in_raw_string => escaped = true,
             'r' if i + 1 < chars.len() && chars[i + 1] == '"' && !in_string && !in_char => {
@@ -404,7 +412,7 @@ fn is_in_string_literal(text: &str, _position: usize) -> bool {
         }
         i += 1;
     }
-    
+
     in_string || in_char || in_raw_string
 }
 
@@ -413,7 +421,7 @@ pub fn detect_language_adapter(file_path: &str) -> Option<Box<dyn LanguageAdapte
     let extension = std::path::Path::new(file_path)
         .extension()
         .and_then(|ext| ext.to_str())?;
-    
+
     match extension {
         "rs" => Some(Box::new(RustLanguageAdapter)),
         "ts" | "tsx" | "js" | "jsx" => Some(Box::new(TypeScriptLanguageAdapter)),
@@ -424,27 +432,30 @@ pub fn detect_language_adapter(file_path: &str) -> Option<Box<dyn LanguageAdapte
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_rust_adapter() {
         let adapter = RustLanguageAdapter;
         assert_eq!(adapter.language_id(), "rust");
         assert_eq!(adapter.supported_extensions(), vec!["rs"]);
-        
+
         let patterns = adapter.definition_patterns();
         assert!(!patterns.is_empty());
     }
-    
+
     #[test]
     fn test_typescript_adapter() {
         let adapter = TypeScriptLanguageAdapter;
         assert_eq!(adapter.language_id(), "typescript");
-        assert_eq!(adapter.supported_extensions(), vec!["ts", "tsx", "js", "jsx"]);
-        
+        assert_eq!(
+            adapter.supported_extensions(),
+            vec!["ts", "tsx", "js", "jsx"]
+        );
+
         let patterns = adapter.definition_patterns();
         assert!(!patterns.is_empty());
     }
-    
+
     #[test]
     fn test_detect_language() {
         assert!(detect_language_adapter("main.rs").is_some());

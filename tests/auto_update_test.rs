@@ -168,7 +168,11 @@ fn test_auto_update_performance() -> Result<()> {
     let result = indexer.index_differential()?;
     let initial_time = start.elapsed();
 
-    assert!(result.files_added >= 10, "Expected at least 10 files added, got {}", result.files_added);
+    assert!(
+        result.files_added >= 10,
+        "Expected at least 10 files added, got {}",
+        result.files_added
+    );
     println!("Initial indexing of 10 files: {initial_time:?}");
 
     // 変更なしで再実行（自動更新のオーバーヘッド測定）

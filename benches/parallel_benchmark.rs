@@ -3,9 +3,7 @@ use lsif_indexer::core::parallel::{
     parallel_lsif::ParallelLsifGenerator, ParallelCodeGraph, ParallelFileAnalyzer,
     ParallelIncrementalIndex,
 };
-use lsif_indexer::core::parallel_optimized::{
-    OptimizedDeadCodeDetector, OptimizedParallelGraph,
-};
+use lsif_indexer::core::parallel_optimized::{OptimizedDeadCodeDetector, OptimizedParallelGraph};
 use lsif_indexer::core::{
     CodeGraph, EdgeKind, IncrementalIndex, Position, Range, Symbol, SymbolKind,
 };
