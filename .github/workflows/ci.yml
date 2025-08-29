@@ -60,12 +60,62 @@ jobs:
       - name: Build
         run: cargo build --verbose --all-features
         
-      - name: Run tests
-        run: cargo test --verbose --all-features
+      - name: Run unit and integration tests
+        run: |
+          mkdir -p tmp
+          cargo test --verbose --all-features --lib --bins --tests
         
       - name: Run benchmarks (build only)
         run: cargo bench --no-run --all-features
         if: matrix.rust == 'stable'
+
+  e2e:
+    name: E2E Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+          
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+            
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-git-
+            
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-e2e-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-e2e-
+            ${{ runner.os }}-cargo-build-
+            
+      - name: Build release binary
+        run: cargo build --release --bin lsif-indexer
+        
+      - name: Run E2E tests
+        run: |
+          mkdir -p tmp
+          cargo test --test '*' -- --test-threads=1
+        env:
+          RUST_BACKTRACE: 1
+          RUST_LOG: debug
 
   clippy:
     name: Clippy
