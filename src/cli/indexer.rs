@@ -1,5 +1,4 @@
 use super::lsp_adapter::{GenericLspClient, LspAdapter};
-use super::lsp_helpers::LspClientHelpers;
 use crate::core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
 use anyhow::Result;
 use lsp_types::{
