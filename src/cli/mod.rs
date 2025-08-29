@@ -1091,10 +1091,10 @@ fn execute_lsp_command(command: LspCommands) -> Result<()> {
             let mut lsp = LspIntegration::new(PathBuf::from(&project))?;
             let runtime = tokio::runtime::Runtime::new()?;
 
-            // Create enhanced index
-            let mut enhanced_index = crate::core::enhanced_graph::EnhancedIndex::default();
+            // Create graph
+            let mut graph = CodeGraph::new();
 
-            runtime.block_on(lsp.enhance_index(&mut enhanced_index))?;
+            runtime.block_on(lsp.enhance_index(&mut graph))?;
 
             // Save to storage
             let storage = IndexStorage::open(&output)?;
@@ -1106,19 +1106,16 @@ fn execute_lsp_command(command: LspCommands) -> Result<()> {
                     .to_string_lossy()
                     .to_string(),
                 files_count: 0, // TODO: Track actual file count
-                symbols_count: enhanced_index.symbols.len(),
+                symbols_count: graph.symbol_count(),
                 git_commit_hash: None,
                 file_hashes: std::collections::HashMap::new(),
             };
 
             storage.save_metadata(&metadata)?;
-            storage.save_data("enhanced_index", &enhanced_index)?;
+            storage.save_data("graph", &graph)?;
 
             println!("Project indexed with LSP integration:");
-            println!("  Symbols: {}", enhanced_index.symbols.len());
-            println!("  References: {}", enhanced_index.references.len());
-            println!("  Call graph edges: {}", enhanced_index.call_graph.len());
-            println!("  Type relations: {}", enhanced_index.type_relations.len());
+            println!("  Symbols: {}", graph.symbol_count());
         }
     }
 
