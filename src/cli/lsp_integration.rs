@@ -137,7 +137,7 @@ impl LspIntegration {
         Ok(symbol_id)
     }
 
-    async fn analyze_references(&mut self, uri: &Url, graph: &mut CodeGraph) -> Result<()> {
+    async fn analyze_references(&mut self, uri: &Url, _graph: &mut CodeGraph) -> Result<()> {
         let symbols = self.client.document_symbols(uri.clone())?;
 
         for symbol in symbols {
@@ -146,7 +146,7 @@ impl LspIntegration {
                 character: symbol.selection_range.start.character,
             };
 
-            let symbol_id = format!(
+            let _symbol_id = format!(
                 "{}#{}:{}",
                 uri.path(),
                 symbol.selection_range.start.line,
@@ -155,7 +155,7 @@ impl LspIntegration {
 
             if let Ok(references) = self.client.find_references(uri.clone(), position, false) {
                 for reference in references {
-                    let ref_id = format!(
+                    let _ref_id = format!(
                         "{}:{}:{}",
                         reference.uri.path(),
                         reference.range.start.line + 1,
@@ -169,7 +169,7 @@ impl LspIntegration {
 
             if let Ok(definition_locations) = self.client.goto_definition(uri.clone(), position) {
                 for def_loc in definition_locations {
-                    let def_id = format!(
+                    let _def_id = format!(
                         "{}:{}:{}",
                         def_loc.uri.path(),
                         def_loc.range.start.line + 1,
@@ -189,7 +189,7 @@ impl LspIntegration {
         &mut self,
         uri: &Url,
         content: &str,
-        graph: &mut CodeGraph,
+        _graph: &mut CodeGraph,
     ) -> Result<()> {
         let lines: Vec<&str> = content.lines().collect();
 
@@ -201,7 +201,7 @@ impl LspIntegration {
 
             if let Ok(items) = self.client.call_hierarchy_prepare(uri.clone(), position) {
                 for item in items {
-                    let symbol_id = format!(
+                    let _symbol_id = format!(
                         "{}#{}:{}",
                         uri.path(),
                         item.selection_range.start.line,
@@ -210,7 +210,7 @@ impl LspIntegration {
 
                     if let Ok(incoming) = self.client.incoming_calls(item.clone()) {
                         for call in incoming {
-                            let caller_id = format!(
+                            let _caller_id = format!(
                                 "{}#{}:{}",
                                 call.from.uri.path(),
                                 call.from.selection_range.start.line,
@@ -233,7 +233,7 @@ impl LspIntegration {
 
                             // Add call edge in graph
                             // This would need proper node lookup - skipping for now
-                            let _ = (symbol_id.clone(), callee_id, uri.path(), call.from_ranges[0].start.line);
+                            let _ = (_symbol_id.clone(), callee_id, uri.path(), call.from_ranges[0].start.line);
                         }
                     }
                 }

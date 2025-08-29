@@ -1,4 +1,5 @@
 use super::lsp_adapter::{GenericLspClient, LspAdapter};
+use super::lsp_helpers::LspClientHelpers;
 use crate::core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
 use anyhow::Result;
 use lsp_types::{
@@ -631,7 +632,7 @@ mod tests {
 
     #[test]
     fn test_convert_lsp_position() {
-        let indexer = Indexer::new();
+        let _indexer = Indexer::new();
         
         let lsp_pos = LspPosition { line: 10, character: 5 };
         let pos = Position { line: lsp_pos.line, character: lsp_pos.character };
@@ -642,7 +643,7 @@ mod tests {
 
     #[test]
     fn test_convert_lsp_range() {
-        let indexer = Indexer::new();
+        let _indexer = Indexer::new();
         
         let lsp_range = lsp_types::Range {
             start: LspPosition { line: 5, character: 10 },

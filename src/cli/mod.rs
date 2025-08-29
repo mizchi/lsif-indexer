@@ -13,6 +13,7 @@ pub mod lsp_adapter;
 pub mod lsp_client;
 pub mod lsp_commands;
 pub mod lsp_features;
+pub mod lsp_helpers;
 pub mod lsp_indexer;
 pub mod lsp_integration;
 pub mod lsp_minimal_client;
@@ -25,13 +26,14 @@ pub mod typescript_adapter;
 
 // Re-export commonly used types
 
-use self::lsp_adapter::{GenericLspClient, LspAdapter, RustAnalyzerAdapter};
+use self::lsp_adapter::LspAdapter;
 use self::lsp_indexer::LspIndexer;
 use self::storage::{IndexFormat, IndexMetadata, IndexStorage};
 use crate::core::{generate_lsif, parse_lsif, CodeGraph};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::fs;
+use std::path::Path;
 use tracing::{debug, info};
 
 #[derive(Parser)]
@@ -527,46 +529,22 @@ fn import_lsif(input_path: &str, output_path: &str) -> Result<()> {
 }
 
 fn generate_index(source_path: &str, output_path: &str, language: Option<&str>) -> Result<()> {
-    use self::lsp_adapter::{detect_language, GenericLspClient, RustAnalyzerAdapter};
+    use self::lsp_helpers::LspClientHelpers;
+    use std::path::Path;
 
     let abs_path = fs::canonicalize(source_path)?;
     let file_uri = format!("file://{}", abs_path.display());
 
-    // Detect or use specified language
-    let symbols = if let Some(lang) = language {
-        match lang {
-            "rust" => {
-                let mut client = GenericLspClient::new(Box::new(RustAnalyzerAdapter))?;
-                let syms = client.get_document_symbols(&file_uri)?;
-                client.shutdown()?;
-                syms
-            }
-            "typescript" | "ts" => {
-                use self::lsp_adapter::TypeScriptAdapter;
-                let mut client = GenericLspClient::new(Box::new(TypeScriptAdapter))?;
-                let syms = client.get_document_symbols(&file_uri)?;
-                client.shutdown()?;
-                syms
-            }
-            _ => {
-                anyhow::bail!("Unsupported language: {}", lang);
-            }
-        }
+    // Create LSP client based on language or auto-detect
+    let mut client = if let Some(lang) = language {
+        LspClientHelpers::create_for_language(lang)?
     } else {
-        // Auto-detect language from file extension
-        if let Some(adapter) = detect_language(source_path) {
-            let mut client = GenericLspClient::new(adapter)?;
-            let syms = client.get_document_symbols(&file_uri)?;
-            client.shutdown()?;
-            syms
-        } else {
-            // Fallback to rust-analyzer for backward compatibility
-            let mut client = GenericLspClient::new(Box::new(RustAnalyzerAdapter))?;
-            let syms = client.get_document_symbols(&file_uri)?;
-            client.shutdown()?;
-            syms
-        }
+        LspClientHelpers::create_for_file(Path::new(source_path))?
     };
+
+    // Get symbols and shutdown client
+    let symbols = client.get_document_symbols(&file_uri)?;
+    client.shutdown()?;
 
     // Create index from symbols
     let mut indexer = LspIndexer::new(source_path.to_string());
@@ -683,7 +661,8 @@ fn update_incremental(index_path: &str, source_path: &str, detect_dead: bool) ->
     }
 
     // Get symbols from LSP
-    let mut client = GenericLspClient::new(Box::new(RustAnalyzerAdapter))?;
+    use self::lsp_helpers::LspClientHelpers;
+    let mut client = LspClientHelpers::create_for_file(Path::new(source_path))?;
     let abs_path = fs::canonicalize(source_path)?;
     let file_uri = format!("file://{}", abs_path.display());
     let lsp_symbols = client.get_document_symbols(&file_uri)?;
@@ -1139,12 +1118,10 @@ fn ensure_index_updated(index_path: &str) -> Result<()> {
     let storage = IndexStorage::open(index_path)?;
     let metadata = storage.load_metadata()?;
 
-    if metadata.is_none() {
+    let metadata = metadata.ok_or_else(|| {
         info!("No metadata found in index, skipping auto-update");
-        return Ok(());
-    }
-
-    let metadata = metadata.unwrap();
+        anyhow::anyhow!("No metadata found in index")
+    })?;
 
     // プロジェクトルートを取得
     let project_root = Path::new(&metadata.project_root);
