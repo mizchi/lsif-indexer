@@ -162,9 +162,11 @@ fn test_circular_reference_removal() {
     assert!(index.graph.find_symbol("cycle_b").is_none());
     assert!(index.graph.find_symbol("cycle_c").is_some());
 
-    // AからBへの参照がないことを確認
+    // Bへの参照がないことを確認（Bは削除されている）
+    // Cはまだ存在するので、Aへの参照はある（C->A）
     let a_refs = index.graph.find_references("cycle_a");
-    assert_eq!(a_refs.len(), 0);
+    assert_eq!(a_refs.len(), 1, "CからAへの参照は残っている");
+    assert_eq!(a_refs[0].id, "cycle_c");
 }
 
 /// 大量のシンボル更新での整合性
@@ -353,7 +355,7 @@ fn test_mixed_update_operations() {
         },
     ];
 
-    let result = index.batch_update(mixed_updates).unwrap();
+    let _result = index.batch_update(mixed_updates).unwrap();
 
     // 期待される結果
     // - file_0, file_3: 変更なし（各2シンボル）

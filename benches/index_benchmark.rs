@@ -1,4 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use lsif_indexer::cli::storage::IndexStorage;
 use lsif_indexer::core::{
     generate_lsif, parse_lsif, CallHierarchyAnalyzer, CodeGraph, EdgeKind, FileUpdate,
     IncrementalIndex, Position, Range, Symbol, SymbolKind,
@@ -555,17 +556,16 @@ fn benchmark_storage_operations(c: &mut Criterion) {
             file_path: format!("file_{}.rs", i / 10),
             range: Range {
                 start: Position {
-                        line: i * 10,
-                        character: 0,
-                    },
-                    end: Position {
-                        line: i * 10 + 5,
-                        character: 0,
-                    },
+                    line: i * 10,
+                    character: 0,
                 },
-                documentation: Some(format!("Doc {i}")),
-            })
-            .unwrap();
+                end: Position {
+                    line: i * 10 + 5,
+                    character: 0,
+                },
+            },
+            documentation: Some(format!("Doc {i}")),
+        });
     }
 
     let dir = tempdir().unwrap();

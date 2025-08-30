@@ -1,6 +1,5 @@
 use lsif_indexer::cli::go_adapter::GoAdapter;
 use lsif_indexer::cli::lsp_minimal_client::MinimalLspClient;
-use lsif_indexer::cli::minimal_language_adapter::MinimalLanguageAdapter;
 use lsp_types::Position;
 use std::path::PathBuf;
 

@@ -1,7 +1,9 @@
 use lsif_indexer::cli::lsp_adapter::{GenericLspClient, TypeScriptAdapter};
 use lsif_indexer::cli::lsp_indexer::LspIndexer;
+use lsif_indexer::IndexStorage;
 use std::path::PathBuf;
 use std::process::Command;
+use tempfile::tempdir;
 
 #[test]
 #[ignore] // Run with: cargo test typescript_e2e -- --ignored --nocapture
@@ -100,8 +102,7 @@ fn test_typescript_incremental_update() {
 
     // Create temporary storage
     let dir = tempdir().unwrap();
-    let db_path = dir.path().join("typescript_test.db");
-    let storage = IncrementalStorage::open(db_path.to_str().unwrap()).unwrap();
+    let _db_path = dir.path().join("typescript_test.db");
 
     // Initial indexing
     let adapter = TypeScriptAdapter;

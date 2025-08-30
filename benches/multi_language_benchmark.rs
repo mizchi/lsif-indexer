@@ -6,10 +6,9 @@ use lsif_indexer::cli::python_adapter::PythonAdapter;
 use lsif_indexer::cli::typescript_adapter::TypeScriptAdapter;
 use std::fs;
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// 言語別のLSPインデックス性能測定
-
 fn benchmark_language_indexing(c: &mut Criterion) {
     let mut group = c.benchmark_group("language_indexing");
     group.measurement_time(Duration::from_secs(30));
@@ -137,7 +136,7 @@ fn generate_test_code(lines: usize) -> String {
     // クラス定義
     for i in 0..lines / 20 {
         code.push_str(&format!("class TestClass{}:\n", i));
-        code.push_str(&format!("    def __init__(self):\n"));
+        code.push_str("    def __init__(self):\n");
         code.push_str(&format!("        self.value = {}\n\n", i));
 
         // メソッド
@@ -157,7 +156,6 @@ fn generate_test_code(lines: usize) -> String {
 }
 
 fn process_files_concurrently(thread_count: usize) {
-    use std::sync::Arc;
     use std::thread;
 
     let files: Vec<PathBuf> = vec![
@@ -169,7 +167,7 @@ fn process_files_concurrently(thread_count: usize) {
         PathBuf::from("test-typescript-project/utils.ts"),
     ];
 
-    let chunk_size = (files.len() + thread_count - 1) / thread_count;
+    let chunk_size = files.len().div_ceil(thread_count);
     let chunks: Vec<_> = files.chunks(chunk_size).map(|c| c.to_vec()).collect();
 
     let handles: Vec<_> = chunks
@@ -180,9 +178,9 @@ fn process_files_concurrently(thread_count: usize) {
                     if file.exists() {
                         // ファイルごとに適切なアダプタを選択
                         let adapter: Box<dyn MinimalLanguageAdapter> =
-                            if file.extension().map_or(false, |e| e == "go") {
+                            if file.extension().is_some_and(|e| e == "go") {
                                 Box::new(GoAdapter)
-                            } else if file.extension().map_or(false, |e| e == "py") {
+                            } else if file.extension().is_some_and(|e| e == "py") {
                                 Box::new(PythonAdapter::new())
                             } else {
                                 Box::new(TypeScriptAdapter::new())

@@ -1,7 +1,6 @@
 use lsif_indexer::cli::go_adapter::GoAdapter;
 use lsif_indexer::cli::minimal_language_adapter::MinimalLanguageAdapter;
 use std::path::PathBuf;
-use tempfile::TempDir;
 
 #[test]
 #[ignore] // 実行時は cargo test -- --ignored gopls_integration_test

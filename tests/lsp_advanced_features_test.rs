@@ -5,7 +5,6 @@ use lsif_indexer::cli::{
 };
 use lsp_types::Position;
 use std::fs;
-use std::path::Path;
 use tempfile::TempDir;
 
 /// テスト用のGoプロジェクトを作成

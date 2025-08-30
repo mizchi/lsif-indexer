@@ -86,7 +86,7 @@ mod tests {
             },
             documentation: Some("Calculator struct".to_string()),
         };
-        let calc_idx = graph.add_symbol(calc_symbol);
+        let _calc_idx = graph.add_symbol(calc_symbol);
 
         // Calculator::new()の定義を追加
         let new_symbol = Symbol {

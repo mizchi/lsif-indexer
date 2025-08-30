@@ -163,8 +163,14 @@ fn test_complex_graph_serialization() {
 
     assert_eq!(deserialized.symbol_count(), 5);
 
-    let refs = deserialized.find_references("Foo");
-    assert_eq!(refs.len(), 4);
+    // Fooに含まれる要素を確認（Contains関係はfind_referencesでは取得できない）
+    // エッジが正しくデシリアライズされているか確認
+    let iface_refs = deserialized.find_references("IFoo");
+    assert_eq!(iface_refs.len(), 0, "IFooへのReferenceエッジはない");
+    
+    let m2_refs = deserialized.find_references("Foo::method2");
+    assert_eq!(m2_refs.len(), 1, "method2はmethod1から参照されている");
+    assert_eq!(m2_refs[0].id, "Foo::method1");
 }
 
 #[test]

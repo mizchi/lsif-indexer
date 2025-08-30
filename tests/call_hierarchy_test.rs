@@ -1,8 +1,6 @@
 use lsif_indexer::core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
 use std::path::PathBuf;
 
-mod common;
-
 #[test]
 fn test_call_hierarchy_with_sample_code() {
     // Create a simple graph for testing

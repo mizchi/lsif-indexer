@@ -3,7 +3,7 @@ use lsif_indexer::core::parallel::{
     parallel_lsif::ParallelLsifGenerator, ParallelCodeGraph, ParallelFileAnalyzer,
     ParallelIncrementalIndex,
 };
-use lsif_indexer::core::parallel_optimized::{OptimizedDeadCodeDetector, OptimizedParallelGraph};
+// use lsif_indexer::core::parallel_optimized::{OptimizedDeadCodeDetector, OptimizedParallelGraph};
 use lsif_indexer::core::{
     CodeGraph, EdgeKind, IncrementalIndex, Position, Range, Symbol, SymbolKind,
 };
@@ -90,7 +90,10 @@ fn benchmark_symbol_addition(c: &mut Criterion) {
                 b.iter_batched(
                     CodeGraph::new,
                     |mut graph| {
-                        OptimizedParallelGraph::add_symbols_batch(&mut graph, symbols.clone());
+                        // OptimizedParallelGraph::add_symbols_batch(&mut graph, symbols.clone());
+                        for symbol in symbols.clone() {
+                            graph.add_symbol(symbol);
+                        }
                         graph
                     },
                     BatchSize::SmallInput,
@@ -343,18 +346,18 @@ fn benchmark_dead_code_detection(c: &mut Criterion) {
             b.iter(|| parallel_index.detect_dead_code_parallel().unwrap())
         });
 
-        // Optimized parallel dead code detection
-        group.bench_with_input(
-            BenchmarkId::new("parallel_optimized", size),
-            &size,
-            |b, _| {
-                b.iter_batched(
-                    || index.graph.clone(),
-                    |graph| OptimizedDeadCodeDetector::detect_parallel(&graph),
-                    BatchSize::SmallInput,
-                )
-            },
-        );
+        // Optimized parallel dead code detection - commented out as module doesn't exist
+        // group.bench_with_input(
+        //     BenchmarkId::new("parallel_optimized", size),
+        //     &size,
+        //     |b, _| {
+        //         b.iter_batched(
+        //             || index.graph.clone(),
+        //             |graph| OptimizedDeadCodeDetector::detect_parallel(&graph),
+        //             BatchSize::SmallInput,
+        //         )
+        //     },
+        // );
     }
 
     group.finish();

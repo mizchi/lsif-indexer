@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use lsif_indexer::core::parallel_optimized::{OptimizedParallelGraph, OptimizedParallelIndex};
+// use lsif_indexer::core::parallel_optimized::{OptimizedParallelGraph, OptimizedParallelIndex};
 use lsif_indexer::core::{CodeGraph, IncrementalIndex, Position, Range, Symbol, SymbolKind};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -205,7 +205,10 @@ fn benchmark_initial_indexing(c: &mut Criterion) {
                         .collect();
 
                     // バッチでシンボルを追加
-                    OptimizedParallelGraph::add_symbols_batch(&mut graph, all_symbols);
+                    // OptimizedParallelGraph::add_symbols_batch(&mut graph, all_symbols);
+                    for symbol in all_symbols {
+                        graph.add_symbol(symbol);
+                    }
 
                     let elapsed = start.elapsed();
                     (graph.symbol_count(), elapsed)
@@ -244,12 +247,11 @@ fn benchmark_incremental_indexing(c: &mut Criterion) {
 
                 (temp_dir, index, files)
             },
-            |(temp_dir, index, files)| {
+            |(_temp_dir, index, files)| {
                 let start = Instant::now();
 
                 // 一部のファイルを更新
-                for i in 0..files_to_update {
-                    let file = &files[i];
+                for (i, file) in files.iter().take(files_to_update).enumerate() {
                     // ファイルにシンボルを追加
                     let mut content = fs::read_to_string(file).unwrap();
                     content.push_str(&format!("\npub fn new_function_{i}() {{}}\n"));
@@ -276,11 +278,11 @@ fn benchmark_incremental_indexing(c: &mut Criterion) {
                 let index = IncrementalIndex::new();
                 let files = collect_rust_files(temp_dir.path());
 
-                let parallel_index = OptimizedParallelIndex::from_index(index);
+                // let parallel_index = OptimizedParallelIndex::from_index(index);
 
                 // 初期インデックス作成（並列）
                 use rayon::prelude::*;
-                let file_updates: Vec<_> = files
+                let _file_updates: Vec<_> = files
                     .par_iter()
                     .map(|file| {
                         let symbols = extract_symbols_from_file(file);
@@ -293,11 +295,11 @@ fn benchmark_incremental_indexing(c: &mut Criterion) {
                     })
                     .collect();
 
-                parallel_index.batch_update_files(file_updates).unwrap();
+                // parallel_index.batch_update_files(file_updates).unwrap();
 
-                (temp_dir, parallel_index, files)
+                (temp_dir, index, files)
             },
-            |(temp_dir, parallel_index, files)| {
+            |(_temp_dir, index, files)| {
                 let start = Instant::now();
 
                 // 更新するファイルを準備
@@ -322,7 +324,8 @@ fn benchmark_incremental_indexing(c: &mut Criterion) {
                     })
                     .collect();
 
-                parallel_index.batch_update_files(file_updates).unwrap();
+                // parallel_index.batch_update_files(file_updates).unwrap();
+                index.batch_update(file_updates).unwrap();
 
                 start.elapsed()
             },
@@ -394,7 +397,10 @@ fn benchmark_end_to_end_performance(c: &mut Criterion) {
                     .collect();
 
                 let symbol_count = all_symbols.len();
-                OptimizedParallelGraph::add_symbols_batch(&mut graph, all_symbols);
+                // OptimizedParallelGraph::add_symbols_batch(&mut graph, all_symbols);
+                for symbol in all_symbols {
+                    graph.add_symbol(symbol);
+                }
 
                 let elapsed = start.elapsed();
                 let throughput = symbol_count as f64 / elapsed.as_secs_f64();

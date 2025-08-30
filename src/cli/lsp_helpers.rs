@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use super::lsp_adapter::{detect_language, GenericLspClient, RustAnalyzerAdapter, TypeScriptAdapter};
 use std::path::Path;
 

@@ -31,7 +31,7 @@ fn test_add_symbol() {
     let mut graph = CodeGraph::new();
     let symbol = create_test_symbol("func1", "test_function", SymbolKind::Function);
 
-    let node_idx = graph.add_symbol(symbol.clone());
+    let _node_idx = graph.add_symbol(symbol.clone());
 
     assert_eq!(graph.symbol_count(), 1);
     assert!(graph.find_symbol("func1").is_some());
@@ -72,8 +72,10 @@ fn test_add_edge() {
     let func_idx = graph.add_symbol(func);
     let var_idx = graph.add_symbol(var);
 
-    graph.add_edge(func_idx, var_idx, EdgeKind::Reference);
+    // var1がfunc1を参照している
+    graph.add_edge(var_idx, func_idx, EdgeKind::Reference);
 
+    // func1への参照を探す
     let references = graph.find_references("func1");
     assert_eq!(references.len(), 1);
     assert_eq!(references[0].id, "var1");
@@ -83,27 +85,31 @@ fn test_add_edge() {
 fn test_find_references() {
     let mut graph = CodeGraph::new();
 
-    let func = create_test_symbol("func1", "function1", SymbolKind::Function);
-    let var1 = create_test_symbol("var1", "variable1", SymbolKind::Variable);
-    let var2 = create_test_symbol("var2", "variable2", SymbolKind::Variable);
-    let var3 = create_test_symbol("var3", "variable3", SymbolKind::Variable);
+    // targetシンボルを作成
+    let target = create_test_symbol("target", "target_func", SymbolKind::Function);
+    // targetを参照する3つのシンボルを作成
+    let caller1 = create_test_symbol("caller1", "caller_func1", SymbolKind::Function);
+    let caller2 = create_test_symbol("caller2", "caller_func2", SymbolKind::Function);
+    let caller3 = create_test_symbol("caller3", "caller_func3", SymbolKind::Function);
 
-    let func_idx = graph.add_symbol(func);
-    let var1_idx = graph.add_symbol(var1);
-    let var2_idx = graph.add_symbol(var2);
-    let var3_idx = graph.add_symbol(var3);
+    let target_idx = graph.add_symbol(target);
+    let caller1_idx = graph.add_symbol(caller1);
+    let caller2_idx = graph.add_symbol(caller2);
+    let caller3_idx = graph.add_symbol(caller3);
 
-    graph.add_edge(func_idx, var1_idx, EdgeKind::Reference);
-    graph.add_edge(func_idx, var2_idx, EdgeKind::Reference);
-    graph.add_edge(func_idx, var3_idx, EdgeKind::Contains);
+    // 各callerがtargetを参照
+    graph.add_edge(caller1_idx, target_idx, EdgeKind::Reference);
+    graph.add_edge(caller2_idx, target_idx, EdgeKind::Reference);
+    graph.add_edge(caller3_idx, target_idx, EdgeKind::Reference);
 
-    let references = graph.find_references("func1");
+    // targetへの参照を探す
+    let references = graph.find_references("target");
     assert_eq!(references.len(), 3);
 
     let ref_ids: Vec<&str> = references.iter().map(|s| s.id.as_str()).collect();
-    assert!(ref_ids.contains(&"var1"));
-    assert!(ref_ids.contains(&"var2"));
-    assert!(ref_ids.contains(&"var3"));
+    assert!(ref_ids.contains(&"caller1"));
+    assert!(ref_ids.contains(&"caller2"));
+    assert!(ref_ids.contains(&"caller3"));
 }
 
 #[test]
@@ -228,21 +234,35 @@ fn test_complex_graph_scenario() {
     let method_idx = graph.add_symbol(method);
     let var_idx = graph.add_symbol(var);
 
+    // mainはhelperとvarを参照
     graph.add_edge(main_idx, helper_idx, EdgeKind::Reference);
     graph.add_edge(main_idx, var_idx, EdgeKind::Reference);
+    // classはmethodを含む
     graph.add_edge(class_idx, method_idx, EdgeKind::Contains);
+    // helperはmethodを参照
     graph.add_edge(helper_idx, method_idx, EdgeKind::Reference);
+    // varはmainの定義
     graph.add_edge(var_idx, main_idx, EdgeKind::Definition);
 
     assert_eq!(graph.symbol_count(), 5);
 
-    let main_refs = graph.find_references("main");
-    assert_eq!(main_refs.len(), 2);
+    // helperへの参照を探す（mainから参照されている）
+    let helper_refs = graph.find_references("helper");
+    assert_eq!(helper_refs.len(), 1);
+    assert_eq!(helper_refs[0].id, "main");
 
-    let class_contains = graph.find_references("MyClass");
-    assert_eq!(class_contains.len(), 1);
-    assert_eq!(class_contains[0].id, "MyClass::method");
+    // varへの参照を探す（mainから参照されている）
+    let var_refs = graph.find_references("global_var");
+    assert_eq!(var_refs.len(), 1);
+    assert_eq!(var_refs[0].id, "main");
 
+    // methodへの参照を探す（helperから参照され、classに含まれる）
+    let method_refs = graph.find_references("MyClass::method");
+    // Referenceエッジのみをカウント（Containsは含まない）
+    assert_eq!(method_refs.len(), 1);
+    assert_eq!(method_refs[0].id, "helper");
+
+    // mainの定義を探す
     let var_def = graph.find_definition("main");
     assert!(var_def.is_some());
     assert_eq!(var_def.unwrap().id, "global_var");

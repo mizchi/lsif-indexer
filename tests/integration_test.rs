@@ -64,10 +64,10 @@ fn test_symbol_storage_and_retrieval() {
     assert!(loaded_graph.find_symbol("user.rs#User").is_some());
     assert!(loaded_graph.find_symbol("main.rs#main").is_some());
 
-    // 参照の検証
-    let refs = loaded_graph.find_references("main.rs#main");
+    // 参照の検証（Userを参照しているのはmain）
+    let refs = loaded_graph.find_references("user.rs#User");
     assert_eq!(refs.len(), 1);
-    assert_eq!(refs[0].name, "User");
+    assert_eq!(refs[0].name, "main");
 }
 
 #[test]
@@ -232,7 +232,7 @@ fn test_dead_code_detection() {
     };
 
     let used_idx = graph.add_symbol(used_func);
-    let unused_idx = graph.add_symbol(unused_func);
+    let _unused_idx = graph.add_symbol(unused_func);
     let main_idx = graph.add_symbol(main_func);
 
     // mainからused_funcへの参照を追加
@@ -244,12 +244,13 @@ fn test_dead_code_detection() {
     let all_symbols: Vec<_> = graph.get_all_symbols().collect();
     assert_eq!(all_symbols.len(), 3);
 
-    // 参照カウント
+    // 参照カウント（誰がこのシンボルを参照しているか）
     let used_refs = graph.find_references("file.rs#used_func");
     let unused_refs = graph.find_references("file.rs#unused_func");
 
-    assert_eq!(used_refs.len(), 0); // find_referencesは逆方向を見るため0
-    assert_eq!(unused_refs.len(), 0);
+    assert_eq!(used_refs.len(), 1); // mainから参照されている
+    assert_eq!(used_refs[0].id, "file.rs#main");
+    assert_eq!(unused_refs.len(), 0); // 誰からも参照されていない（デッドコード）
 }
 
 // Parallel storage test removed - functionality merged into IndexStorage

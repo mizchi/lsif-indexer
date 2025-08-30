@@ -1,4 +1,4 @@
-use super::graph::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
+use super::graph::{CodeGraph, Position, Range, Symbol, SymbolKind};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -511,7 +511,7 @@ mod tests {
         
         let idx1 = graph.add_symbol(symbol1);
         let idx2 = graph.add_symbol(symbol2);
-        graph.add_edge(idx1, idx2, EdgeKind::Reference);
+        graph.add_edge(idx1, idx2, crate::core::graph::EdgeKind::Reference);
         
         graph
     }

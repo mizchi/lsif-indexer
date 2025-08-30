@@ -407,7 +407,7 @@ fn test_circular_reference_detection() {
 #[test]
 fn test_backward_traversal() {
     let graph = create_complex_graph();
-    let engine = QueryEngine::new(&graph);
+    let _engine = QueryEngine::new(&graph);
 
     // For now, skip backward traversal test as it's not fully implemented
     // TODO: Implement proper backward arrow parsing
@@ -615,7 +615,7 @@ fn test_complex_multi_hop_query() {
 
     // Find functions that indirectly lead to trait implementations (any edge type)
     let pattern = QueryParser::parse("(fn:Function)-->(trait:Interface)").unwrap();
-    let results = engine.execute(&pattern);
+    let _results = engine.execute(&pattern);
 
     // createUser -> UserModel -> BaseModel -> Serializable
     // Note: This test may not find results with the current limited implementation

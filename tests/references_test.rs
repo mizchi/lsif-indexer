@@ -1,5 +1,5 @@
-use lsif_indexer::cli::reference_finder::{find_all_references, Reference};
-use lsif_indexer::core::{Position, Range, Symbol, SymbolKind};
+use lsif_indexer::cli::reference_finder::find_all_references;
+use lsif_indexer::core::SymbolKind;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;
