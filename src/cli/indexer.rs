@@ -288,11 +288,11 @@ impl Indexer {
     /// Find all source files in a directory
     fn find_source_files(&self, dir: &Path) -> Result<Vec<PathBuf>> {
         let mut files = Vec::new();
-        self.find_files_recursive(dir, &mut files)?;
+        Self::find_files_recursive(dir, &mut files)?;
         Ok(files)
     }
 
-    fn find_files_recursive(&self, dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
+    fn find_files_recursive(dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
         if dir.is_file() {
             if let Some(ext) = dir.extension() {
                 if ext == "rs" {
@@ -315,7 +315,7 @@ impl Indexer {
             }
 
             if path.is_dir() {
-                self.find_files_recursive(&path, files)?;
+                Self::find_files_recursive(&path, files)?;
             } else if let Some(ext) = path.extension() {
                 if ext == "rs" {
                     files.push(path);

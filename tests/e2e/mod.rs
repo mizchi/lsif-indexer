@@ -18,7 +18,7 @@ impl E2eContext {
     pub fn new() -> Result<Self> {
         // Build the binary in release mode for better performance
         let output = Command::new("cargo")
-            .args(&["build", "--release", "--bin", "lsif"])
+            .args(["build", "--release", "--bin", "lsif"])
             .output()
             .context("Failed to build binary")?;
 

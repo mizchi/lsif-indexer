@@ -238,6 +238,7 @@ impl<'a> TypeRelationsAnalyzer<'a> {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn collect_recursive(
         &self,
         symbol_id: &str,

@@ -756,7 +756,7 @@ mod tests {
         // Git初期化
         fs::create_dir_all(project_root.join(".git")).unwrap();
 
-        let indexer = DifferentialIndexer::new(&storage_path, &project_root);
+        let indexer = DifferentialIndexer::new(&storage_path, project_root);
         assert!(indexer.is_ok());
 
         let indexer = indexer.unwrap();
@@ -774,7 +774,7 @@ mod tests {
         fs::create_dir_all(project_root.join(".git")).unwrap();
         fs::write(project_root.join("test.rs"), "fn main() {}").unwrap();
 
-        let mut indexer = DifferentialIndexer::new(&storage_path, &project_root).unwrap();
+        let mut indexer = DifferentialIndexer::new(&storage_path, project_root).unwrap();
 
         // フルリインデックスを実行
         let result = indexer.full_reindex();
@@ -793,7 +793,7 @@ mod tests {
         // Git初期化
         fs::create_dir_all(project_root.join(".git")).unwrap();
 
-        let indexer = DifferentialIndexer::new(&storage_path, &project_root).unwrap();
+        let indexer = DifferentialIndexer::new(&storage_path, project_root).unwrap();
         let mut graph = CodeGraph::new();
 
         let symbol = Symbol {

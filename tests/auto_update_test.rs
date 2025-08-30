@@ -16,15 +16,15 @@ fn test_auto_update_detection() -> Result<()> {
 
     // Gitリポジトリを初期化
     Command::new("git")
-        .args(&["init"])
+        .args(["init"])
         .current_dir(temp_dir.path())
         .output()?;
     Command::new("git")
-        .args(&["config", "user.email", "test@test.com"])
+        .args(["config", "user.email", "test@test.com"])
         .current_dir(temp_dir.path())
         .output()?;
     Command::new("git")
-        .args(&["config", "user.name", "Test User"])
+        .args(["config", "user.name", "Test User"])
         .current_dir(temp_dir.path())
         .output()?;
 
@@ -44,11 +44,11 @@ fn test_auto_update_detection() -> Result<()> {
 
     // Gitに追加
     Command::new("git")
-        .args(&["add", "."])
+        .args(["add", "."])
         .current_dir(temp_dir.path())
         .output()?;
     Command::new("git")
-        .args(&["commit", "-m", "Initial commit"])
+        .args(["commit", "-m", "Initial commit"])
         .current_dir(temp_dir.path())
         .output()?;
 
@@ -117,15 +117,15 @@ fn test_query_with_auto_update() -> Result<()> {
 
     // Gitリポジトリを初期化
     Command::new("git")
-        .args(&["init"])
+        .args(["init"])
         .current_dir(temp_dir.path())
         .output()?;
     Command::new("git")
-        .args(&["config", "user.email", "test@test.com"])
+        .args(["config", "user.email", "test@test.com"])
         .current_dir(temp_dir.path())
         .output()?;
     Command::new("git")
-        .args(&["config", "user.name", "Test User"])
+        .args(["config", "user.name", "Test User"])
         .current_dir(temp_dir.path())
         .output()?;
 
@@ -147,11 +147,11 @@ fn test_query_with_auto_update() -> Result<()> {
 
     // Gitに追加
     Command::new("git")
-        .args(&["add", "."])
+        .args(["add", "."])
         .current_dir(temp_dir.path())
         .output()?;
     Command::new("git")
-        .args(&["commit", "-m", "Initial commit"])
+        .args(["commit", "-m", "Initial commit"])
         .current_dir(temp_dir.path())
         .output()?;
 
@@ -207,15 +207,15 @@ fn test_auto_update_performance() -> Result<()> {
 
     // Gitリポジトリを初期化
     Command::new("git")
-        .args(&["init"])
+        .args(["init"])
         .current_dir(temp_dir.path())
         .output()?;
     Command::new("git")
-        .args(&["config", "user.email", "test@test.com"])
+        .args(["config", "user.email", "test@test.com"])
         .current_dir(temp_dir.path())
         .output()?;
     Command::new("git")
-        .args(&["config", "user.name", "Test User"])
+        .args(["config", "user.name", "Test User"])
         .current_dir(temp_dir.path())
         .output()?;
 
@@ -229,11 +229,11 @@ fn test_auto_update_performance() -> Result<()> {
 
     // Gitに追加
     Command::new("git")
-        .args(&["add", "."])
+        .args(["add", "."])
         .current_dir(temp_dir.path())
         .output()?;
     Command::new("git")
-        .args(&["commit", "-m", "Initial commit"])
+        .args(["commit", "-m", "Initial commit"])
         .current_dir(temp_dir.path())
         .output()?;
 

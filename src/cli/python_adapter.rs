@@ -73,7 +73,7 @@ impl MinimalLanguageAdapter for PythonAdapter {
 
         match self.lsp_server.as_str() {
             "pyright" => spawn_lsp_server("pyright-langserver", &["--stdio"]),
-            "pylsp" | _ => {
+            _ => {
                 // pylspの場合は、より安全な設定で起動
                 spawn_lsp_server("pylsp", &["-v"]).or_else(|_| spawn_lsp_server("pylsp", &[]))
             }

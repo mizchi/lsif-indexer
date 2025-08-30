@@ -244,7 +244,7 @@ impl QueryParser {
 
             // Parse relationship type and depth
             if content.starts_with(':') {
-                let parts: Vec<&str> = content[1..].split('*').collect();
+                let parts: Vec<&str> = content.strip_prefix(':').unwrap_or("").split('*').collect();
 
                 // Parse edge type
                 let edge_type_str = parts[0].trim();

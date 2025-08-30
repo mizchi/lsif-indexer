@@ -90,10 +90,15 @@ impl MinimalLanguageAdapter for TypeScriptAdapter {
 }
 
 /// JavaScriptアダプタ（TypeScriptAdapterのエイリアス）
+#[derive(Default)]
 pub struct JavaScriptAdapter;
 
 impl JavaScriptAdapter {
-    pub fn new() -> TypeScriptAdapter {
+    pub fn new() -> Self {
+        Self
+    }
+
+    pub fn create_typescript_adapter() -> TypeScriptAdapter {
         TypeScriptAdapter::javascript_only()
     }
 }

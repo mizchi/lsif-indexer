@@ -3,7 +3,6 @@ use lsif_indexer::cli::lsp_indexer::LspIndexer;
 use lsif_indexer::IndexStorage;
 use std::path::PathBuf;
 use std::process::Command;
-use tempfile::tempdir;
 
 #[test]
 #[ignore] // Run with: cargo test typescript_e2e -- --ignored --nocapture
@@ -114,7 +113,7 @@ fn test_typescript_incremental_update() {
     let graph = indexer.into_graph();
 
     // Save graph to storage
-    let storage = IndexStorage::open(&dir.path()).unwrap();
+    let storage = IndexStorage::open(dir.path()).unwrap();
     storage.save_data("graph", &graph).unwrap();
 
     // Simulate file change

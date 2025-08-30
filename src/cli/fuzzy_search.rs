@@ -38,8 +38,8 @@ fn edit_distance(a: &str, b: &str) -> usize {
 
     let mut matrix = vec![vec![0; b_len + 1]; a_len + 1];
 
-    for i in 0..=a_len {
-        matrix[i][0] = i;
+    for (i, row) in matrix.iter_mut().enumerate().take(a_len + 1) {
+        row[0] = i;
     }
     for j in 0..=b_len {
         matrix[0][j] = j;
@@ -186,7 +186,7 @@ pub fn fuzzy_search_paths<'a>(query: &str, paths: &'a [&str]) -> Vec<StringMatch
     // パス用の追加処理：ファイル名のみでもマッチ
     let query_lower = query.to_lowercase();
     for (index, path) in paths.iter().enumerate() {
-        if let Some(filename) = path.split('/').last() {
+        if let Some(filename) = path.split('/').next_back() {
             let filename_lower = filename.to_lowercase();
             if filename_lower.contains(&query_lower) && !matches.iter().any(|m| m.index == index) {
                 matches.push(StringMatch {

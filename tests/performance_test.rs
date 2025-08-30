@@ -202,7 +202,7 @@ fn test_memory_usage() {
     // メモリ使用量を測定する関数
     let get_memory_usage = || -> Option<u64> {
         let output = Command::new("ps")
-            .args(&["-o", "rss=", "-p", &pid.to_string()])
+            .args(["-o", "rss=", "-p", &pid.to_string()])
             .output()
             .ok()?;
 

@@ -80,7 +80,7 @@ export enum ExportedEnum { X, Y }
             name
         );
         assert!(
-            definitions.len() >= 1,
+            !definitions.is_empty(),
             "{} should have at least one definition",
             name
         );

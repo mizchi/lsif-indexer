@@ -846,7 +846,7 @@ mod tests {
         let parsed_graph = parse_lsif(&lsif).unwrap();
 
         // Check that we have symbols in the parsed graph
-        assert!(parsed_graph.symbol_index.len() > 0);
+        assert!(!parsed_graph.symbol_index.is_empty());
     }
 
     #[test]

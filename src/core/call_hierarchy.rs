@@ -192,6 +192,7 @@ impl<'a> CallHierarchyAnalyzer<'a> {
         paths
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn dfs_paths(
         &self,
         current: &str,

@@ -240,10 +240,10 @@ impl MinimalLspClient {
 
         let response: Option<lsp_types::Hover> = self.send_request("textDocument/hover", params)?;
 
-        Ok(response.and_then(|hover| match hover.contents {
-            lsp_types::HoverContents::Scalar(lsp_types::MarkedString::String(s)) => Some(s),
+        Ok(response.map(|hover| match hover.contents {
+            lsp_types::HoverContents::Scalar(lsp_types::MarkedString::String(s)) => s,
             lsp_types::HoverContents::Scalar(lsp_types::MarkedString::LanguageString(ls)) => {
-                Some(ls.value)
+                ls.value
             }
             lsp_types::HoverContents::Array(arr) => {
                 let strings: Vec<String> = arr
@@ -253,9 +253,9 @@ impl MinimalLspClient {
                         lsp_types::MarkedString::LanguageString(ls) => ls.value,
                     })
                     .collect();
-                Some(strings.join("\n"))
+                strings.join("\n")
             }
-            lsp_types::HoverContents::Markup(markup) => Some(markup.value),
+            lsp_types::HoverContents::Markup(markup) => markup.value,
         }))
     }
 

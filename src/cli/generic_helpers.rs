@@ -63,19 +63,25 @@ pub fn is_in_string_literal(text: &str, _position: usize) -> bool {
 
         // トリプルクォート（Python）のチェック
         if i + 2 < chars.len() {
-            if chars[i] == '"' && chars[i + 1] == '"' && chars[i + 2] == '"' {
-                if !in_single_quote && !in_double_quote {
-                    in_triple_double = !in_triple_double;
-                    i += 3;
-                    continue;
-                }
+            if chars[i] == '"'
+                && chars[i + 1] == '"'
+                && chars[i + 2] == '"'
+                && !in_single_quote
+                && !in_double_quote
+            {
+                in_triple_double = !in_triple_double;
+                i += 3;
+                continue;
             }
-            if chars[i] == '\'' && chars[i + 1] == '\'' && chars[i + 2] == '\'' {
-                if !in_single_quote && !in_double_quote {
-                    in_triple_single = !in_triple_single;
-                    i += 3;
-                    continue;
-                }
+            if chars[i] == '\''
+                && chars[i + 1] == '\''
+                && chars[i + 2] == '\''
+                && !in_single_quote
+                && !in_double_quote
+            {
+                in_triple_single = !in_triple_single;
+                i += 3;
+                continue;
             }
         }
 
@@ -216,10 +222,10 @@ pub fn is_definition_context(line: &str, position: usize, keywords: &DefinitionK
         if words.len() >= 3 {
             let modifier = words[words.len() - 3];
             let keyword = words[words.len() - 2];
-            if matches!(modifier, "export" | "public" | "private" | "protected") {
-                if all_keywords.contains(&keyword) {
-                    return true;
-                }
+            if matches!(modifier, "export" | "public" | "private" | "protected")
+                && all_keywords.contains(&keyword)
+            {
+                return true;
             }
         }
     }

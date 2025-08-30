@@ -18,7 +18,7 @@ pub enum Language {
 
 impl Language {
     /// 文字列から言語を判定
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_string(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "rust" | "rs" => Language::Rust,
             "go" | "golang" => Language::Go,
@@ -147,12 +147,12 @@ mod tests {
 
     #[test]
     fn test_language_from_str() {
-        assert_eq!(Language::from_str("rust"), Language::Rust);
-        assert_eq!(Language::from_str("go"), Language::Go);
-        assert_eq!(Language::from_str("python"), Language::Python);
-        assert_eq!(Language::from_str("typescript"), Language::TypeScript);
-        assert_eq!(Language::from_str("javascript"), Language::JavaScript);
-        assert_eq!(Language::from_str("unknown"), Language::Unknown);
+        assert_eq!(Language::from_string("rust"), Language::Rust);
+        assert_eq!(Language::from_string("go"), Language::Go);
+        assert_eq!(Language::from_string("python"), Language::Python);
+        assert_eq!(Language::from_string("typescript"), Language::TypeScript);
+        assert_eq!(Language::from_string("javascript"), Language::JavaScript);
+        assert_eq!(Language::from_string("unknown"), Language::Unknown);
     }
 
     #[test]

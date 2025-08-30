@@ -49,7 +49,7 @@ function getUser(): User {
 
     // export interface User も定義として認識されるべき
     assert!(
-        definitions.len() >= 1,
+        !definitions.is_empty(),
         "Should find at least one definition"
     );
 }
@@ -90,7 +90,7 @@ const user2 = createUser("Bob", "bob@example.com");
     );
 
     assert!(
-        definitions.len() >= 1,
+        !definitions.is_empty(),
         "Should find at least one definition"
     );
     assert_eq!(usages.len(), 2, "Should find exactly 2 function calls");
@@ -126,7 +126,7 @@ const service = new UserService();
 
     let definitions: Vec<_> = references.iter().filter(|r| r.is_definition).collect();
     assert!(
-        definitions.len() >= 1,
+        !definitions.is_empty(),
         "Should find at least one class definition"
     );
 }

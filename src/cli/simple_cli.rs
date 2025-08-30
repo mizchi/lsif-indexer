@@ -1002,7 +1002,7 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: boo
                         "     Would find {} symbols like:",
                         fuzzy_matches.len().min(3)
                     );
-                    for (_i, m) in fuzzy_matches.iter().take(3).enumerate() {
+                    for m in fuzzy_matches.iter().take(3) {
                         println!("       - {}", m.symbol.name);
                     }
                 }

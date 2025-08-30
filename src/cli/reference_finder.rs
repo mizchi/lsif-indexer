@@ -26,7 +26,7 @@ pub fn find_all_references(
     let mut seen_locations = HashSet::new();
 
     // 除外するディレクトリ
-    let exclude_dirs = vec!["target", ".git", "node_modules", ".vscode"];
+    let exclude_dirs = ["target", ".git", "node_modules", ".vscode"];
 
     // 対象ファイルを走査
     for entry in WalkDir::new(project_root)
@@ -229,7 +229,7 @@ fn helper() {
 
         // Check reference
         let references: Vec<_> = refs.iter().filter(|r| !r.is_definition).collect();
-        assert!(references.len() >= 1);
+        assert!(!references.is_empty());
     }
 
     #[test]
@@ -372,14 +372,14 @@ fn main() {
             find_references_in_file(&file_path, content, "User", &SymbolKind::Struct, &adapter)
                 .unwrap();
 
-        assert!(struct_refs.len() >= 1); // At least the definition
+        assert!(!struct_refs.is_empty()); // At least the definition
 
         // Find method references
         let method_refs =
             find_references_in_file(&file_path, content, "new", &SymbolKind::Method, &adapter)
                 .unwrap();
 
-        assert!(method_refs.len() >= 1); // Definition and usage
+        assert!(!method_refs.is_empty()); // Definition and usage
     }
 
     #[test]
