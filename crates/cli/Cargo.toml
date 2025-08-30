@@ -1,0 +1,43 @@
+[package]
+name = "cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "lsif"
+path = "src/bin/lsif.rs"
+
+[dependencies]
+core = { path = "../core" }
+lsp = { path = "../lsp" }
+sled.workspace = true
+petgraph.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+lsp-types.workspace = true
+tokio.workspace = true
+clap.workspace = true
+colored.workspace = true
+indicatif.workspace = true
+async-trait.workspace = true
+walkdir.workspace = true
+ignore.workspace = true
+regex.workspace = true
+glob.workspace = true
+dashmap.workspace = true
+git2.workspace = true
+xxhash-rust.workspace = true
+notify.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+rmp-serde.workspace = true
+bincode.workspace = true
+
+[dev-dependencies]
+tempfile = { workspace = true }
+criterion = { workspace = true }
