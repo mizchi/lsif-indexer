@@ -403,6 +403,7 @@ mod tests {
     fn test_convert_document_symbol() {
         let indexer = Indexer::new();
 
+        #[allow(deprecated)]
         let doc_symbol = DocumentSymbol {
             name: "test_function".to_string(),
             detail: Some("fn test_function()".to_string()),
@@ -446,6 +447,7 @@ mod tests {
     fn test_process_symbols_flat() {
         let mut indexer = Indexer::new();
 
+        #[allow(deprecated)]
         let symbols = vec![
             DocumentSymbol {
                 name: "func1".to_string(),
@@ -518,6 +520,7 @@ mod tests {
     fn test_process_symbols_nested() {
         let mut indexer = Indexer::new();
 
+        #[allow(deprecated)]
         let symbols = vec![DocumentSymbol {
             name: "MyStruct".to_string(),
             detail: None,

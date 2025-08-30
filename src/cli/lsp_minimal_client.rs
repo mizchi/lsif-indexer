@@ -136,10 +136,10 @@ impl MinimalLspClient {
                             detail: None,
                             kind: s.kind,
                             tags: None,
+                            deprecated: None,
                             range: s.location.range,
                             selection_range: s.location.range,
                             children: None,
-                            deprecated: None,
                         }
                     })
                     .collect())

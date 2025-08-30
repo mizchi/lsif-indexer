@@ -107,6 +107,7 @@ mod tests {
         use lsp_types::{Position as LspPosition, Range as LspRange};
 
         // Create mock symbols
+        #[allow(deprecated)]
         let symbols = vec![
             DocumentSymbol {
                 name: "main".to_string(),

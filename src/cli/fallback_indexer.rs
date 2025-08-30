@@ -328,6 +328,7 @@ impl FallbackIndexer {
         end_line: u32,
         end_char: u32,
     ) -> DocumentSymbol {
+        #[allow(deprecated)]
         DocumentSymbol {
             name,
             detail: None,

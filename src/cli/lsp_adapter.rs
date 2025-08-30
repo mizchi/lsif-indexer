@@ -152,16 +152,18 @@ impl GenericLspClient {
                 // Convert flat symbols to nested format
                 Ok(symbols
                     .into_iter()
-                    .map(|s| DocumentSymbol {
-                        name: s.name,
-                        detail: None,
-                        kind: s.kind,
-                        tags: s.tags,
+                    .map(|s| {
                         #[allow(deprecated)]
-                        deprecated: None,
-                        range: s.location.range,
-                        selection_range: s.location.range,
-                        children: None,
+                        DocumentSymbol {
+                            name: s.name,
+                            detail: None,
+                            kind: s.kind,
+                            tags: s.tags,
+                            deprecated: None,
+                            range: s.location.range,
+                            selection_range: s.location.range,
+                            children: None,
+                        }
                     })
                     .collect())
             }
