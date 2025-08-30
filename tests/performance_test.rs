@@ -4,7 +4,7 @@ use lsif_indexer::cli::minimal_language_adapter::MinimalLanguageAdapter;
 use lsif_indexer::cli::python_adapter::PythonAdapter;
 use lsif_indexer::cli::typescript_adapter::TypeScriptAdapter;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 /// 性能測定用の統合テスト
@@ -178,7 +178,7 @@ fn measure_language_performance(
     println!("\n  🎯 Performance Rating: {}", rating);
 }
 
-fn is_source_file(path: &PathBuf, language: &str) -> bool {
+fn is_source_file(path: &Path, language: &str) -> bool {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     match language {
         "Go" => ext == "go",

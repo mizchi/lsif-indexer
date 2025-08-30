@@ -1,5 +1,4 @@
 /// LSP機能の使用例
-
 fn main() {
     println!("LSP機能の使用例:");
     println!();

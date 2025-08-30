@@ -1,5 +1,4 @@
 /// E2E test suite
-
 // Import the E2E helper module
 #[path = "e2e/mod.rs"]
 mod e2e;
