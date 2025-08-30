@@ -70,13 +70,12 @@ impl MinimalLanguageAdapter for PythonAdapter {
     fn spawn_lsp_command(&self) -> Result<std::process::Child> {
         // Pythonサーバーの起動前に少し待機（安定性向上のため）
         std::thread::sleep(std::time::Duration::from_millis(100));
-        
+
         match self.lsp_server.as_str() {
             "pyright" => spawn_lsp_server("pyright-langserver", &["--stdio"]),
             "pylsp" | _ => {
                 // pylspの場合は、より安全な設定で起動
-                spawn_lsp_server("pylsp", &["-v"])
-                    .or_else(|_| spawn_lsp_server("pylsp", &[]))
+                spawn_lsp_server("pylsp", &["-v"]).or_else(|_| spawn_lsp_server("pylsp", &[]))
             }
         }
     }

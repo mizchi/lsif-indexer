@@ -574,15 +574,15 @@ mod tests {
         let idx3 = base_graph.add_symbol(create_test_symbol("sym3", "test.rs"));
 
         let graph = ParallelCodeGraph::from_graph(base_graph);
-        
+
         let edges = vec![
             (idx1, idx2, EdgeKind::Reference),
             (idx2, idx3, EdgeKind::Definition),
             (idx3, idx1, EdgeKind::Implementation),
         ];
-        
+
         graph.add_edges_parallel(edges);
-        
+
         let inner = graph.into_inner();
         assert_eq!(inner.symbol_count(), 3);
     }
@@ -595,10 +595,10 @@ mod tests {
         }
 
         let graph = ParallelCodeGraph::from_graph(base_graph);
-        
+
         // Process symbols to extract their IDs
         let ids = graph.process_symbols_parallel(|symbol| symbol.id.clone());
-        
+
         assert_eq!(ids.len(), 20);
         for i in 0..20 {
             assert!(ids.contains(&format!("sym_{i}")));
@@ -608,7 +608,7 @@ mod tests {
     #[test]
     fn test_batch_update_parallel() {
         let index = ParallelIncrementalIndex::new();
-        
+
         let updates = vec![
             FileUpdate::Added {
                 path: PathBuf::from("new.rs"),
@@ -624,7 +624,7 @@ mod tests {
                 path: PathBuf::from("deleted.rs"),
             },
         ];
-        
+
         let result = index.batch_update_parallel(updates).unwrap();
         assert_eq!(result.affected_files, 3);
     }
@@ -636,11 +636,11 @@ mod tests {
             PathBuf::from("file2.rs"),
             PathBuf::from("file3.rs"),
         ];
-        
+
         let results = ParallelFileAnalyzer::analyze_files_parallel(files, |path| {
             Ok(path.to_string_lossy().to_string())
         });
-        
+
         assert_eq!(results.len(), 3);
         for result in results {
             assert!(result.is_ok());
@@ -652,15 +652,15 @@ mod tests {
         let path1 = PathBuf::from("file1.rs");
         let path2 = PathBuf::from("file2.rs");
         let path3 = PathBuf::from("file3.rs");
-        
+
         let contents = vec![
             (&path1, "content1".to_string()),
             (&path2, "content2".to_string()),
             (&path3, "content3".to_string()),
         ];
-        
+
         let hashes = ParallelFileAnalyzer::calculate_hashes_parallel(contents);
-        
+
         assert_eq!(hashes.len(), 3);
         assert!(hashes.contains_key(&PathBuf::from("file1.rs")));
         assert!(hashes.contains_key(&PathBuf::from("file2.rs")));
@@ -672,15 +672,15 @@ mod tests {
         let mut graph = CodeGraph::new();
         let sym1 = create_test_symbol("sym1", "file1.rs");
         let sym2 = create_test_symbol("sym2", "file2.rs");
-        
+
         let idx1 = graph.add_symbol(sym1);
         let idx2 = graph.add_symbol(sym2);
         graph.add_edge(idx1, idx2, EdgeKind::Reference);
-        
+
         // Test that we can convert to/from ParallelCodeGraph
         let parallel_graph = ParallelCodeGraph::from_graph(graph);
         let inner = parallel_graph.into_inner();
-        
+
         assert_eq!(inner.symbol_count(), 2);
         let refs = inner.find_references("sym2");
         assert_eq!(refs.len(), 1);
@@ -694,40 +694,58 @@ mod tests {
             kind: SymbolKind::Function,
             file_path: "main.rs".to_string(),
             range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 0, character: 0 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 0,
+                    character: 0,
+                },
             },
             documentation: None,
         };
-        
+
         assert!(ParallelIncrementalIndex::is_entry_point(&main_symbol));
-        
+
         let test_symbol = Symbol {
             id: "test_func".to_string(),
             name: "test_something".to_string(),
             kind: SymbolKind::Function,
             file_path: "test.rs".to_string(),
             range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 0, character: 0 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 0,
+                    character: 0,
+                },
             },
             documentation: None,
         };
-        
+
         assert!(ParallelIncrementalIndex::is_entry_point(&test_symbol));
-        
+
         let private_symbol = Symbol {
             id: "private".to_string(),
             name: "private_func".to_string(),
             kind: SymbolKind::Function,
             file_path: "mod.rs".to_string(),
             range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 0, character: 0 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 0,
+                    character: 0,
+                },
             },
             documentation: None,
         };
-        
+
         assert!(!ParallelIncrementalIndex::is_entry_point(&private_symbol));
     }
 
@@ -736,7 +754,7 @@ mod tests {
         let graph = ParallelCodeGraph::default();
         let inner = graph.into_inner();
         assert_eq!(inner.symbol_count(), 0);
-        
+
         let index = ParallelIncrementalIndex::default();
         let inner_index = index.into_inner();
         assert_eq!(inner_index.graph.symbol_count(), 0);

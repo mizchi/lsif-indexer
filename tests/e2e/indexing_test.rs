@@ -1,6 +1,6 @@
+use super::E2eContext;
 /// E2E tests for indexing operations
 use anyhow::Result;
-use super::E2eContext;
 use std::fs;
 
 #[test]
@@ -8,10 +8,10 @@ use std::fs;
 fn test_index_rust_project() -> Result<()> {
     let ctx = E2eContext::new()?;
     let project_dir = ctx.create_test_project("rust_project")?;
-    
+
     // Create additional Rust files
     let src_dir = project_dir.join("src");
-    
+
     // Add a module with complex structure
     fs::write(
         src_dir.join("math.rs"),
@@ -50,31 +50,31 @@ mod tests {
 }
 "#,
     )?;
-    
+
     // Index the project
     let output = ctx.run_command(&[
         "index-project",
-        "-p", project_dir.to_str().unwrap(),
-        "-o", "rust_project.db",
-        "-l", "rust"
+        "-p",
+        project_dir.to_str().unwrap(),
+        "-o",
+        "rust_project.db",
+        "-l",
+        "rust",
     ])?;
-    
+
     output.assert_success()?;
     ctx.assert_file_exists("rust_project.db")?;
-    
+
     // Verify the index contains expected symbols
-    let output = ctx.run_command(&[
-        "list-symbols",
-        "-i", "rust_project.db"
-    ])?;
-    
+    let output = ctx.run_command(&["list-symbols", "-i", "rust_project.db"])?;
+
     output.assert_success()?;
     output.assert_stdout_contains("Function: add")?;
     output.assert_stdout_contains("Function: subtract")?;
     output.assert_stdout_contains("Trait: Calculator")?;
     output.assert_stdout_contains("Struct: Adder")?;
     output.assert_stdout_contains("Module: operations")?;
-    
+
     Ok(())
 }
 
@@ -83,7 +83,7 @@ mod tests {
 fn test_index_typescript_project() -> Result<()> {
     let ctx = E2eContext::new()?;
     let project_dir = ctx.create_typescript_project("ts_project")?;
-    
+
     // Add additional TypeScript files
     fs::write(
         project_dir.join("types.ts"),
@@ -118,24 +118,24 @@ export class BaseService {
 }
 "#,
     )?;
-    
+
     // Index the project
     let output = ctx.run_command(&[
         "index-project",
-        "-p", project_dir.to_str().unwrap(),
-        "-o", "ts_project.db",
-        "-l", "typescript"
+        "-p",
+        project_dir.to_str().unwrap(),
+        "-o",
+        "ts_project.db",
+        "-l",
+        "typescript",
     ])?;
-    
+
     output.assert_success()?;
     ctx.assert_file_exists("ts_project.db")?;
-    
+
     // Verify TypeScript-specific symbols
-    let output = ctx.run_command(&[
-        "list-symbols",
-        "-i", "ts_project.db"
-    ])?;
-    
+    let output = ctx.run_command(&["list-symbols", "-i", "ts_project.db"])?;
+
     output.assert_success()?;
     output.assert_stdout_contains("Interface: User")?;
     output.assert_stdout_contains("Class: UserService")?;
@@ -143,7 +143,7 @@ export class BaseService {
     output.assert_stdout_contains("Interface: Config")?;
     output.assert_stdout_contains("Enum: Status")?;
     output.assert_stdout_contains("Class: BaseService")?;
-    
+
     Ok(())
 }
 
@@ -152,7 +152,7 @@ export class BaseService {
 fn test_index_python_project() -> Result<()> {
     let ctx = E2eContext::new()?;
     let project_dir = ctx.create_python_project("py_project")?;
-    
+
     // Add additional Python files
     fs::write(
         project_dir.join("database.py"),
@@ -199,24 +199,24 @@ def create_database(db_type: str, **kwargs) -> Database:
     raise ValueError(f"Unknown database type: {db_type}")
 "#,
     )?;
-    
+
     // Index the project
     let output = ctx.run_command(&[
         "index-project",
-        "-p", project_dir.to_str().unwrap(),
-        "-o", "py_project.db",
-        "-l", "python"
+        "-p",
+        project_dir.to_str().unwrap(),
+        "-o",
+        "py_project.db",
+        "-l",
+        "python",
     ])?;
-    
+
     output.assert_success()?;
     ctx.assert_file_exists("py_project.db")?;
-    
+
     // Verify Python-specific symbols
-    let output = ctx.run_command(&[
-        "list-symbols",
-        "-i", "py_project.db"
-    ])?;
-    
+    let output = ctx.run_command(&["list-symbols", "-i", "py_project.db"])?;
+
     output.assert_success()?;
     output.assert_stdout_contains("Class: Person")?;
     output.assert_stdout_contains("Function: process_people")?;
@@ -225,7 +225,7 @@ def create_database(db_type: str, **kwargs) -> Database:
     output.assert_stdout_contains("Class: Database")?;
     output.assert_stdout_contains("Class: SQLiteDatabase")?;
     output.assert_stdout_contains("Function: create_database")?;
-    
+
     Ok(())
 }
 
@@ -235,7 +235,7 @@ fn test_index_multi_language_project() -> Result<()> {
     let ctx = E2eContext::new()?;
     let project_dir = ctx.temp_dir.path().join("multi_lang");
     fs::create_dir_all(&project_dir)?;
-    
+
     // Create Rust files
     let rust_dir = project_dir.join("rust");
     fs::create_dir_all(&rust_dir)?;
@@ -247,7 +247,7 @@ pub fn rust_function() {
 }
 "#,
     )?;
-    
+
     // Create TypeScript files
     let ts_dir = project_dir.join("typescript");
     fs::create_dir_all(&ts_dir)?;
@@ -259,7 +259,7 @@ export function tsFunction() {
 }
 "#,
     )?;
-    
+
     // Create Python files
     let py_dir = project_dir.join("python");
     fs::create_dir_all(&py_dir)?;
@@ -270,51 +270,51 @@ def python_function():
     print("From Python")
 "#,
     )?;
-    
+
     // Index each language separately
     let output = ctx.run_command(&[
         "index-project",
-        "-p", rust_dir.to_str().unwrap(),
-        "-o", "multi_rust.db",
-        "-l", "rust"
+        "-p",
+        rust_dir.to_str().unwrap(),
+        "-o",
+        "multi_rust.db",
+        "-l",
+        "rust",
     ])?;
     output.assert_success()?;
-    
+
     let output = ctx.run_command(&[
         "index-project",
-        "-p", ts_dir.to_str().unwrap(),
-        "-o", "multi_ts.db",
-        "-l", "typescript"
+        "-p",
+        ts_dir.to_str().unwrap(),
+        "-o",
+        "multi_ts.db",
+        "-l",
+        "typescript",
     ])?;
     output.assert_success()?;
-    
+
     let output = ctx.run_command(&[
         "index-project",
-        "-p", py_dir.to_str().unwrap(),
-        "-o", "multi_py.db",
-        "-l", "python"
+        "-p",
+        py_dir.to_str().unwrap(),
+        "-o",
+        "multi_py.db",
+        "-l",
+        "python",
     ])?;
     output.assert_success()?;
-    
+
     // Verify each index
-    let output = ctx.run_command(&[
-        "list-symbols",
-        "-i", "multi_rust.db"
-    ])?;
+    let output = ctx.run_command(&["list-symbols", "-i", "multi_rust.db"])?;
     output.assert_stdout_contains("rust_function")?;
-    
-    let output = ctx.run_command(&[
-        "list-symbols",
-        "-i", "multi_ts.db"
-    ])?;
+
+    let output = ctx.run_command(&["list-symbols", "-i", "multi_ts.db"])?;
     output.assert_stdout_contains("tsFunction")?;
-    
-    let output = ctx.run_command(&[
-        "list-symbols",
-        "-i", "multi_py.db"
-    ])?;
+
+    let output = ctx.run_command(&["list-symbols", "-i", "multi_py.db"])?;
     output.assert_stdout_contains("python_function")?;
-    
+
     Ok(())
 }
 
@@ -324,7 +324,7 @@ fn test_index_with_exclude_patterns() -> Result<()> {
     let ctx = E2eContext::new()?;
     let project_dir = ctx.temp_dir.path().join("exclude_test");
     fs::create_dir_all(&project_dir)?;
-    
+
     // Create main source
     let src_dir = project_dir.join("src");
     fs::create_dir_all(&src_dir)?;
@@ -336,7 +336,7 @@ fn main() {
 }
 "#,
     )?;
-    
+
     // Create test directory
     let test_dir = project_dir.join("tests");
     fs::create_dir_all(&test_dir)?;
@@ -350,7 +350,7 @@ fn test_something() {
 }
 "#,
     )?;
-    
+
     // Create vendor directory (should be excluded)
     let vendor_dir = project_dir.join("vendor");
     fs::create_dir_all(&vendor_dir)?;
@@ -362,29 +362,31 @@ fn vendor_function() {
 }
 "#,
     )?;
-    
+
     // Index with exclude pattern
     let output = ctx.run_command(&[
         "index-project",
-        "-p", project_dir.to_str().unwrap(),
-        "-o", "exclude_test.db",
-        "-l", "rust",
-        "--exclude", "vendor",
-        "--exclude", "tests"
+        "-p",
+        project_dir.to_str().unwrap(),
+        "-o",
+        "exclude_test.db",
+        "-l",
+        "rust",
+        "--exclude",
+        "vendor",
+        "--exclude",
+        "tests",
     ])?;
-    
+
     output.assert_success()?;
-    
+
     // Verify only main.rs was indexed
-    let output = ctx.run_command(&[
-        "list-symbols",
-        "-i", "exclude_test.db"
-    ])?;
-    
+    let output = ctx.run_command(&["list-symbols", "-i", "exclude_test.db"])?;
+
     output.assert_stdout_contains("main")?;
     assert!(!output.stdout.contains("test_something"));
     assert!(!output.stdout.contains("vendor_function"));
-    
+
     Ok(())
 }
 
@@ -394,7 +396,7 @@ fn test_index_large_file() -> Result<()> {
     let ctx = E2eContext::new()?;
     let project_dir = ctx.temp_dir.path().join("large_file");
     fs::create_dir_all(&project_dir)?;
-    
+
     // Generate a large file with many functions
     let mut content = String::new();
     for i in 0..100 {
@@ -417,28 +419,28 @@ impl Struct_{i} {{
             i = i
         ));
     }
-    
+
     fs::write(project_dir.join("large.rs"), content)?;
-    
+
     // Index the large file
     let output = ctx.run_command(&[
         "index-project",
-        "-p", project_dir.to_str().unwrap(),
-        "-o", "large_file.db",
-        "-l", "rust"
+        "-p",
+        project_dir.to_str().unwrap(),
+        "-o",
+        "large_file.db",
+        "-l",
+        "rust",
     ])?;
-    
+
     output.assert_success()?;
-    
+
     // Verify symbols were indexed
-    let output = ctx.run_command(&[
-        "show-stats",
-        "-i", "large_file.db"
-    ])?;
-    
+    let output = ctx.run_command(&["show-stats", "-i", "large_file.db"])?;
+
     output.assert_success()?;
     output.assert_stdout_contains("Total symbols")?;
-    
+
     // Parse the stats to verify count
     let stats_output = output.stdout.clone();
     if let Some(line) = stats_output.lines().find(|l| l.contains("Total symbols")) {
@@ -447,7 +449,7 @@ impl Struct_{i} {{
             assert!(count >= 300); // At least 100 functions + 100 structs + 100 methods
         }
     }
-    
+
     Ok(())
 }
 
@@ -457,11 +459,11 @@ fn test_index_nested_modules() -> Result<()> {
     let ctx = E2eContext::new()?;
     let project_dir = ctx.temp_dir.path().join("nested_modules");
     fs::create_dir_all(&project_dir)?;
-    
+
     // Create nested module structure
     let src_dir = project_dir.join("src");
     fs::create_dir_all(&src_dir)?;
-    
+
     fs::write(
         src_dir.join("lib.rs"),
         r#"
@@ -490,30 +492,30 @@ pub mod level1 {
 pub use level1::level2::level3::DeepStruct;
 "#,
     )?;
-    
+
     // Index the project
     let output = ctx.run_command(&[
         "index-project",
-        "-p", project_dir.to_str().unwrap(),
-        "-o", "nested.db",
-        "-l", "rust"
+        "-p",
+        project_dir.to_str().unwrap(),
+        "-o",
+        "nested.db",
+        "-l",
+        "rust",
     ])?;
-    
+
     output.assert_success()?;
-    
+
     // Verify nested modules and symbols
-    let output = ctx.run_command(&[
-        "list-symbols",
-        "-i", "nested.db"
-    ])?;
-    
+    let output = ctx.run_command(&["list-symbols", "-i", "nested.db"])?;
+
     output.assert_success()?;
     output.assert_stdout_contains("Module: level1")?;
     output.assert_stdout_contains("Module: level2")?;
     output.assert_stdout_contains("Module: level3")?;
     output.assert_stdout_contains("Function: deep_function")?;
     output.assert_stdout_contains("Struct: DeepStruct")?;
-    
+
     Ok(())
 }
 
@@ -523,7 +525,7 @@ fn test_index_invalid_syntax() -> Result<()> {
     let ctx = E2eContext::new()?;
     let project_dir = ctx.temp_dir.path().join("invalid_syntax");
     fs::create_dir_all(&project_dir)?;
-    
+
     // Create file with syntax errors
     fs::write(
         project_dir.join("invalid.rs"),
@@ -542,27 +544,27 @@ fn another_valid() {
 }
 "#,
     )?;
-    
+
     // Try to index the project
     let output = ctx.run_command(&[
         "index-project",
-        "-p", project_dir.to_str().unwrap(),
-        "-o", "invalid.db",
-        "-l", "rust"
+        "-p",
+        project_dir.to_str().unwrap(),
+        "-o",
+        "invalid.db",
+        "-l",
+        "rust",
     ])?;
-    
+
     // Should complete but might have warnings
     output.assert_success()?;
-    
+
     // Should still index valid functions
-    let output = ctx.run_command(&[
-        "list-symbols",
-        "-i", "invalid.db"
-    ])?;
-    
+    let output = ctx.run_command(&["list-symbols", "-i", "invalid.db"])?;
+
     output.assert_stdout_contains("valid_function")?;
     output.assert_stdout_contains("another_valid")?;
-    
+
     Ok(())
 }
 
@@ -572,7 +574,7 @@ fn test_incremental_indexing() -> Result<()> {
     let ctx = E2eContext::new()?;
     let project_dir = ctx.temp_dir.path().join("incremental");
     fs::create_dir_all(&project_dir)?;
-    
+
     // Create initial file
     fs::write(
         project_dir.join("main.rs"),
@@ -582,23 +584,23 @@ fn initial_function() {
 }
 "#,
     )?;
-    
+
     // Initial index
     let output = ctx.run_command(&[
         "index-project",
-        "-p", project_dir.to_str().unwrap(),
-        "-o", "incremental.db",
-        "-l", "rust"
+        "-p",
+        project_dir.to_str().unwrap(),
+        "-o",
+        "incremental.db",
+        "-l",
+        "rust",
     ])?;
     output.assert_success()?;
-    
+
     // Verify initial function
-    let output = ctx.run_command(&[
-        "list-symbols",
-        "-i", "incremental.db"
-    ])?;
+    let output = ctx.run_command(&["list-symbols", "-i", "incremental.db"])?;
     output.assert_stdout_contains("initial_function")?;
-    
+
     // Add new file
     fs::write(
         project_dir.join("new.rs"),
@@ -608,23 +610,23 @@ fn new_function() {
 }
 "#,
     )?;
-    
+
     // Re-index
     let output = ctx.run_command(&[
         "index-project",
-        "-p", project_dir.to_str().unwrap(),
-        "-o", "incremental.db",
-        "-l", "rust"
+        "-p",
+        project_dir.to_str().unwrap(),
+        "-o",
+        "incremental.db",
+        "-l",
+        "rust",
     ])?;
     output.assert_success()?;
-    
+
     // Verify both functions are present
-    let output = ctx.run_command(&[
-        "list-symbols",
-        "-i", "incremental.db"
-    ])?;
+    let output = ctx.run_command(&["list-symbols", "-i", "incremental.db"])?;
     output.assert_stdout_contains("initial_function")?;
     output.assert_stdout_contains("new_function")?;
-    
+
     Ok(())
 }

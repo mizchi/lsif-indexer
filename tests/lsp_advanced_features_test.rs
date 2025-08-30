@@ -1,7 +1,7 @@
 use anyhow::Result;
 use lsif_indexer::cli::{
-    go_adapter::GoAdapter, lsp_minimal_client::MinimalLspClient,
-    python_adapter::PythonAdapter, typescript_adapter::TypeScriptAdapter,
+    go_adapter::GoAdapter, lsp_minimal_client::MinimalLspClient, python_adapter::PythonAdapter,
+    typescript_adapter::TypeScriptAdapter,
 };
 use lsp_types::Position;
 use std::fs;
@@ -10,7 +10,7 @@ use tempfile::TempDir;
 /// テスト用のGoプロジェクトを作成
 fn create_test_go_project() -> Result<TempDir> {
     let dir = tempfile::tempdir()?;
-    
+
     // main.go
     fs::write(
         dir.path().join("main.go"),
@@ -33,14 +33,14 @@ func main() {
 }
 "#,
     )?;
-    
+
     Ok(dir)
 }
 
 /// テスト用のPythonプロジェクトを作成
 fn create_test_python_project() -> Result<TempDir> {
     let dir = tempfile::tempdir()?;
-    
+
     // main.py
     fs::write(
         dir.path().join("main.py"),
@@ -62,14 +62,14 @@ if __name__ == "__main__":
     main()
 "#,
     )?;
-    
+
     Ok(dir)
 }
 
 /// テスト用のTypeScriptプロジェクトを作成
 fn create_test_typescript_project() -> Result<TempDir> {
     let dir = tempfile::tempdir()?;
-    
+
     // main.ts
     fs::write(
         dir.path().join("main.ts"),
@@ -94,7 +94,7 @@ function main(): void {
 main();
 "#,
     )?;
-    
+
     // tsconfig.json
     fs::write(
         dir.path().join("tsconfig.json"),
@@ -106,7 +106,7 @@ main();
     }
 }"#,
     )?;
-    
+
     Ok(dir)
 }
 
@@ -116,22 +116,22 @@ fn test_go_definition() -> Result<()> {
     let dir = create_test_go_project()?;
     let adapter = Box::new(GoAdapter);
     let mut client = MinimalLspClient::new(adapter)?;
-    
+
     // 初期化
     client.initialize(dir.path())?;
-    
+
     // user.Greet()の参照位置から定義へジャンプ
     let main_file = dir.path().join("main.go");
     let definition = client.go_to_definition(
         &main_file,
         Position::new(15, 9), // user.Greet()のGreet部分
     )?;
-    
+
     assert!(definition.is_some());
     if let Some(loc) = definition {
         assert_eq!(loc.range.start.line, 9); // Greetメソッドの定義行
     }
-    
+
     client.shutdown()?;
     Ok(())
 }
@@ -142,23 +142,23 @@ fn test_python_hover() -> Result<()> {
     let dir = create_test_python_project()?;
     let adapter = Box::new(PythonAdapter::new());
     let mut client = MinimalLspClient::new(adapter)?;
-    
+
     // 初期化
     client.initialize(dir.path())?;
-    
+
     // Userクラスのホバー情報を取得
     let main_file = dir.path().join("main.py");
     let hover = client.get_hover(
         &main_file,
         Position::new(12, 11), // User("Alice", 30)のUser部分
     )?;
-    
+
     assert!(hover.is_some());
     if let Some(info) = hover {
         // 型情報が含まれていることを確認
         assert!(info.contains("User") || info.contains("class"));
     }
-    
+
     client.shutdown()?;
     Ok(())
 }
@@ -169,35 +169,35 @@ fn test_typescript_definition_and_hover() -> Result<()> {
     let dir = create_test_typescript_project()?;
     let adapter = Box::new(TypeScriptAdapter::new());
     let mut client = MinimalLspClient::new(adapter)?;
-    
+
     // 初期化
     client.initialize(dir.path())?;
-    
+
     let main_file = dir.path().join("main.ts");
-    
+
     // UserImplの参照位置から定義へジャンプ
     let definition = client.go_to_definition(
         &main_file,
         Position::new(15, 20), // new UserImpl()のUserImpl部分
     )?;
-    
+
     assert!(definition.is_some());
     if let Some(loc) = definition {
         assert_eq!(loc.range.start.line, 5); // UserImplクラスの定義行
     }
-    
+
     // user変数のホバー情報を取得
     let hover = client.get_hover(
         &main_file,
         Position::new(16, 4), // user.greet()のuser部分
     )?;
-    
+
     assert!(hover.is_some());
     if let Some(info) = hover {
         // UserImpl型であることが含まれているはず
         assert!(info.contains("UserImpl") || info.contains("User"));
     }
-    
+
     client.shutdown()?;
     Ok(())
 }
@@ -208,23 +208,23 @@ fn test_go_hover_type_info() -> Result<()> {
     let dir = create_test_go_project()?;
     let adapter = Box::new(GoAdapter);
     let mut client = MinimalLspClient::new(adapter)?;
-    
+
     // 初期化
     client.initialize(dir.path())?;
-    
+
     // user変数の型情報を取得
     let main_file = dir.path().join("main.go");
     let hover = client.get_hover(
         &main_file,
         Position::new(14, 4), // user := &User{...}のuser部分
     )?;
-    
+
     assert!(hover.is_some());
     if let Some(info) = hover {
         // *User型であることが含まれているはず
         assert!(info.contains("User") || info.contains("*User"));
     }
-    
+
     client.shutdown()?;
     Ok(())
 }

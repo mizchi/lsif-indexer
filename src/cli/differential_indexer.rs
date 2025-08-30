@@ -673,8 +673,8 @@ fn extract_ts_class_name(line: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::fs;
+    use tempfile::TempDir;
 
     #[test]
     fn test_differential_index_metadata_new() {
@@ -732,7 +732,10 @@ mod tests {
     #[test]
     fn test_extract_ts_function_name() {
         assert_eq!(extract_ts_function_name("function foo()"), Some("foo"));
-        assert_eq!(extract_ts_function_name("export function bar()"), Some("bar"));
+        assert_eq!(
+            extract_ts_function_name("export function bar()"),
+            Some("bar")
+        );
         assert_eq!(extract_ts_function_name("function baz<T>()"), Some("baz"));
     }
 
@@ -749,13 +752,13 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let storage_path = temp_dir.path().join("test.db");
         let project_root = temp_dir.path();
-        
+
         // Git初期化
         fs::create_dir_all(project_root.join(".git")).unwrap();
-        
+
         let indexer = DifferentialIndexer::new(&storage_path, &project_root);
         assert!(indexer.is_ok());
-        
+
         let indexer = indexer.unwrap();
         assert_eq!(indexer.project_root, project_root);
     }
@@ -766,17 +769,17 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let storage_path = temp_dir.path().join("test.db");
         let project_root = temp_dir.path();
-        
+
         // Git初期化とテストファイル作成
         fs::create_dir_all(project_root.join(".git")).unwrap();
         fs::write(project_root.join("test.rs"), "fn main() {}").unwrap();
-        
+
         let mut indexer = DifferentialIndexer::new(&storage_path, &project_root).unwrap();
-        
+
         // フルリインデックスを実行
         let result = indexer.full_reindex();
         assert!(result.is_ok());
-        
+
         let result = result.unwrap();
         assert!(result.files_added > 0 || result.files_modified > 0);
     }
@@ -786,31 +789,37 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let storage_path = temp_dir.path().join("test.db");
         let project_root = temp_dir.path();
-        
+
         // Git初期化
         fs::create_dir_all(project_root.join(".git")).unwrap();
-        
+
         let indexer = DifferentialIndexer::new(&storage_path, &project_root).unwrap();
         let mut graph = CodeGraph::new();
-        
+
         let symbol = Symbol {
             id: "test".to_string(),
             name: "test".to_string(),
             kind: SymbolKind::Function,
             file_path: "test.rs".to_string(),
             range: crate::core::Range {
-                start: crate::core::Position { line: 0, character: 0 },
-                end: crate::core::Position { line: 5, character: 10 },
+                start: crate::core::Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: crate::core::Position {
+                    line: 5,
+                    character: 10,
+                },
             },
             documentation: None,
         };
-        
+
         graph.add_symbol(symbol.clone());
-        
+
         let found = indexer.find_symbol_at_position(&graph, "test.rs", 2, 5);
         assert!(found.is_some());
         assert_eq!(found.unwrap().id, "test");
-        
+
         let not_found = indexer.find_symbol_at_position(&graph, "test.rs", 10, 5);
         assert!(not_found.is_none());
     }

@@ -1,13 +1,13 @@
 pub mod call_hierarchy;
 pub mod definition_chain;
 pub mod graph;
+pub mod graph_builder;
 pub mod graph_query;
 pub mod graph_serde;
 pub mod incremental;
 pub mod lsif;
 pub mod parallel;
 pub mod type_relations;
-pub mod graph_builder;
 
 pub use call_hierarchy::{format_hierarchy, CallHierarchy, CallHierarchyAnalyzer};
 pub use definition_chain::{format_definition_chain, DefinitionChain, DefinitionChainAnalyzer};

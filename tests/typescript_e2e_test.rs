@@ -116,11 +116,11 @@ fn test_typescript_incremental_update() {
     // Save graph to storage
     let storage = IndexStorage::open(&dir.path()).unwrap();
     storage.save_data("graph", &graph).unwrap();
-    
+
     // Simulate file change
     let content = std::fs::read_to_string(&test_file).unwrap();
     let hash1 = calculate_file_hash(&content);
-    
+
     println!("Initial indexing completed.");
     println!("File hash: {}", hash1);
     println!("Symbols indexed: {}", graph.get_all_symbols().count());

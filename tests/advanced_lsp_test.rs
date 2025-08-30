@@ -8,7 +8,6 @@ mod tests {
     use std::sync::Arc;
     use tempfile::TempDir;
 
-
     #[test]
     #[ignore] // 実際のrust-analyzerが必要
     fn test_rust_analyzer_integration() {

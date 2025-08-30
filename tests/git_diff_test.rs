@@ -153,7 +153,7 @@ fn test_detect_changes_between_commits() -> Result<()> {
         .count();
 
     assert!(added >= 1); // file2.rs
-    // file1.rs（既にコミット済みなので検出されない可能性あり）
+                         // file1.rs（既にコミット済みなので検出されない可能性あり）
 
     Ok(())
 }

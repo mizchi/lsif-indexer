@@ -402,7 +402,7 @@ mod tests {
     #[ignore] // TODO: implement convert_document_symbol method
     fn test_convert_document_symbol() {
         let indexer = Indexer::new();
-        
+
         let doc_symbol = DocumentSymbol {
             name: "test_function".to_string(),
             detail: Some("fn test_function()".to_string()),
@@ -410,18 +410,30 @@ mod tests {
             tags: None,
             deprecated: None,
             range: lsp_types::Range {
-                start: LspPosition { line: 10, character: 0 },
-                end: LspPosition { line: 15, character: 1 },
+                start: LspPosition {
+                    line: 10,
+                    character: 0,
+                },
+                end: LspPosition {
+                    line: 15,
+                    character: 1,
+                },
             },
             selection_range: lsp_types::Range {
-                start: LspPosition { line: 10, character: 3 },
-                end: LspPosition { line: 10, character: 16 },
+                start: LspPosition {
+                    line: 10,
+                    character: 3,
+                },
+                end: LspPosition {
+                    line: 10,
+                    character: 16,
+                },
             },
             children: None,
         };
-        
+
         let symbol = indexer.convert_document_symbol(&doc_symbol, "file:///test.rs");
-        
+
         assert_eq!(symbol.name, "test_function");
         assert_eq!(symbol.kind, SymbolKind::Function);
         assert_eq!(symbol.file_path, "file:///test.rs");
@@ -433,7 +445,7 @@ mod tests {
     #[test]
     fn test_process_symbols_flat() {
         let mut indexer = Indexer::new();
-        
+
         let symbols = vec![
             DocumentSymbol {
                 name: "func1".to_string(),
@@ -442,12 +454,24 @@ mod tests {
                 tags: None,
                 deprecated: None,
                 range: lsp_types::Range {
-                    start: LspPosition { line: 0, character: 0 },
-                    end: LspPosition { line: 5, character: 1 },
+                    start: LspPosition {
+                        line: 0,
+                        character: 0,
+                    },
+                    end: LspPosition {
+                        line: 5,
+                        character: 1,
+                    },
                 },
                 selection_range: lsp_types::Range {
-                    start: LspPosition { line: 0, character: 0 },
-                    end: LspPosition { line: 0, character: 5 },
+                    start: LspPosition {
+                        line: 0,
+                        character: 0,
+                    },
+                    end: LspPosition {
+                        line: 0,
+                        character: 5,
+                    },
                 },
                 children: None,
             },
@@ -458,20 +482,32 @@ mod tests {
                 tags: None,
                 deprecated: None,
                 range: lsp_types::Range {
-                    start: LspPosition { line: 7, character: 0 },
-                    end: LspPosition { line: 10, character: 1 },
+                    start: LspPosition {
+                        line: 7,
+                        character: 0,
+                    },
+                    end: LspPosition {
+                        line: 10,
+                        character: 1,
+                    },
                 },
                 selection_range: lsp_types::Range {
-                    start: LspPosition { line: 7, character: 0 },
-                    end: LspPosition { line: 7, character: 5 },
+                    start: LspPosition {
+                        line: 7,
+                        character: 0,
+                    },
+                    end: LspPosition {
+                        line: 7,
+                        character: 5,
+                    },
                 },
                 children: None,
             },
         ];
-        
+
         let mut collected = Vec::new();
         indexer.process_symbols(&symbols, "file:///test.rs", &mut collected, None);
-        
+
         assert_eq!(collected.len(), 2);
         assert_eq!(collected[0].name, "func1");
         assert_eq!(collected[1].name, "func2");
@@ -481,73 +517,107 @@ mod tests {
     #[test]
     fn test_process_symbols_nested() {
         let mut indexer = Indexer::new();
-        
-        let symbols = vec![
-            DocumentSymbol {
-                name: "MyStruct".to_string(),
-                detail: None,
-                kind: LspSymbolKind::STRUCT,
-                tags: None,
-                deprecated: None,
-                range: lsp_types::Range {
-                    start: LspPosition { line: 0, character: 0 },
-                    end: LspPosition { line: 10, character: 1 },
+
+        let symbols = vec![DocumentSymbol {
+            name: "MyStruct".to_string(),
+            detail: None,
+            kind: LspSymbolKind::STRUCT,
+            tags: None,
+            deprecated: None,
+            range: lsp_types::Range {
+                start: LspPosition {
+                    line: 0,
+                    character: 0,
                 },
-                selection_range: lsp_types::Range {
-                    start: LspPosition { line: 0, character: 0 },
-                    end: LspPosition { line: 0, character: 8 },
+                end: LspPosition {
+                    line: 10,
+                    character: 1,
                 },
-                children: Some(vec![
-                    DocumentSymbol {
-                        name: "field1".to_string(),
-                        detail: None,
-                        kind: LspSymbolKind::FIELD,
-                        tags: None,
-                        deprecated: None,
-                        range: lsp_types::Range {
-                            start: LspPosition { line: 1, character: 4 },
-                            end: LspPosition { line: 1, character: 20 },
-                        },
-                        selection_range: lsp_types::Range {
-                            start: LspPosition { line: 1, character: 4 },
-                            end: LspPosition { line: 1, character: 10 },
-                        },
-                        children: None,
-                    },
-                    DocumentSymbol {
-                        name: "method1".to_string(),
-                        detail: None,
-                        kind: LspSymbolKind::METHOD,
-                        tags: None,
-                        deprecated: None,
-                        range: lsp_types::Range {
-                            start: LspPosition { line: 3, character: 4 },
-                            end: LspPosition { line: 5, character: 5 },
-                        },
-                        selection_range: lsp_types::Range {
-                            start: LspPosition { line: 3, character: 4 },
-                            end: LspPosition { line: 3, character: 11 },
-                        },
-                        children: None,
-                    },
-                ]),
             },
-        ];
-        
+            selection_range: lsp_types::Range {
+                start: LspPosition {
+                    line: 0,
+                    character: 0,
+                },
+                end: LspPosition {
+                    line: 0,
+                    character: 8,
+                },
+            },
+            children: Some(vec![
+                DocumentSymbol {
+                    name: "field1".to_string(),
+                    detail: None,
+                    kind: LspSymbolKind::FIELD,
+                    tags: None,
+                    deprecated: None,
+                    range: lsp_types::Range {
+                        start: LspPosition {
+                            line: 1,
+                            character: 4,
+                        },
+                        end: LspPosition {
+                            line: 1,
+                            character: 20,
+                        },
+                    },
+                    selection_range: lsp_types::Range {
+                        start: LspPosition {
+                            line: 1,
+                            character: 4,
+                        },
+                        end: LspPosition {
+                            line: 1,
+                            character: 10,
+                        },
+                    },
+                    children: None,
+                },
+                DocumentSymbol {
+                    name: "method1".to_string(),
+                    detail: None,
+                    kind: LspSymbolKind::METHOD,
+                    tags: None,
+                    deprecated: None,
+                    range: lsp_types::Range {
+                        start: LspPosition {
+                            line: 3,
+                            character: 4,
+                        },
+                        end: LspPosition {
+                            line: 5,
+                            character: 5,
+                        },
+                    },
+                    selection_range: lsp_types::Range {
+                        start: LspPosition {
+                            line: 3,
+                            character: 4,
+                        },
+                        end: LspPosition {
+                            line: 3,
+                            character: 11,
+                        },
+                    },
+                    children: None,
+                },
+            ]),
+        }];
+
         let mut collected = Vec::new();
         indexer.process_symbols(&symbols, "file:///test.rs", &mut collected, None);
-        
+
         assert_eq!(collected.len(), 3);
         assert_eq!(collected[0].name, "MyStruct");
         assert_eq!(collected[1].name, "field1");
         assert_eq!(collected[2].name, "method1");
         assert_eq!(indexer.graph.symbol_count(), 3);
-        
+
         // Check that containment edges were created
         let _struct_idx = indexer.graph.get_node_index(&collected[0].id).unwrap();
         let _field_idx = indexer.graph.get_node_index(&collected[1].id).unwrap();
         let _method_idx = indexer.graph.get_node_index(&collected[2].id).unwrap();
-        
+
         // The graph structure might have edges, but we need to verify they exist
         assert!(indexer.graph.symbol_count() > 0);
     }
@@ -557,15 +627,15 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let src_dir = dir.path().join("src");
         fs::create_dir(&src_dir).unwrap();
-        
+
         // Create test files
         fs::write(src_dir.join("main.rs"), "fn main() {}").unwrap();
         fs::write(src_dir.join("lib.rs"), "pub fn lib() {}").unwrap();
         fs::write(src_dir.join("test.txt"), "not a source file").unwrap();
-        
+
         let indexer = Indexer::new();
         let files = indexer.find_source_files(dir.path()).unwrap();
-        
+
         // Should find the .rs files but not .txt
         assert_eq!(files.len(), 2);
         let file_names: Vec<String> = files
@@ -580,7 +650,7 @@ mod tests {
     #[ignore] // TODO: implement convert_symbol_kind method
     fn test_convert_lsp_symbol_kind() {
         let indexer = Indexer::new();
-        
+
         assert_eq!(
             indexer.convert_symbol_kind(LspSymbolKind::FUNCTION),
             SymbolKind::Function
@@ -621,7 +691,7 @@ mod tests {
             indexer.convert_symbol_kind(LspSymbolKind::CONSTANT),
             SymbolKind::Constant
         );
-        
+
         // Test default case - FILE maps to Module
         assert_eq!(
             indexer.convert_symbol_kind(LspSymbolKind::FILE),
@@ -632,10 +702,16 @@ mod tests {
     #[test]
     fn test_convert_lsp_position() {
         let _indexer = Indexer::new();
-        
-        let lsp_pos = LspPosition { line: 10, character: 5 };
-        let pos = Position { line: lsp_pos.line, character: lsp_pos.character };
-        
+
+        let lsp_pos = LspPosition {
+            line: 10,
+            character: 5,
+        };
+        let pos = Position {
+            line: lsp_pos.line,
+            character: lsp_pos.character,
+        };
+
         assert_eq!(pos.line, 10);
         assert_eq!(pos.character, 5);
     }
@@ -643,16 +719,28 @@ mod tests {
     #[test]
     fn test_convert_lsp_range() {
         let _indexer = Indexer::new();
-        
+
         let lsp_range = lsp_types::Range {
-            start: LspPosition { line: 5, character: 10 },
-            end: LspPosition { line: 7, character: 15 },
+            start: LspPosition {
+                line: 5,
+                character: 10,
+            },
+            end: LspPosition {
+                line: 7,
+                character: 15,
+            },
         };
         let range = Range {
-            start: Position { line: lsp_range.start.line, character: lsp_range.start.character },
-            end: Position { line: lsp_range.end.line, character: lsp_range.end.character },
+            start: Position {
+                line: lsp_range.start.line,
+                character: lsp_range.start.character,
+            },
+            end: Position {
+                line: lsp_range.end.line,
+                character: lsp_range.end.character,
+            },
         };
-        
+
         assert_eq!(range.start.line, 5);
         assert_eq!(range.start.character, 10);
         assert_eq!(range.end.line, 7);
@@ -662,15 +750,21 @@ mod tests {
     #[test]
     fn test_find_symbol_at_location_not_found() {
         let indexer = Indexer::new();
-        
+
         let location = Location {
             uri: Url::parse("file:///test.rs").unwrap(),
             range: lsp_types::Range {
-                start: LspPosition { line: 10, character: 5 },
-                end: LspPosition { line: 10, character: 10 },
+                start: LspPosition {
+                    line: 10,
+                    character: 5,
+                },
+                end: LspPosition {
+                    line: 10,
+                    character: 10,
+                },
             },
         };
-        
+
         let symbol = indexer.find_symbol_at_location(&location);
         assert!(symbol.is_none());
     }
@@ -678,30 +772,43 @@ mod tests {
     #[test]
     fn test_find_symbol_at_location_found() {
         let mut indexer = Indexer::new();
-        
+
         let test_symbol = Symbol {
             id: "test_id".to_string(),
             name: "test_func".to_string(),
             kind: SymbolKind::Function,
             file_path: "file:///test.rs".to_string(),
             range: Range {
-                start: Position { line: 10, character: 0 },
-                end: Position { line: 15, character: 1 },
+                start: Position {
+                    line: 10,
+                    character: 0,
+                },
+                end: Position {
+                    line: 15,
+                    character: 1,
+                },
             },
             documentation: None,
         };
-        
-        indexer.file_symbols
+
+        indexer
+            .file_symbols
             .insert("file:///test.rs".to_string(), vec![test_symbol.clone()]);
-        
+
         let location = Location {
             uri: Url::parse("file:///test.rs").unwrap(),
             range: lsp_types::Range {
-                start: LspPosition { line: 12, character: 5 },
-                end: LspPosition { line: 12, character: 10 },
+                start: LspPosition {
+                    line: 12,
+                    character: 5,
+                },
+                end: LspPosition {
+                    line: 12,
+                    character: 10,
+                },
             },
         };
-        
+
         let found = indexer.find_symbol_at_location(&location);
         assert!(found.is_some());
         assert_eq!(found.unwrap().name, "test_func");
@@ -710,21 +817,27 @@ mod tests {
     #[test]
     fn test_get_graph() {
         let mut indexer = Indexer::new();
-        
+
         let symbol = Symbol {
             id: "test".to_string(),
             name: "test".to_string(),
             kind: SymbolKind::Function,
             file_path: "/test.rs".to_string(),
             range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 0, character: 10 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 0,
+                    character: 10,
+                },
             },
             documentation: None,
         };
-        
+
         indexer.graph.add_symbol(symbol);
-        
+
         // Use clone to get a copy of the graph
         let graph = indexer.graph.clone();
         assert_eq!(graph.symbol_count(), 1);
@@ -733,21 +846,27 @@ mod tests {
     #[test]
     fn test_into_graph() {
         let mut indexer = Indexer::new();
-        
+
         let symbol = Symbol {
             id: "test".to_string(),
             name: "test".to_string(),
             kind: SymbolKind::Function,
             file_path: "/test.rs".to_string(),
             range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 0, character: 10 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 0,
+                    character: 10,
+                },
             },
             documentation: None,
         };
-        
+
         indexer.graph.add_symbol(symbol);
-        
+
         let graph = indexer.into_graph();
         assert_eq!(graph.symbol_count(), 1);
     }

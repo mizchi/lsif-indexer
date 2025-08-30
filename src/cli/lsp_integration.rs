@@ -233,7 +233,12 @@ impl LspIntegration {
 
                             // Add call edge in graph
                             // This would need proper node lookup - skipping for now
-                            let _ = (_symbol_id.clone(), callee_id, uri.path(), call.from_ranges[0].start.line);
+                            let _ = (
+                                _symbol_id.clone(),
+                                callee_id,
+                                uri.path(),
+                                call.from_ranges[0].start.line,
+                            );
                         }
                     }
                 }

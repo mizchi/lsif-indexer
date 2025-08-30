@@ -50,7 +50,6 @@ fn benchmark_symbol_save(c: &mut Criterion) {
     let mut group = c.benchmark_group("symbol_storage");
 
     for size in [100, 1000, 10000].iter() {
-
         // Individual symbol saving
         group.bench_with_input(
             BenchmarkId::new("save_individual_symbols", size),

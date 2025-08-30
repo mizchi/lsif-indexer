@@ -93,8 +93,14 @@ mod tests {
             name: name.to_string(),
             file_path: "test.rs".to_string(),
             range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 0, character: 10 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 0,
+                    character: 10,
+                },
             },
             documentation: None,
         }
@@ -105,7 +111,7 @@ mod tests {
         let graph = CodeGraph::new();
         let serialized = serde_json::to_string(&graph).unwrap();
         let deserialized: CodeGraph = serde_json::from_str(&serialized).unwrap();
-        
+
         assert_eq!(deserialized.symbol_count(), 0);
     }
 
@@ -114,13 +120,13 @@ mod tests {
         let mut graph = CodeGraph::new();
         let symbol1 = create_test_symbol("sym1", "Symbol1");
         let symbol2 = create_test_symbol("sym2", "Symbol2");
-        
+
         graph.add_symbol(symbol1);
         graph.add_symbol(symbol2);
-        
+
         let serialized = serde_json::to_string(&graph).unwrap();
         let deserialized: CodeGraph = serde_json::from_str(&serialized).unwrap();
-        
+
         assert_eq!(deserialized.symbol_count(), 2);
         assert!(deserialized.find_symbol("sym1").is_some());
         assert!(deserialized.find_symbol("sym2").is_some());
@@ -131,16 +137,16 @@ mod tests {
         let mut graph = CodeGraph::new();
         let symbol1 = create_test_symbol("func1", "Function1");
         let symbol2 = create_test_symbol("ref1", "Reference1");
-        
+
         let idx1 = graph.add_symbol(symbol1);
         let idx2 = graph.add_symbol(symbol2);
         graph.add_edge(idx2, idx1, EdgeKind::Reference);
-        
+
         let serialized = serde_json::to_string(&graph).unwrap();
         let deserialized: CodeGraph = serde_json::from_str(&serialized).unwrap();
-        
+
         assert_eq!(deserialized.symbol_count(), 2);
-        
+
         // Check that the reference relationship is preserved
         let references = deserialized.find_references("func1");
         assert_eq!(references.len(), 1);
@@ -150,7 +156,7 @@ mod tests {
     #[test]
     fn test_serialize_deserialize_complex_graph() {
         let mut graph = CodeGraph::new();
-        
+
         // Create a complex graph with multiple symbols and edges
         let interface = Symbol {
             id: "interface1".to_string(),
@@ -158,59 +164,80 @@ mod tests {
             name: "Interface1".to_string(),
             file_path: "interface.rs".to_string(),
             range: Range {
-                start: Position { line: 1, character: 0 },
-                end: Position { line: 5, character: 0 },
+                start: Position {
+                    line: 1,
+                    character: 0,
+                },
+                end: Position {
+                    line: 5,
+                    character: 0,
+                },
             },
             documentation: Some("Interface documentation".to_string()),
         };
-        
+
         let class = Symbol {
             id: "class1".to_string(),
             kind: SymbolKind::Class,
             name: "Class1".to_string(),
             file_path: "class.rs".to_string(),
             range: Range {
-                start: Position { line: 10, character: 0 },
-                end: Position { line: 20, character: 0 },
+                start: Position {
+                    line: 10,
+                    character: 0,
+                },
+                end: Position {
+                    line: 20,
+                    character: 0,
+                },
             },
             documentation: Some("Class documentation".to_string()),
         };
-        
+
         let method = Symbol {
             id: "method1".to_string(),
             kind: SymbolKind::Method,
             name: "method1".to_string(),
             file_path: "class.rs".to_string(),
             range: Range {
-                start: Position { line: 12, character: 4 },
-                end: Position { line: 15, character: 4 },
+                start: Position {
+                    line: 12,
+                    character: 4,
+                },
+                end: Position {
+                    line: 15,
+                    character: 4,
+                },
             },
             documentation: None,
         };
-        
+
         let interface_idx = graph.add_symbol(interface);
         let class_idx = graph.add_symbol(class);
         let method_idx = graph.add_symbol(method);
-        
+
         graph.add_edge(class_idx, interface_idx, EdgeKind::Implementation);
         graph.add_edge(method_idx, class_idx, EdgeKind::Contains);
-        
+
         let serialized = serde_json::to_string(&graph).unwrap();
         let deserialized: CodeGraph = serde_json::from_str(&serialized).unwrap();
-        
+
         assert_eq!(deserialized.symbol_count(), 3);
-        
+
         // Check that all symbols are preserved
         let interface_symbol = deserialized.find_symbol("interface1").unwrap();
         assert_eq!(interface_symbol.name, "Interface1");
-        assert_eq!(interface_symbol.documentation, Some("Interface documentation".to_string()));
-        
+        assert_eq!(
+            interface_symbol.documentation,
+            Some("Interface documentation".to_string())
+        );
+
         let class_symbol = deserialized.find_symbol("class1").unwrap();
         assert_eq!(class_symbol.name, "Class1");
-        
+
         let method_symbol = deserialized.find_symbol("method1").unwrap();
         assert_eq!(method_symbol.name, "method1");
-        
+
         // Check that relationships are preserved
         let implementations = deserialized.find_implementations("interface1");
         assert_eq!(implementations.len(), 1);
@@ -224,7 +251,7 @@ mod tests {
             to_id: "to".to_string(),
             kind: EdgeKind::Definition,
         };
-        
+
         let json = serde_json::to_string(&edge).unwrap();
         assert!(json.contains("\"from_id\":\"from\""));
         assert!(json.contains("\"to_id\":\"to\""));
@@ -237,18 +264,18 @@ mod tests {
         let symbol1 = create_test_symbol("sym1", "Symbol1");
         let symbol2 = create_test_symbol("sym2", "Symbol2");
         let symbol3 = create_test_symbol("sym3", "Symbol3");
-        
+
         let idx1 = graph.add_symbol(symbol1);
         let idx2 = graph.add_symbol(symbol2);
         let idx3 = graph.add_symbol(symbol3);
-        
+
         graph.add_edge(idx1, idx2, EdgeKind::Reference);
         graph.add_edge(idx2, idx3, EdgeKind::Definition);
         graph.add_edge(idx3, idx1, EdgeKind::Implementation);
-        
+
         let serialized = serde_json::to_string(&graph).unwrap();
         let deserialized: CodeGraph = serde_json::from_str(&serialized).unwrap();
-        
+
         assert_eq!(deserialized.symbol_count(), 3);
         // Verify all symbols and edges are preserved
         assert!(deserialized.find_symbol("sym1").is_some());

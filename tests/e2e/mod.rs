@@ -21,27 +21,27 @@ impl E2eContext {
             .args(&["build", "--release", "--bin", "lsif"])
             .output()
             .context("Failed to build binary")?;
-        
+
         if !output.status.success() {
             anyhow::bail!(
                 "Failed to build binary: {}",
                 String::from_utf8_lossy(&output.stderr)
             );
         }
-        
+
         let binary_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("target")
             .join("release")
             .join("lsif");
-        
+
         let temp_dir = TempDir::new().context("Failed to create temp directory")?;
-        
+
         Ok(Self {
             temp_dir,
             binary_path,
         })
     }
-    
+
     /// Execute a command with the lsif-indexer binary
     pub fn run_command(&self, args: &[&str]) -> Result<TestOutput> {
         let output = Command::new(&self.binary_path)
@@ -49,19 +49,19 @@ impl E2eContext {
             .current_dir(&self.temp_dir)
             .output()
             .context("Failed to execute command")?;
-        
+
         Ok(TestOutput::from(output))
     }
-    
+
     /// Create a test project with sample files
     pub fn create_test_project(&self, name: &str) -> Result<PathBuf> {
         let project_dir = self.temp_dir.path().join(name);
         fs::create_dir_all(&project_dir)?;
-        
+
         // Create a simple Rust project structure
         let src_dir = project_dir.join("src");
         fs::create_dir_all(&src_dir)?;
-        
+
         // Create main.rs
         fs::write(
             src_dir.join("main.rs"),
@@ -86,7 +86,7 @@ mod tests {
 }
 "#,
         )?;
-        
+
         // Create lib.rs
         fs::write(
             src_dir.join("lib.rs"),
@@ -104,7 +104,7 @@ pub mod utils {
 pub use utils::{add, multiply};
 "#,
         )?;
-        
+
         // Create a module file
         fs::write(
             src_dir.join("config.rs"),
@@ -135,15 +135,15 @@ impl Default for Config {
 }
 "#,
         )?;
-        
+
         Ok(project_dir)
     }
-    
+
     /// Create a TypeScript test project
     pub fn create_typescript_project(&self, name: &str) -> Result<PathBuf> {
         let project_dir = self.temp_dir.path().join(name);
         fs::create_dir_all(&project_dir)?;
-        
+
         // Create index.ts
         fs::write(
             project_dir.join("index.ts"),
@@ -179,7 +179,7 @@ export function createUser(name: string, email: string): User {
 }
 "#,
         )?;
-        
+
         // Create utils.ts
         fs::write(
             project_dir.join("utils.ts"),
@@ -195,15 +195,15 @@ export function parseJson<T>(json: string): T {
 export const VERSION = "1.0.0";
 "#,
         )?;
-        
+
         Ok(project_dir)
     }
-    
+
     /// Create a Python test project
     pub fn create_python_project(&self, name: &str) -> Result<PathBuf> {
         let project_dir = self.temp_dir.path().join(name);
         fs::create_dir_all(&project_dir)?;
-        
+
         // Create main.py
         fs::write(
             project_dir.join("main.py"),
@@ -238,7 +238,7 @@ if __name__ == "__main__":
     main()
 "#,
         )?;
-        
+
         // Create utils.py
         fs::write(
             project_dir.join("utils.py"),
@@ -262,10 +262,10 @@ class Logger:
         print(f"[{self.name}] {message}")
 "#,
         )?;
-        
+
         Ok(project_dir)
     }
-    
+
     /// Assert that a file exists
     pub fn assert_file_exists(&self, path: impl AsRef<Path>) -> Result<()> {
         let full_path = if path.as_ref().is_absolute() {
@@ -273,14 +273,14 @@ class Logger:
         } else {
             self.temp_dir.path().join(path)
         };
-        
+
         if !full_path.exists() {
             anyhow::bail!("File does not exist: {}", full_path.display());
         }
-        
+
         Ok(())
     }
-    
+
     /// Read a file from the temp directory
     pub fn read_file(&self, path: impl AsRef<Path>) -> Result<String> {
         let full_path = if path.as_ref().is_absolute() {
@@ -288,7 +288,7 @@ class Logger:
         } else {
             self.temp_dir.path().join(path)
         };
-        
+
         fs::read_to_string(&full_path)
             .with_context(|| format!("Failed to read file: {}", full_path.display()))
     }
@@ -325,7 +325,7 @@ impl TestOutput {
         }
         Ok(())
     }
-    
+
     /// Assert that the stdout contains a string
     pub fn assert_stdout_contains(&self, text: &str) -> Result<()> {
         if !self.stdout.contains(text) {

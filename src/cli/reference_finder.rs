@@ -209,28 +209,24 @@ fn helper() {
     main(); // recursive call
 }
 "#;
-        
+
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.rs");
         fs::write(&file_path, content).unwrap();
-        
+
         let adapter = RustLanguageAdapter;
-        let refs = find_references_in_file(
-            &file_path,
-            content,
-            "main",
-            &SymbolKind::Function,
-            &adapter,
-        ).unwrap();
-        
+        let refs =
+            find_references_in_file(&file_path, content, "main", &SymbolKind::Function, &adapter)
+                .unwrap();
+
         // Should find definition and usage
         assert!(refs.len() >= 2);
-        
+
         // Check definition
         let definitions: Vec<_> = refs.iter().filter(|r| r.is_definition).collect();
         assert_eq!(definitions.len(), 1);
         assert_eq!(definitions[0].symbol.range.start.line, 1);
-        
+
         // Check reference
         let references: Vec<_> = refs.iter().filter(|r| !r.is_definition).collect();
         assert!(references.len() >= 1);
@@ -246,11 +242,11 @@ function greet(name: string) {
 const result = greet("World");
 greet("TypeScript");
 "#;
-        
+
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.ts");
         fs::write(&file_path, content).unwrap();
-        
+
         let adapter = TypeScriptLanguageAdapter;
         let refs = find_references_in_file(
             &file_path,
@@ -258,15 +254,16 @@ greet("TypeScript");
             "greet",
             &SymbolKind::Function,
             &adapter,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // Should find definition and 2 usages
         assert!(refs.len() >= 3);
-        
+
         // Check definition
         let definitions: Vec<_> = refs.iter().filter(|r| r.is_definition).collect();
         assert_eq!(definitions.len(), 1);
-        
+
         // Check references
         let references: Vec<_> = refs.iter().filter(|r| !r.is_definition).collect();
         assert_eq!(references.len(), 2);
@@ -284,11 +281,11 @@ fn other() {
     test_func(); // actual usage
 }
 "#;
-        
+
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.rs");
         fs::write(&file_path, content).unwrap();
-        
+
         let adapter = RustLanguageAdapter;
         let refs = find_references_in_file(
             &file_path,
@@ -296,14 +293,15 @@ fn other() {
             "test_func",
             &SymbolKind::Function,
             &adapter,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // Should only find definition and actual usage, not in comments/strings
         assert_eq!(refs.len(), 2);
-        
+
         let definitions: Vec<_> = refs.iter().filter(|r| r.is_definition).collect();
         assert_eq!(definitions.len(), 1);
-        
+
         let references: Vec<_> = refs.iter().filter(|r| !r.is_definition).collect();
         assert_eq!(references.len(), 1);
         assert_eq!(references[0].symbol.range.start.line, 7);
@@ -314,14 +312,14 @@ fn other() {
         let temp_dir = TempDir::new().unwrap();
         let src_dir = temp_dir.path().join("src");
         fs::create_dir(&src_dir).unwrap();
-        
+
         // Create multiple files with references
         let file1_content = r#"
 pub fn shared_func() {
     println!("Shared function");
 }
 "#;
-        
+
         let file2_content = r#"
 use crate::shared_func;
 
@@ -330,19 +328,16 @@ fn main() {
     shared_func();
 }
 "#;
-        
+
         fs::write(src_dir.join("lib.rs"), file1_content).unwrap();
         fs::write(src_dir.join("main.rs"), file2_content).unwrap();
-        
-        let refs = find_all_references(
-            temp_dir.path(),
-            "shared_func",
-            &SymbolKind::Function,
-        ).unwrap();
-        
+
+        let refs =
+            find_all_references(temp_dir.path(), "shared_func", &SymbolKind::Function).unwrap();
+
         // Should find definition in lib.rs and usages in main.rs
         assert!(refs.len() >= 3);
-        
+
         // Check files are found
         let files: HashSet<_> = refs.iter().map(|r| &r.symbol.file_path).collect();
         assert_eq!(files.len(), 2);
@@ -365,33 +360,25 @@ fn main() {
     let user = User::new("Alice".to_string());
 }
 "#;
-        
+
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.rs");
         fs::write(&file_path, content).unwrap();
-        
+
         let adapter = RustLanguageAdapter;
-        
+
         // Find struct references
-        let struct_refs = find_references_in_file(
-            &file_path,
-            content,
-            "User",
-            &SymbolKind::Struct,
-            &adapter,
-        ).unwrap();
-        
+        let struct_refs =
+            find_references_in_file(&file_path, content, "User", &SymbolKind::Struct, &adapter)
+                .unwrap();
+
         assert!(struct_refs.len() >= 1); // At least the definition
-        
+
         // Find method references
-        let method_refs = find_references_in_file(
-            &file_path,
-            content,
-            "new",
-            &SymbolKind::Method,
-            &adapter,
-        ).unwrap();
-        
+        let method_refs =
+            find_references_in_file(&file_path, content, "new", &SymbolKind::Method, &adapter)
+                .unwrap();
+
         assert!(method_refs.len() >= 1); // Definition and usage
     }
 
@@ -405,8 +392,14 @@ fn main() {
                     kind: SymbolKind::Function,
                     file_path: "b.rs".to_string(),
                     range: Range {
-                        start: Position { line: 10, character: 5 },
-                        end: Position { line: 10, character: 10 },
+                        start: Position {
+                            line: 10,
+                            character: 5,
+                        },
+                        end: Position {
+                            line: 10,
+                            character: 10,
+                        },
                     },
                     documentation: None,
                 },
@@ -419,8 +412,14 @@ fn main() {
                     kind: SymbolKind::Function,
                     file_path: "a.rs".to_string(),
                     range: Range {
-                        start: Position { line: 5, character: 0 },
-                        end: Position { line: 5, character: 5 },
+                        start: Position {
+                            line: 5,
+                            character: 0,
+                        },
+                        end: Position {
+                            line: 5,
+                            character: 5,
+                        },
                     },
                     documentation: None,
                 },
@@ -433,15 +432,21 @@ fn main() {
                     kind: SymbolKind::Function,
                     file_path: "a.rs".to_string(),
                     range: Range {
-                        start: Position { line: 5, character: 10 },
-                        end: Position { line: 5, character: 15 },
+                        start: Position {
+                            line: 5,
+                            character: 10,
+                        },
+                        end: Position {
+                            line: 5,
+                            character: 15,
+                        },
                     },
                     documentation: None,
                 },
                 is_definition: false,
             },
         ];
-        
+
         // Sort as in find_all_references
         references.sort_by(|a, b| {
             a.symbol
@@ -456,12 +461,12 @@ fn main() {
                         .cmp(&b.symbol.range.start.character),
                 )
         });
-        
+
         // Check order: a.rs should come before b.rs
         assert_eq!(references[0].symbol.file_path, "a.rs");
         assert_eq!(references[1].symbol.file_path, "a.rs");
         assert_eq!(references[2].symbol.file_path, "b.rs");
-        
+
         // Within a.rs, should be sorted by position
         assert_eq!(references[0].symbol.range.start.character, 0);
         assert_eq!(references[1].symbol.range.start.character, 10);
@@ -470,31 +475,28 @@ fn main() {
     #[test]
     fn test_exclude_directories() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Create source directory
         let src_dir = temp_dir.path().join("src");
         fs::create_dir(&src_dir).unwrap();
-        
+
         // Create target directory (should be excluded)
         let target_dir = temp_dir.path().join("target");
         fs::create_dir(&target_dir).unwrap();
-        
+
         // Create files in both
         let content = r#"
 fn test_func() {
     println!("Test");
 }
 "#;
-        
+
         fs::write(src_dir.join("main.rs"), content).unwrap();
         fs::write(target_dir.join("debug.rs"), content).unwrap();
-        
-        let refs = find_all_references(
-            temp_dir.path(),
-            "test_func",
-            &SymbolKind::Function,
-        ).unwrap();
-        
+
+        let refs =
+            find_all_references(temp_dir.path(), "test_func", &SymbolKind::Function).unwrap();
+
         // Should only find reference in src, not in target
         for reference in &refs {
             assert!(!reference.symbol.file_path.contains("target"));
@@ -505,21 +507,18 @@ fn test_func() {
     fn test_reference_deduplication() {
         // This tests the deduplication logic in find_all_references
         let temp_dir = TempDir::new().unwrap();
-        
+
         let content = r#"
 fn duplicate() {
     duplicate(); // Same location shouldn't appear twice
 }
 "#;
-        
+
         fs::write(temp_dir.path().join("test.rs"), content).unwrap();
-        
-        let refs = find_all_references(
-            temp_dir.path(),
-            "duplicate",
-            &SymbolKind::Function,
-        ).unwrap();
-        
+
+        let refs =
+            find_all_references(temp_dir.path(), "duplicate", &SymbolKind::Function).unwrap();
+
         // Check that each location appears only once
         let mut seen = HashSet::new();
         for reference in &refs {

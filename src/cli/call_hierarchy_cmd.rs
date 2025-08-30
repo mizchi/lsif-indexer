@@ -83,12 +83,12 @@ pub fn find_paths(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{Symbol, SymbolKind, Range, Position, EdgeKind};
+    use crate::core::{EdgeKind, Position, Range, Symbol, SymbolKind};
     use tempfile::TempDir;
 
     fn create_test_graph() -> CodeGraph {
         let mut graph = CodeGraph::new();
-        
+
         // Create test symbols
         let main_fn = Symbol {
             id: "main".to_string(),
@@ -96,45 +96,63 @@ mod tests {
             kind: SymbolKind::Function,
             file_path: "main.rs".to_string(),
             range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 0, character: 10 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 0,
+                    character: 10,
+                },
             },
             documentation: None,
         };
-        
+
         let helper_fn = Symbol {
             id: "helper".to_string(),
             name: "helper".to_string(),
             kind: SymbolKind::Function,
             file_path: "main.rs".to_string(),
             range: Range {
-                start: Position { line: 5, character: 0 },
-                end: Position { line: 5, character: 10 },
+                start: Position {
+                    line: 5,
+                    character: 0,
+                },
+                end: Position {
+                    line: 5,
+                    character: 10,
+                },
             },
             documentation: None,
         };
-        
+
         let util_fn = Symbol {
             id: "util".to_string(),
             name: "util".to_string(),
             kind: SymbolKind::Function,
             file_path: "util.rs".to_string(),
             range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 0, character: 10 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 0,
+                    character: 10,
+                },
             },
             documentation: None,
         };
-        
+
         // Add symbols to graph
         let main_idx = graph.add_symbol(main_fn);
         let helper_idx = graph.add_symbol(helper_fn);
         let util_idx = graph.add_symbol(util_fn);
-        
+
         // Add edges (main calls helper, helper calls util)
         graph.add_edge(main_idx, helper_idx, EdgeKind::Reference);
         graph.add_edge(helper_idx, util_idx, EdgeKind::Reference);
-        
+
         graph
     }
 
@@ -143,20 +161,15 @@ mod tests {
     fn test_show_call_hierarchy_incoming() {
         let temp_dir = TempDir::new().unwrap();
         let index_path = temp_dir.path().join("test.db");
-        
+
         // Create test storage with graph
         let storage = IndexStorage::open(&index_path).unwrap();
         let graph = create_test_graph();
         storage.save_data("graph", &graph).unwrap();
-        
+
         // Test incoming calls
-        let result = show_call_hierarchy(
-            index_path.to_str().unwrap(),
-            "helper",
-            "incoming",
-            3
-        );
-        
+        let result = show_call_hierarchy(index_path.to_str().unwrap(), "helper", "incoming", 3);
+
         assert!(result.is_ok());
     }
 
@@ -165,20 +178,15 @@ mod tests {
     fn test_show_call_hierarchy_outgoing() {
         let temp_dir = TempDir::new().unwrap();
         let index_path = temp_dir.path().join("test.db");
-        
+
         // Create test storage with graph
         let storage = IndexStorage::open(&index_path).unwrap();
         let graph = create_test_graph();
         storage.save_data("graph", &graph).unwrap();
-        
+
         // Test outgoing calls
-        let result = show_call_hierarchy(
-            index_path.to_str().unwrap(),
-            "helper",
-            "outgoing",
-            3
-        );
-        
+        let result = show_call_hierarchy(index_path.to_str().unwrap(), "helper", "outgoing", 3);
+
         assert!(result.is_ok());
     }
 
@@ -187,20 +195,15 @@ mod tests {
     fn test_show_call_hierarchy_full() {
         let temp_dir = TempDir::new().unwrap();
         let index_path = temp_dir.path().join("test.db");
-        
+
         // Create test storage with graph
         let storage = IndexStorage::open(&index_path).unwrap();
         let graph = create_test_graph();
         storage.save_data("graph", &graph).unwrap();
-        
+
         // Test full hierarchy
-        let result = show_call_hierarchy(
-            index_path.to_str().unwrap(),
-            "helper",
-            "full",
-            3
-        );
-        
+        let result = show_call_hierarchy(index_path.to_str().unwrap(), "helper", "full", 3);
+
         assert!(result.is_ok());
     }
 
@@ -209,22 +212,20 @@ mod tests {
     fn test_show_call_hierarchy_invalid_direction() {
         let temp_dir = TempDir::new().unwrap();
         let index_path = temp_dir.path().join("test.db");
-        
+
         // Create test storage with graph
         let storage = IndexStorage::open(&index_path).unwrap();
         let graph = create_test_graph();
         storage.save_data("graph", &graph).unwrap();
-        
+
         // Test invalid direction
-        let result = show_call_hierarchy(
-            index_path.to_str().unwrap(),
-            "helper",
-            "invalid",
-            3
-        );
-        
+        let result = show_call_hierarchy(index_path.to_str().unwrap(), "helper", "invalid", 3);
+
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Invalid direction"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid direction"));
     }
 
     #[test]
@@ -232,18 +233,13 @@ mod tests {
     fn test_show_call_hierarchy_no_graph() {
         let temp_dir = TempDir::new().unwrap();
         let index_path = temp_dir.path().join("test.db");
-        
+
         // Create empty storage
         let _storage = IndexStorage::open(&index_path).unwrap();
-        
+
         // Test with no graph
-        let result = show_call_hierarchy(
-            index_path.to_str().unwrap(),
-            "helper",
-            "incoming",
-            3
-        );
-        
+        let result = show_call_hierarchy(index_path.to_str().unwrap(), "helper", "incoming", 3);
+
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("No graph found"));
     }
@@ -253,20 +249,15 @@ mod tests {
     fn test_find_paths() {
         let temp_dir = TempDir::new().unwrap();
         let index_path = temp_dir.path().join("test.db");
-        
+
         // Create test storage with graph
         let storage = IndexStorage::open(&index_path).unwrap();
         let graph = create_test_graph();
         storage.save_data("graph", &graph).unwrap();
-        
+
         // Test finding paths
-        let result = find_paths(
-            index_path.to_str().unwrap(),
-            "main",
-            "util",
-            5
-        );
-        
+        let result = find_paths(index_path.to_str().unwrap(), "main", "util", 5);
+
         assert!(result.is_ok());
     }
 
@@ -275,20 +266,15 @@ mod tests {
     fn test_find_paths_no_connection() {
         let temp_dir = TempDir::new().unwrap();
         let index_path = temp_dir.path().join("test.db");
-        
+
         // Create test storage with graph
         let storage = IndexStorage::open(&index_path).unwrap();
         let graph = create_test_graph();
         storage.save_data("graph", &graph).unwrap();
-        
+
         // Test finding paths with no connection
-        let result = find_paths(
-            index_path.to_str().unwrap(),
-            "util",
-            "main",
-            5
-        );
-        
+        let result = find_paths(index_path.to_str().unwrap(), "util", "main", 5);
+
         assert!(result.is_ok());
     }
 }

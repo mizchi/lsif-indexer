@@ -31,9 +31,10 @@ impl LspClient {
         let version = docs.get(&uri).unwrap_or(&0) + 1;
         docs.insert(uri.clone(), version);
 
-        let mut client = self.inner.lock().map_err(|e| {
-            anyhow::anyhow!("Failed to lock LSP client: {}", e)
-        })?;
+        let mut client = self
+            .inner
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock LSP client: {}", e))?;
         client.send_notification(
             "textDocument/didOpen",
             DidOpenTextDocumentParams {
@@ -57,9 +58,10 @@ impl LspClient {
             partial_result_params: PartialResultParams::default(),
         };
 
-        let mut client = self.inner.lock().map_err(|e| {
-            anyhow::anyhow!("Failed to lock LSP client: {}", e)
-        })?;
+        let mut client = self
+            .inner
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock LSP client: {}", e))?;
         let response = client.goto_definition(params)?;
         Ok(vec![response])
     }
@@ -82,9 +84,10 @@ impl LspClient {
             partial_result_params: PartialResultParams::default(),
         };
 
-        let mut client = self.inner.lock().map_err(|e| {
-            anyhow::anyhow!("Failed to lock LSP client: {}", e)
-        })?;
+        let mut client = self
+            .inner
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock LSP client: {}", e))?;
         client.find_references(params)
     }
 
@@ -97,9 +100,10 @@ impl LspClient {
             work_done_progress_params: WorkDoneProgressParams::default(),
         };
 
-        let mut client = self.inner.lock().map_err(|e| {
-            anyhow::anyhow!("Failed to lock LSP client: {}", e)
-        })?;
+        let mut client = self
+            .inner
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock LSP client: {}", e))?;
         client.send_request("textDocument/hover", params)
     }
 
@@ -114,9 +118,10 @@ impl LspClient {
             partial_result_params: PartialResultParams::default(),
         };
 
-        let mut client = self.inner.lock().map_err(|e| {
-            anyhow::anyhow!("Failed to lock LSP client: {}", e)
-        })?;
+        let mut client = self
+            .inner
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock LSP client: {}", e))?;
         let response: Option<CompletionResponse> =
             client.send_request("textDocument/completion", params)?;
 
@@ -128,9 +133,10 @@ impl LspClient {
     }
 
     pub fn document_symbols(&self, uri: Url) -> Result<Vec<DocumentSymbol>> {
-        let mut client = self.inner.lock().map_err(|e| {
-            anyhow::anyhow!("Failed to lock LSP client: {}", e)
-        })?;
+        let mut client = self
+            .inner
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock LSP client: {}", e))?;
         client.get_document_symbols(uri.as_ref())
     }
 
@@ -147,9 +153,10 @@ impl LspClient {
             work_done_progress_params: WorkDoneProgressParams::default(),
         };
 
-        let mut client = self.inner.lock().map_err(|e| {
-            anyhow::anyhow!("Failed to lock LSP client: {}", e)
-        })?;
+        let mut client = self
+            .inner
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock LSP client: {}", e))?;
         let response: Option<Vec<CallHierarchyItem>> =
             client.send_request("textDocument/prepareCallHierarchy", params)?;
 
@@ -166,9 +173,10 @@ impl LspClient {
             partial_result_params: PartialResultParams::default(),
         };
 
-        let mut client = self.inner.lock().map_err(|e| {
-            anyhow::anyhow!("Failed to lock LSP client: {}", e)
-        })?;
+        let mut client = self
+            .inner
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock LSP client: {}", e))?;
         let response: Option<Vec<CallHierarchyIncomingCall>> =
             client.send_request("callHierarchy/incomingCalls", params)?;
 
@@ -185,9 +193,10 @@ impl LspClient {
             partial_result_params: PartialResultParams::default(),
         };
 
-        let mut client = self.inner.lock().map_err(|e| {
-            anyhow::anyhow!("Failed to lock LSP client: {}", e)
-        })?;
+        let mut client = self
+            .inner
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock LSP client: {}", e))?;
         let response: Option<Vec<CallHierarchyOutgoingCall>> =
             client.send_request("callHierarchy/outgoingCalls", params)?;
 
@@ -210,9 +219,10 @@ impl LspClient {
             partial_result_params: PartialResultParams::default(),
         };
 
-        let mut client = self.inner.lock().map_err(|e| {
-            anyhow::anyhow!("Failed to lock LSP client: {}", e)
-        })?;
+        let mut client = self
+            .inner
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock LSP client: {}", e))?;
         let response: Option<lsp_types::request::GotoTypeDefinitionResponse> =
             client.send_request("textDocument/typeDefinition", params)?;
 
@@ -242,9 +252,10 @@ impl LspClient {
             partial_result_params: PartialResultParams::default(),
         };
 
-        let mut client = self.inner.lock().map_err(|e| {
-            anyhow::anyhow!("Failed to lock LSP client: {}", e)
-        })?;
+        let mut client = self
+            .inner
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock LSP client: {}", e))?;
         let response: Option<lsp_types::request::GotoImplementationResponse> =
             client.send_request("textDocument/implementation", params)?;
 
@@ -274,9 +285,10 @@ impl LspClient {
             work_done_progress_params: WorkDoneProgressParams::default(),
         };
 
-        let mut client = self.inner.lock().map_err(|e| {
-            anyhow::anyhow!("Failed to lock LSP client: {}", e)
-        })?;
+        let mut client = self
+            .inner
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to lock LSP client: {}", e))?;
         let response: Option<WorkspaceEdit> = client.send_request("textDocument/rename", params)?;
 
         response.ok_or_else(|| anyhow!("No rename edits available"))

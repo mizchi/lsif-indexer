@@ -206,9 +206,7 @@ impl MinimalLspClient {
 
         match response {
             Some(lsp_types::GotoDefinitionResponse::Scalar(location)) => Ok(Some(location)),
-            Some(lsp_types::GotoDefinitionResponse::Array(mut locations)) => {
-                Ok(locations.pop())
-            }
+            Some(lsp_types::GotoDefinitionResponse::Array(mut locations)) => Ok(locations.pop()),
             Some(lsp_types::GotoDefinitionResponse::Link(mut links)) => {
                 Ok(links.pop().map(|link| Location {
                     uri: link.target_uri,
@@ -220,11 +218,7 @@ impl MinimalLspClient {
     }
 
     /// 型情報を取得（ホバー）
-    pub fn get_hover(
-        &mut self,
-        file_path: &Path,
-        position: Position,
-    ) -> Result<Option<String>> {
+    pub fn get_hover(&mut self, file_path: &Path, position: Position) -> Result<Option<String>> {
         // 絶対パスに変換
         let absolute_path = file_path
             .canonicalize()
@@ -246,24 +240,22 @@ impl MinimalLspClient {
 
         let response: Option<lsp_types::Hover> = self.send_request("textDocument/hover", params)?;
 
-        Ok(response.and_then(|hover| {
-            match hover.contents {
-                lsp_types::HoverContents::Scalar(lsp_types::MarkedString::String(s)) => Some(s),
-                lsp_types::HoverContents::Scalar(lsp_types::MarkedString::LanguageString(ls)) => {
-                    Some(ls.value)
-                }
-                lsp_types::HoverContents::Array(arr) => {
-                    let strings: Vec<String> = arr
-                        .into_iter()
-                        .map(|ms| match ms {
-                            lsp_types::MarkedString::String(s) => s,
-                            lsp_types::MarkedString::LanguageString(ls) => ls.value,
-                        })
-                        .collect();
-                    Some(strings.join("\n"))
-                }
-                lsp_types::HoverContents::Markup(markup) => Some(markup.value),
+        Ok(response.and_then(|hover| match hover.contents {
+            lsp_types::HoverContents::Scalar(lsp_types::MarkedString::String(s)) => Some(s),
+            lsp_types::HoverContents::Scalar(lsp_types::MarkedString::LanguageString(ls)) => {
+                Some(ls.value)
             }
+            lsp_types::HoverContents::Array(arr) => {
+                let strings: Vec<String> = arr
+                    .into_iter()
+                    .map(|ms| match ms {
+                        lsp_types::MarkedString::String(s) => s,
+                        lsp_types::MarkedString::LanguageString(ls) => ls.value,
+                    })
+                    .collect();
+                Some(strings.join("\n"))
+            }
+            lsp_types::HoverContents::Markup(markup) => Some(markup.value),
         }))
     }
 
@@ -447,7 +439,6 @@ impl MinimalLspClient {
 
         Ok(())
     }
-
 
     fn try_read_message(&mut self, timeout: Duration) -> Result<Option<Value>> {
         use std::io::ErrorKind;

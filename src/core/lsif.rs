@@ -484,35 +484,47 @@ mod tests {
 
     fn create_test_graph() -> CodeGraph {
         let mut graph = CodeGraph::new();
-        
+
         let symbol1 = Symbol {
             id: "symbol1".to_string(),
             name: "main".to_string(),
             kind: SymbolKind::Function,
             file_path: "/test/main.rs".to_string(),
             range: Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 0, character: 10 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 0,
+                    character: 10,
+                },
             },
             documentation: Some("Main function".to_string()),
         };
-        
+
         let symbol2 = Symbol {
             id: "symbol2".to_string(),
             name: "helper".to_string(),
             kind: SymbolKind::Function,
             file_path: "/test/helper.rs".to_string(),
             range: Range {
-                start: Position { line: 5, character: 3 },
-                end: Position { line: 5, character: 15 },
+                start: Position {
+                    line: 5,
+                    character: 3,
+                },
+                end: Position {
+                    line: 5,
+                    character: 15,
+                },
             },
             documentation: None,
         };
-        
+
         let idx1 = graph.add_symbol(symbol1);
         let idx2 = graph.add_symbol(symbol2);
         graph.add_edge(idx1, idx2, crate::core::graph::EdgeKind::Reference);
-        
+
         graph
     }
 
@@ -524,7 +536,7 @@ mod tests {
             label: "document".to_string(),
             data: HashMap::new(),
         };
-        
+
         let element = LsifElement::Vertex(vertex);
         let json = serde_json::to_string(&element).unwrap();
         assert!(json.contains("\"id\":\"1\""));
@@ -542,7 +554,7 @@ mod tests {
             in_v: "3".to_string(),
             data: HashMap::new(),
         };
-        
+
         let element = LsifElement::Edge(edge);
         let json = serde_json::to_string(&element).unwrap();
         assert!(json.contains("\"outV\":\"1\""));
@@ -553,7 +565,7 @@ mod tests {
     fn test_lsif_generator_next_id() {
         let graph = CodeGraph::new();
         let mut generator = LsifGenerator::new(graph);
-        
+
         assert_eq!(generator.next_id(), "1");
         assert_eq!(generator.next_id(), "2");
         assert_eq!(generator.next_id(), "3");
@@ -563,9 +575,9 @@ mod tests {
     fn test_generate_metadata() {
         let graph = CodeGraph::new();
         let mut generator = LsifGenerator::new(graph);
-        
+
         generator.generate_metadata().unwrap();
-        
+
         assert_eq!(generator.elements.len(), 1);
         if let LsifElement::Vertex(vertex) = &generator.elements[0] {
             assert_eq!(vertex.label, "metaData");
@@ -580,9 +592,9 @@ mod tests {
     fn test_generate_project() {
         let graph = CodeGraph::new();
         let mut generator = LsifGenerator::new(graph);
-        
+
         let project_id = generator.generate_project().unwrap();
-        
+
         assert!(!project_id.is_empty());
         assert_eq!(generator.elements.len(), 1);
         if let LsifElement::Vertex(vertex) = &generator.elements[0] {
@@ -597,14 +609,20 @@ mod tests {
     fn test_generate_document() {
         let graph = CodeGraph::new();
         let mut generator = LsifGenerator::new(graph);
-        
+
         let doc_id = generator.generate_document("/test/file.rs").unwrap();
-        
+
         assert!(!doc_id.is_empty());
         assert_eq!(generator.elements.len(), 1);
         if let LsifElement::Vertex(vertex) = &generator.elements[0] {
             assert_eq!(vertex.label, "document");
-            assert!(vertex.data.get("uri").unwrap().as_str().unwrap().contains("file.rs"));
+            assert!(vertex
+                .data
+                .get("uri")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .contains("file.rs"));
         } else {
             panic!("Expected vertex");
         }
@@ -614,21 +632,27 @@ mod tests {
     fn test_generate_range() {
         let graph = CodeGraph::new();
         let mut generator = LsifGenerator::new(graph);
-        
+
         let symbol = Symbol {
             id: "test".to_string(),
             name: "test".to_string(),
             kind: SymbolKind::Function,
             file_path: "/test.rs".to_string(),
             range: Range {
-                start: Position { line: 10, character: 5 },
-                end: Position { line: 10, character: 15 },
+                start: Position {
+                    line: 10,
+                    character: 5,
+                },
+                end: Position {
+                    line: 10,
+                    character: 15,
+                },
             },
             documentation: None,
         };
-        
+
         let range_id = generator.generate_range(&symbol).unwrap();
-        
+
         assert!(!range_id.is_empty());
         assert_eq!(generator.elements.len(), 1);
         if let LsifElement::Vertex(vertex) = &generator.elements[0] {
@@ -645,9 +669,9 @@ mod tests {
     fn test_generate_contains_edge() {
         let graph = CodeGraph::new();
         let mut generator = LsifGenerator::new(graph);
-        
+
         generator.generate_contains_edge("1", "2").unwrap();
-        
+
         assert_eq!(generator.elements.len(), 1);
         if let LsifElement::Edge(edge) = &generator.elements[0] {
             assert_eq!(edge.label, "contains");
@@ -662,21 +686,26 @@ mod tests {
     fn test_generate_hover() {
         let graph = CodeGraph::new();
         let mut generator = LsifGenerator::new(graph);
-        
-        generator.generate_hover("result1", "This is hover content").unwrap();
-        
+
+        generator
+            .generate_hover("result1", "This is hover content")
+            .unwrap();
+
         assert_eq!(generator.elements.len(), 2); // hover vertex + edge
-        
+
         // Check hover vertex
         if let LsifElement::Vertex(vertex) = &generator.elements[0] {
             assert_eq!(vertex.label, "hoverResult");
             let result = vertex.data.get("result").unwrap();
             let contents = result.get("contents").unwrap();
-            assert_eq!(contents.get("value").unwrap().as_str().unwrap(), "This is hover content");
+            assert_eq!(
+                contents.get("value").unwrap().as_str().unwrap(),
+                "This is hover content"
+            );
         } else {
             panic!("Expected hover vertex");
         }
-        
+
         // Check edge
         if let LsifElement::Edge(edge) = &generator.elements[1] {
             assert_eq!(edge.label, "textDocument/hover");
@@ -691,7 +720,7 @@ mod tests {
     fn test_full_lsif_generation() {
         let graph = create_test_graph();
         let lsif = generate_lsif(graph).unwrap();
-        
+
         // Check that LSIF contains expected elements
         assert!(lsif.contains("metaData"));
         assert!(lsif.contains("project"));
@@ -701,7 +730,7 @@ mod tests {
         assert!(lsif.contains("\"helper\""));
         assert!(lsif.contains("/test/main.rs"));
         assert!(lsif.contains("/test/helper.rs"));
-        
+
         // Check that it's valid JSON Lines format
         for line in lsif.lines() {
             if !line.trim().is_empty() {
@@ -725,7 +754,7 @@ mod tests {
             "line": 10,
             "character": 5
         });
-        
+
         let pos = parser.parse_position(&json).unwrap();
         assert_eq!(pos.line, 10);
         assert_eq!(pos.character, 5);
@@ -735,7 +764,7 @@ mod tests {
     fn test_parse_position_with_missing_fields() {
         let parser = LsifParser::new();
         let json = json!({});
-        
+
         let pos = parser.parse_position(&json).unwrap();
         assert_eq!(pos.line, 0);
         assert_eq!(pos.character, 0);
@@ -750,7 +779,7 @@ mod tests {
             "label": "document",
             "uri": "file:///test.rs"
         });
-        
+
         parser.process_vertex(vertex).unwrap();
         assert_eq!(parser.documents.get("doc1").unwrap(), "file:///test.rs");
     }
@@ -765,7 +794,7 @@ mod tests {
             "start": { "line": 5, "character": 10 },
             "end": { "line": 5, "character": 20 }
         });
-        
+
         parser.process_vertex(vertex).unwrap();
         let range = parser.ranges.get("range1").unwrap();
         assert_eq!(range.start.line, 5);
@@ -777,22 +806,33 @@ mod tests {
     #[test]
     fn test_process_contains_edge() {
         let mut parser = LsifParser::new();
-        
+
         // Add document and range first
-        parser.documents.insert("doc1".to_string(), "file:///test.rs".to_string());
-        parser.ranges.insert("range1".to_string(), LsifRange {
-            document_id: String::new(),
-            start: Position { line: 0, character: 0 },
-            end: Position { line: 0, character: 10 },
-        });
-        
+        parser
+            .documents
+            .insert("doc1".to_string(), "file:///test.rs".to_string());
+        parser.ranges.insert(
+            "range1".to_string(),
+            LsifRange {
+                document_id: String::new(),
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 0,
+                    character: 10,
+                },
+            },
+        );
+
         let edge = json!({
             "type": "edge",
             "label": "contains",
             "outV": "doc1",
             "inV": "range1"
         });
-        
+
         parser.process_edge(edge).unwrap();
         assert_eq!(parser.ranges.get("range1").unwrap().document_id, "doc1");
     }
@@ -802,9 +842,9 @@ mod tests {
     fn test_parse_lsif_roundtrip() {
         let original_graph = create_test_graph();
         let lsif = generate_lsif(original_graph.clone()).unwrap();
-        
+
         let parsed_graph = parse_lsif(&lsif).unwrap();
-        
+
         // Check that we have symbols in the parsed graph
         assert!(parsed_graph.symbol_index.len() > 0);
     }
@@ -813,13 +853,13 @@ mod tests {
     fn test_write_lsif() {
         let graph = create_test_graph();
         let mut buffer = Vec::new();
-        
+
         write_lsif(&mut buffer, graph).unwrap();
-        
+
         let content = String::from_utf8(buffer).unwrap();
         assert!(content.contains("metaData"));
         assert!(content.contains("project"));
-        
+
         // Verify each line is valid JSON
         for line in content.lines() {
             if !line.trim().is_empty() {
@@ -832,7 +872,7 @@ mod tests {
     fn test_empty_graph_generation() {
         let graph = CodeGraph::new();
         let lsif = generate_lsif(graph).unwrap();
-        
+
         // Should still have metadata and project
         assert!(lsif.contains("metaData"));
         assert!(lsif.contains("project"));

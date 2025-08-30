@@ -637,16 +637,19 @@ fn update_incremental(index_path: &str, source_path: &str, detect_dead: bool) ->
     let storage = IndexStorage::open(index_path)?;
 
     // Load or create metadata
-    let mut metadata = storage.load_metadata().unwrap_or(None).unwrap_or(IndexMetadata {
-        format: IndexFormat::Lsif,
-        version: "1.0.0".to_string(),
-        created_at: chrono::Utc::now(),
-        project_root: ".".to_string(),
-        files_count: 0,
-        symbols_count: 0,
-        git_commit_hash: None,
-        file_hashes: std::collections::HashMap::new(),
-    });
+    let mut metadata = storage
+        .load_metadata()
+        .unwrap_or(None)
+        .unwrap_or(IndexMetadata {
+            format: IndexFormat::Lsif,
+            version: "1.0.0".to_string(),
+            created_at: chrono::Utc::now(),
+            project_root: ".".to_string(),
+            files_count: 0,
+            symbols_count: 0,
+            git_commit_hash: None,
+            file_hashes: std::collections::HashMap::new(),
+        });
 
     // Read source file
     let content = fs::read_to_string(source_path)?;
@@ -675,7 +678,9 @@ fn update_incremental(index_path: &str, source_path: &str, detect_dead: bool) ->
     let symbols: Vec<_> = graph.get_all_symbols().cloned().collect();
 
     // Update metadata
-    metadata.file_hashes.insert(source_path.to_string(), file_hash);
+    metadata
+        .file_hashes
+        .insert(source_path.to_string(), file_hash);
     metadata.symbols_count = symbols.len();
     metadata.files_count = metadata.file_hashes.len();
 
