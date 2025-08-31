@@ -102,15 +102,15 @@ impl<'a> TypeRelationsAnalyzer<'a> {
             }
 
             // Get direct references
-            let refs = self.graph.find_references(&current_id);
+            let refs = self.graph.find_references(&current_id).unwrap_or_default();
 
             for reference in refs {
                 if visited.insert(reference.id.clone()) {
-                    all_references.push(reference.clone());
+                    all_references.push(reference);
 
                     // Add to queue for recursive search
                     if depth < max_depth {
-                        queue.push_back((reference.id.clone(), depth + 1));
+                        queue.push_back((all_references.last().unwrap().id.clone(), depth + 1));
                     }
                 }
             }

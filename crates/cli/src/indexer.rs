@@ -453,8 +453,6 @@ mod tests {
         let symbols = vec![
             DocumentSymbol {
                 name: "func1".to_string(),
-                detail: None,
-                kind: LspSymbolKind::FUNCTION,
                 tags: None,
                 deprecated: None,
                 range: lsp_types::Range {
@@ -481,8 +479,6 @@ mod tests {
             },
             DocumentSymbol {
                 name: "func2".to_string(),
-                detail: None,
-                kind: LspSymbolKind::FUNCTION,
                 tags: None,
                 deprecated: None,
                 range: lsp_types::Range {
@@ -525,8 +521,6 @@ mod tests {
         #[allow(deprecated)]
         let symbols = vec![DocumentSymbol {
             name: "MyStruct".to_string(),
-            detail: None,
-            kind: LspSymbolKind::STRUCT,
             tags: None,
             deprecated: None,
             range: lsp_types::Range {
@@ -552,8 +546,6 @@ mod tests {
             children: Some(vec![
                 DocumentSymbol {
                     name: "field1".to_string(),
-                    detail: None,
-                    kind: LspSymbolKind::FIELD,
                     tags: None,
                     deprecated: None,
                     range: lsp_types::Range {
@@ -580,8 +572,6 @@ mod tests {
                 },
                 DocumentSymbol {
                     name: "method1".to_string(),
-                    detail: None,
-                    kind: LspSymbolKind::METHOD,
                     tags: None,
                     deprecated: None,
                     range: lsp_types::Range {

@@ -284,8 +284,6 @@ impl GenericLspClient {
                         #[allow(deprecated)]
                         DocumentSymbol {
                             name: s.name,
-                            detail: None,
-                            kind: s.kind,
                             tags: s.tags,
                             deprecated: None,
                             range: s.location.range,

@@ -501,7 +501,6 @@ mod tests {
                 },
             },
             documentation: Some("Main function".to_string()),
-        };
 
         let symbol2 = Symbol {
             id: "symbol2".to_string(),

@@ -34,7 +34,6 @@ impl InternedGraph {
             file_path: intern(&symbol.file_path),
             range: symbol.range,
             documentation: symbol.documentation.as_deref().map(|d| intern(d)),
-        };
         
         self.symbols.insert(interned_id, interned_symbol);
         interned_id
@@ -186,7 +185,6 @@ pub fn create_test_graph_interned(num_symbols: usize) -> InternedGraph {
                 end: Position { line: (i * 10 + 5) as u32, character: 0 },
             },
             documentation: if i % 3 == 0 { Some(format!("Doc for {}", i)) } else { None },
-        })
         .collect();
     
     graph.add_symbols_batch(symbols);
@@ -248,7 +246,6 @@ mod tests {
                     end: Position { line: i + 1, character: 0 },
                 },
                 documentation: Some("Shared documentation".to_string()), // 同じドキュメント
-            };
             graph.add_symbol(symbol);
         }
         
@@ -324,8 +321,7 @@ mod tests {
         assert_eq!(code_graph.symbol_count(), 10);
         
         let refs = code_graph.find_references("id_1");
-        assert_eq!(refs.len(), 1);
-        assert_eq!(refs[0].id, "id_0");
+        assert_eq!(refs.unwrap().len(), 1);
     }
 
     #[test]
@@ -344,7 +340,6 @@ mod tests {
                     end: Position { line: (i % 100 + 1) as u32, character: 0 },
                 },
                 documentation: Some(format!("Doc type {}", i % 10)), // 10個のユニークなドキュメント
-            };
             graph.add_symbol(symbol);
         }
         

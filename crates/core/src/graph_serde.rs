@@ -174,7 +174,6 @@ mod tests {
                 },
             },
             documentation: Some("Interface documentation".to_string()),
-        };
 
         let class = Symbol {
             id: "class1".to_string(),
@@ -192,7 +191,6 @@ mod tests {
                 },
             },
             documentation: Some("Class documentation".to_string()),
-        };
 
         let method = Symbol {
             id: "method1".to_string(),

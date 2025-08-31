@@ -43,6 +43,8 @@ pub enum SymbolKind {
     TypeParameter,
     Parameter,
     Reference,
+    Trait,
+    TypeAlias,
     Unknown,
 }
 
@@ -116,25 +118,6 @@ impl CodeGraph {
             .and_then(|idx| self.graph.node_weight(*idx))
     }
 
-    pub fn find_references(&self, symbol_id: &str) -> Vec<&Symbol> {
-        if let Some(&node_idx) = self.symbol_index.get(symbol_id) {
-            // このシンボルへの参照（Incoming edges with Reference kind）を探す
-            let mut references = Vec::new();
-            for edge in self
-                .graph
-                .edges_directed(node_idx, petgraph::Direction::Incoming)
-            {
-                if matches!(edge.weight(), EdgeKind::Reference) {
-                    if let Some(symbol) = self.graph.node_weight(edge.source()) {
-                        references.push(symbol);
-                    }
-                }
-            }
-            references
-        } else {
-            Vec::new()
-        }
-    }
 
     pub fn find_definition(&self, reference_id: &str) -> Option<&Symbol> {
         if let Some(&node_idx) = self.symbol_index.get(reference_id) {
@@ -223,6 +206,90 @@ impl CodeGraph {
             overrides
         } else {
             Vec::new()
+        }
+    }
+
+    /// Find references to a symbol (returns Symbol objects, not just references)
+    pub fn find_references(&self, symbol_id: &str) -> anyhow::Result<Vec<Symbol>> {
+        if let Some(&node_idx) = self.symbol_index.get(symbol_id) {
+            let mut references = Vec::new();
+            for edge in self
+                .graph
+                .edges_directed(node_idx, petgraph::Direction::Incoming)
+            {
+                if matches!(edge.weight(), EdgeKind::Reference) {
+                    if let Some(symbol) = self.graph.node_weight(edge.source()) {
+                        references.push(symbol.clone());
+                    }
+                }
+            }
+            Ok(references)
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    /// Find symbol at a specific position in a file
+    pub fn find_symbol_at_position(&self, file_path: &str, position: Position) -> anyhow::Result<Option<Symbol>> {
+        for symbol in self.get_all_symbols() {
+            if symbol.file_path == file_path {
+                if position.line >= symbol.range.start.line 
+                    && position.line <= symbol.range.end.line {
+                    if position.line == symbol.range.start.line && position.character < symbol.range.start.character {
+                        continue;
+                    }
+                    if position.line == symbol.range.end.line && position.character > symbol.range.end.character {
+                        continue;
+                    }
+                    return Ok(Some(symbol.clone()));
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    /// Get all symbols in a specific file
+    pub fn get_symbols_in_file(&self, file_path: &str) -> anyhow::Result<Vec<Symbol>> {
+        let mut symbols = Vec::new();
+        for symbol in self.get_all_symbols() {
+            if symbol.file_path == file_path {
+                symbols.push(symbol.clone());
+            }
+        }
+        Ok(symbols)
+    }
+
+    /// Get outgoing edges from a symbol
+    pub fn get_outgoing_edges(&self, symbol_id: &str, edge_type: Option<EdgeKind>) -> anyhow::Result<Vec<Symbol>> {
+        if let Some(&node_idx) = self.symbol_index.get(symbol_id) {
+            let mut targets = Vec::new();
+            for edge in self.graph.edges_directed(node_idx, petgraph::Direction::Outgoing) {
+                if edge_type.is_none() || edge_type == Some(*edge.weight()) {
+                    if let Some(symbol) = self.graph.node_weight(edge.target()) {
+                        targets.push(symbol.clone());
+                    }
+                }
+            }
+            Ok(targets)
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    /// Get incoming edges to a symbol
+    pub fn get_incoming_edges(&self, symbol_id: &str, edge_type: Option<EdgeKind>) -> anyhow::Result<Vec<Symbol>> {
+        if let Some(&node_idx) = self.symbol_index.get(symbol_id) {
+            let mut sources = Vec::new();
+            for edge in self.graph.edges_directed(node_idx, petgraph::Direction::Incoming) {
+                if edge_type.is_none() || edge_type == Some(*edge.weight()) {
+                    if let Some(symbol) = self.graph.node_weight(edge.source()) {
+                        sources.push(symbol.clone());
+                    }
+                }
+            }
+            Ok(sources)
+        } else {
+            Ok(Vec::new())
         }
     }
 }
@@ -328,7 +395,7 @@ mod tests {
         graph.add_edge(ref1_idx, func_idx, EdgeKind::Reference);
         graph.add_edge(ref2_idx, func_idx, EdgeKind::Reference);
 
-        let references = graph.find_references("func1");
+        let references = graph.find_references("func1").unwrap();
         assert_eq!(references.len(), 2);
     }
 
@@ -544,7 +611,7 @@ mod tests {
         let graph = CodeGraph::new();
 
         assert!(graph.find_symbol("nonexistent").is_none());
-        assert_eq!(graph.find_references("nonexistent").len(), 0);
+        assert_eq!(graph.find_references("nonexistent").unwrap().len(), 0);
         assert!(graph.find_definition("nonexistent").is_none());
         assert_eq!(graph.find_implementations("nonexistent").len(), 0);
         assert_eq!(graph.find_overrides("nonexistent").len(), 0);

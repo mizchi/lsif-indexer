@@ -64,7 +64,6 @@ impl SymbolPool {
         file_path: String,
         range: Range,
         documentation: Option<String>,
-    ) -> PooledSymbol {
         let mut pool = self.pool.write();
         let mut stats = self.stats.write();
 
@@ -100,7 +99,6 @@ impl SymbolPool {
                 file_path,
                 range,
                 documentation,
-            }),
         }
     }
 
@@ -165,7 +163,6 @@ pub fn acquire_symbol(
     file_path: String,
     range: Range,
     documentation: Option<String>,
-) -> PooledSymbol {
     GLOBAL_POOL.acquire(id, name, kind, file_path, range, documentation)
 }
 

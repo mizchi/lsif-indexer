@@ -180,7 +180,6 @@ pub fn create_test_graph_optimized(num_symbols: usize) -> OptimizedCodeGraph {
                 end: Position { line: (i * 10 + 5) as u32, character: 0 },
             },
             documentation: if i % 3 == 0 { Some(format!("Doc for {}", i)) } else { None },
-        })
         .collect();
     
     graph.add_symbols_batch(symbols);
@@ -340,7 +339,7 @@ mod tests {
         let code_graph = opt_graph.to_code_graph();
         assert_eq!(code_graph.symbol_count(), 10);
         
-        let refs = code_graph.find_references("id_1");
+        let refs = code_graph.find_references("id_1").unwrap();
         assert_eq!(refs.len(), 1);
         assert_eq!(refs[0].id, "id_0");
     }
