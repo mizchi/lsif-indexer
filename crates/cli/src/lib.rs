@@ -20,7 +20,7 @@ pub mod generic_helpers;
 pub mod git_diff;
 
 // Re-exports
-pub use differential_indexer::DifferentialIndexer;
+pub use differential_indexer::{DifferentialIndexer, DifferentialIndexResult, SymbolSummary};
 pub use indexer::Indexer;
 pub use cli::Cli;
 pub use storage::IndexStorage;

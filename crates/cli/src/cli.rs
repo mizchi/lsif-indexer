@@ -1064,7 +1064,14 @@ fn rebuild_index(db_path: &str, project_root: &str, force: bool, verbose: bool) 
 
     let elapsed = start.elapsed();
 
-    println!("✅ Index rebuilt in {:.2}s:", elapsed.as_secs_f64());
+    // フルインデックスの場合は特別な表示
+    if result.full_reindex {
+        println!("✅ Full reindex completed in {:.2}s (change ratio: {:.1}%):", 
+                 elapsed.as_secs_f64(), result.change_ratio * 100.0);
+    } else {
+        println!("✅ Index rebuilt in {:.2}s:", elapsed.as_secs_f64());
+    }
+    
     println!(
         "  Files: +{} ~{} -{}",
         result.files_added, result.files_modified, result.files_deleted
@@ -1073,6 +1080,32 @@ fn rebuild_index(db_path: &str, project_root: &str, force: bool, verbose: bool) 
         "  Symbols: +{} ~{} -{}",
         result.symbols_added, result.symbols_updated, result.symbols_deleted
     );
+
+    // 削除されたシンボルのサマリー表示
+    if !result.deleted_symbols.is_empty() {
+        println!("\n🗑️  Deleted symbols:");
+        for symbol in result.deleted_symbols.iter().take(10) {
+            println!("  - {} {:?} ({}:{})", 
+                     symbol.name, symbol.kind, 
+                     symbol.file_path, symbol.line);
+        }
+        if result.deleted_symbols.len() > 10 {
+            println!("  ... and {} more", result.deleted_symbols.len() - 10);
+        }
+    }
+
+    // 追加されたシンボルのサマリー表示
+    if !result.added_symbols.is_empty() {
+        println!("\n✨ Added symbols:");
+        for symbol in result.added_symbols.iter().take(10) {
+            println!("  + {} {:?} ({}:{})", 
+                     symbol.name, symbol.kind, 
+                     symbol.file_path, symbol.line);
+        }
+        if result.added_symbols.len() > 10 {
+            println!("  ... and {} more", result.added_symbols.len() - 10);
+        }
+    }
 
     if verbose {
         println!("\n📊 Performance metrics:");

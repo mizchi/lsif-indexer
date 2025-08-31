@@ -52,6 +52,27 @@ pub struct DifferentialIndexResult {
     pub symbols_deleted: usize,
     /// 処理時間
     pub duration: Duration,
+    /// 追加されたシンボルのサマリー
+    pub added_symbols: Vec<SymbolSummary>,
+    /// 削除されたシンボルのサマリー
+    pub deleted_symbols: Vec<SymbolSummary>,
+    /// フルインデックスが実行されたか
+    pub full_reindex: bool,
+    /// 差分率（変更ファイル数 / 全ファイル数）
+    pub change_ratio: f64,
+}
+
+/// シンボルのサマリー情報
+#[derive(Debug, Clone)]
+pub struct SymbolSummary {
+    /// シンボル名
+    pub name: String,
+    /// シンボルの種類
+    pub kind: SymbolKind,
+    /// ファイルパス
+    pub file_path: String,
+    /// 行番号
+    pub line: u32,
 }
 
 
@@ -262,6 +283,9 @@ impl DifferentialIndexer {
             .as_ref()
             .and_then(|m| m.last_commit.as_deref());
 
+        // 全ファイル数を取得（差分率計算用）
+        let total_file_count = self.count_total_files()?;
+        
         // 変更ファイルを検出（初回の場合は全ファイル）
         let changes = if self.metadata.is_none() {
             info!("Initial indexing - scanning all files");
@@ -270,8 +294,26 @@ impl DifferentialIndexer {
             self.git_detector.detect_changes_since(last_commit)?
         };
         
+        let change_count = changes.len();
+        let change_ratio = if total_file_count > 0 {
+            change_count as f64 / total_file_count as f64
+        } else {
+            0.0
+        };
+        
+        info!("Detected {} file changes (total files: {}, change ratio: {:.1}%)", 
+              change_count, total_file_count, change_ratio * 100.0);
+        
+        // 差分が50%以上の場合はフルインデックスを実行
+        let (changes, full_reindex) = if change_ratio >= 0.5 && self.metadata.is_some() {
+            warn!("Change ratio {:.1}% >= 50%, performing full reindex", change_ratio * 100.0);
+            eprintln!("⚠️  Large number of changes detected ({:.1}%), performing full reindex...", change_ratio * 100.0);
+            (self.scan_all_files()?, true)
+        } else {
+            (changes, false)
+        };
+        
         let total_files = changes.len();
-        info!("Detected {} file changes", total_files);
         
         // プログレス表示の準備
         if total_files > 10 {
@@ -286,6 +328,10 @@ impl DifferentialIndexer {
             symbols_updated: 0,
             symbols_deleted: 0,
             duration: Duration::from_secs(0),
+            added_symbols: Vec::new(),
+            deleted_symbols: Vec::new(),
+            full_reindex,
+            change_ratio,
         };
 
         // 既存のCodeGraphを読み込むか新規作成
@@ -323,9 +369,20 @@ impl DifferentialIndexer {
                     );
                     result.symbols_added += symbols.len();
 
-                    // グラフにシンボルを追加
+                    // グラフにシンボルを追加し、サマリーを記録
                     for symbol in symbols {
                         debug!("Adding symbol: {} ({})", symbol.name, symbol.id);
+                        
+                        // サマリーを記録（最大20件まで）
+                        if result.added_symbols.len() < 20 {
+                            result.added_symbols.push(SymbolSummary {
+                                name: symbol.name.clone(),
+                                kind: symbol.kind.clone(),
+                                file_path: symbol.file_path.clone(),
+                                line: symbol.range.start.line,
+                            });
+                        }
+                        
                         graph.add_symbol(symbol);
                     }
 
@@ -340,11 +397,20 @@ impl DifferentialIndexer {
                     let old_symbols: Vec<_> = graph
                         .get_all_symbols()
                         .filter(|s| s.file_path == path_str)
-                        .map(|s| s.id.clone())
+                        .cloned()
                         .collect();
 
-                    for id in &old_symbols {
-                        graph.remove_symbol(id);
+                    for symbol in &old_symbols {
+                        // サマリーを記録（最大20件まで）
+                        if result.deleted_symbols.len() < 20 {
+                            result.deleted_symbols.push(SymbolSummary {
+                                name: symbol.name.clone(),
+                                kind: symbol.kind.clone(),
+                                file_path: symbol.file_path.clone(),
+                                line: symbol.range.start.line,
+                            });
+                        }
+                        graph.remove_symbol(&symbol.id);
                     }
                     result.symbols_deleted += old_symbols.len();
 
@@ -353,6 +419,15 @@ impl DifferentialIndexer {
                     result.symbols_updated += symbols.len();
 
                     for symbol in symbols {
+                        // サマリーを記録（最大20件まで）
+                        if result.added_symbols.len() < 20 {
+                            result.added_symbols.push(SymbolSummary {
+                                name: symbol.name.clone(),
+                                kind: symbol.kind.clone(),
+                                file_path: symbol.file_path.clone(),
+                                line: symbol.range.start.line,
+                            });
+                        }
                         graph.add_symbol(symbol);
                     }
 
@@ -367,11 +442,20 @@ impl DifferentialIndexer {
                     let old_symbols: Vec<_> = graph
                         .get_all_symbols()
                         .filter(|s| s.file_path == path_str)
-                        .map(|s| s.id.clone())
+                        .cloned()
                         .collect();
 
-                    for id in &old_symbols {
-                        graph.remove_symbol(id);
+                    for symbol in &old_symbols {
+                        // サマリーを記録（最大20件まで）
+                        if result.deleted_symbols.len() < 20 {
+                            result.deleted_symbols.push(SymbolSummary {
+                                name: symbol.name.clone(),
+                                kind: symbol.kind.clone(),
+                                file_path: symbol.file_path.clone(),
+                                line: symbol.range.start.line,
+                            });
+                        }
+                        graph.remove_symbol(&symbol.id);
                     }
                     result.symbols_deleted += old_symbols.len();
                 }
@@ -536,6 +620,30 @@ impl DifferentialIndexer {
         Ok(())
     }
 
+    /// 全ファイル数をカウント（プロジェクト内の対象ファイル）
+    fn count_total_files(&self) -> Result<usize> {
+        let mut count = 0;
+        for entry in walkdir::WalkDir::new(&self.project_root)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+        {
+            let path = entry.path();
+            if path
+                .extension()
+                .and_then(|s| s.to_str())
+                .map(|ext| {
+                    ext == "rs" || ext == "ts" || ext == "js" || ext == "tsx" || ext == "jsx" 
+                    || ext == "py" || ext == "go" || ext == "java"
+                })
+                .unwrap_or(false)
+            {
+                count += 1;
+            }
+        }
+        Ok(count)
+    }
+    
     /// インデックス済みファイル数をカウント
     fn count_indexed_files(&self) -> Result<usize> {
         // CodeGraphから取得
@@ -715,6 +823,10 @@ mod tests {
             symbols_updated: 15,
             symbols_deleted: 10,
             duration: Duration::from_secs(1),
+            added_symbols: Vec::new(),
+            deleted_symbols: Vec::new(),
+            full_reindex: false,
+            change_ratio: 0.3,
         };
 
         assert_eq!(result.files_added, 5);
