@@ -12,6 +12,7 @@ pub mod call_hierarchy;
 pub mod type_relations;
 pub mod definition_chain;
 pub mod parallel;
+pub mod fuzzy_search;
 // パフォーマンス検証用（本番では標準実装を使用）
 #[cfg(feature = "experimental-optimizations")]
 pub mod memory_pool;
@@ -21,8 +22,6 @@ pub mod optimized_graph;
 pub mod string_interner;
 #[cfg(feature = "experimental-optimizations")]
 pub mod interned_graph;
-#[cfg(feature = "experimental-optimizations")]
-pub mod lockfree_graph;
 
 // Re-export main types
 pub use graph::{CodeGraph, EdgeKind, Symbol, SymbolKind, Position, Range};
@@ -32,6 +31,7 @@ pub use incremental::IncrementalIndex;
 pub use lsif::LsifGenerator;
 pub use call_hierarchy::CallHierarchy;
 pub use type_relations::TypeRelations;
+pub use fuzzy_search::{FuzzySearchIndex, SearchResult, MatchType};
 
 // Utility functions
 pub use incremental::calculate_file_hash;

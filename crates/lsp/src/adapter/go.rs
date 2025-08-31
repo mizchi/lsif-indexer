@@ -1,12 +1,13 @@
 use super::common::{c_style_comments, spawn_lsp_server};
-use super::minimal::{CommentStyles, MinimalLanguageAdapter};
+use super::language::{LanguageAdapter, DefinitionPattern, PatternType};
+use super::minimal::CommentStyles;
 use anyhow::Result;
 
 /// Go言語のアダプタ実装
 /// goplsを使用してGo言語のコードを解析
 pub struct GoAdapter;
 
-impl MinimalLanguageAdapter for GoAdapter {
+impl LanguageAdapter for GoAdapter {
     fn language_id(&self) -> &str {
         "go"
     }
@@ -19,8 +20,58 @@ impl MinimalLanguageAdapter for GoAdapter {
         spawn_lsp_server("gopls", &["serve"])
     }
 
-    fn comment_styles(&self) -> CommentStyles {
-        c_style_comments()
+    fn definition_patterns(&self) -> Vec<DefinitionPattern> {
+        vec![
+            DefinitionPattern {
+                keywords: vec!["func".to_string()],
+                pattern_type: PatternType::FunctionDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["type".to_string()],
+                pattern_type: PatternType::TypeDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["var".to_string()],
+                pattern_type: PatternType::VariableDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["const".to_string()],
+                pattern_type: PatternType::VariableDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["struct".to_string()],
+                pattern_type: PatternType::ClassDef,
+                requires_name_after: false,
+            },
+            DefinitionPattern {
+                keywords: vec!["interface".to_string()],
+                pattern_type: PatternType::InterfaceDef,
+                requires_name_after: false,
+            },
+        ]
+    }
+
+    fn build_reference_pattern(&self, name: &str, _kind: &core::SymbolKind) -> String {
+        format!(r"\b{}\b", regex::escape(name))
+    }
+
+    fn is_definition_context(&self, line: &str, position: usize) -> bool {
+        // Goの定義キーワードの前にあるかチェック
+        let before = &line[..position.min(line.len())];
+        before.contains("func ") || before.contains("type ") || 
+        before.contains("var ") || before.contains("const ")
+    }
+
+    fn is_in_string_or_comment(&self, line: &str, position: usize) -> bool {
+        let before = &line[..position.min(line.len())];
+        // 簡易的な判定
+        before.contains("//") || before.contains("/*") || 
+        before.chars().filter(|&c| c == '"').count() % 2 == 1 ||
+        before.chars().filter(|&c| c == '`').count() % 2 == 1
     }
 }
 

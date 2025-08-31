@@ -1,5 +1,5 @@
 use crate::adapter::go::GoAdapter;
-use crate::adapter::minimal::MinimalLanguageAdapter;
+use crate::adapter::language::LanguageAdapter;
 use crate::adapter::python::PythonAdapter;
 use crate::adapter::typescript::TypeScriptAdapter;
 /// 言語自動検出とアダプタ選択モジュール
@@ -112,7 +112,7 @@ pub fn detect_project_language(project_path: &Path) -> Language {
 }
 
 /// 言語に応じたLSPアダプタを作成
-pub fn create_language_adapter(language: &Language) -> Option<Box<dyn MinimalLanguageAdapter>> {
+pub fn create_language_adapter(language: &Language) -> Option<Box<dyn LanguageAdapter>> {
     match language {
         Language::Go => Some(Box::new(GoAdapter)),
         Language::Python => Some(Box::new(PythonAdapter::new())),

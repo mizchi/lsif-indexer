@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use lsp::adapter::go::GoAdapter;
-use lsp::lsp_minimal_client::MinimalLspClient;
-use lsp::adapter::minimal::MinimalLanguageAdapter;
+use lsp::lsp_client::LspClient;
+use lsp::adapter::language::LanguageAdapter;
 use lsp::adapter::python::PythonAdapter;
 use lsp::adapter::typescript::TypeScriptAdapter;
 use std::fs;
@@ -64,7 +64,7 @@ fn benchmark_file_size_scaling(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _size| {
             b.iter(|| {
                 let adapter = Box::new(PythonAdapter::new());
-                if let Ok(mut client) = MinimalLspClient::new(adapter) {
+                if let Ok(mut client) = LspClient::new(adapter) {
                     let project_path = PathBuf::from("/tmp");
                     let _ = client.initialize(&project_path);
                     let file = PathBuf::from(&file_path);
@@ -102,12 +102,12 @@ fn benchmark_concurrent_processing(c: &mut Criterion) {
 // ヘルパー関数
 
 fn extract_symbols_from_project(
-    adapter: Box<dyn MinimalLanguageAdapter>,
+    adapter: Box<dyn LanguageAdapter>,
     project_path: &PathBuf,
 ) -> usize {
     let mut total_symbols = 0;
 
-    if let Ok(mut client) = MinimalLspClient::new(adapter) {
+    if let Ok(mut client) = LspClient::new(adapter) {
         if client.initialize(project_path).is_ok() {
             // プロジェクト内のファイルを処理
             if let Ok(entries) = fs::read_dir(project_path) {
@@ -177,7 +177,7 @@ fn process_files_concurrently(thread_count: usize) {
                 for file in chunk {
                     if file.exists() {
                         // ファイルごとに適切なアダプタを選択
-                        let adapter: Box<dyn MinimalLanguageAdapter> =
+                        let adapter: Box<dyn LanguageAdapter> =
                             if file.extension().is_some_and(|e| e == "go") {
                                 Box::new(GoAdapter)
                             } else if file.extension().is_some_and(|e| e == "py") {
@@ -186,7 +186,7 @@ fn process_files_concurrently(thread_count: usize) {
                                 Box::new(TypeScriptAdapter::new())
                             };
 
-                        if let Ok(mut client) = MinimalLspClient::new(adapter) {
+                        if let Ok(mut client) = LspClient::new(adapter) {
                             if let Some(parent) = file.parent() {
                                 let _ = client.initialize(parent);
                                 let _ = client.get_document_symbols(&file);

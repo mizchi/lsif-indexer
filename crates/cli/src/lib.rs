@@ -7,8 +7,9 @@ pub mod adaptive_parallel;
 pub mod call_hierarchy_cmd;
 pub mod differential_indexer;
 pub mod indexer;
+pub mod parallel_processor;
 pub mod reference_finder;
-pub mod simple_cli;
+pub mod cli;
 
 // Storage layer
 pub mod storage;
@@ -21,5 +22,5 @@ pub mod git_diff;
 // Re-exports
 pub use differential_indexer::DifferentialIndexer;
 pub use indexer::Indexer;
-pub use simple_cli::SimpleCli;
+pub use cli::Cli;
 pub use storage::IndexStorage;

@@ -15,19 +15,15 @@ pub mod typescript;
 
 // Re-exports for convenience
 pub use common::CommonAdapter;
-pub use language::LanguageAdapter;
+pub use language::{LanguageAdapter, RustLanguageAdapter, TypeScriptLanguageAdapter};
 pub use lsp::{
     detect_language, GenericLspClient, LspAdapter, RustAnalyzerAdapter, TypeScriptAdapter,
 };
-pub use minimal::{
-    detect_language_adapter as detect_minimal_language, MinimalLanguageAdapter, 
-    PythonLanguageAdapter as PythonAdapter,
-    RustLanguageAdapter as MinimalRustAdapter, 
-    TypeScriptLanguageAdapter as MinimalTypeScriptAdapter,
-};
+pub use minimal::{detect_minimal_language, CommentStyles};
 
 // 言語別アダプタのre-export
 pub use go::GoAdapter;
+pub use python::PythonAdapter;
 pub use python::PythonAdapter as PythonLspAdapter;
 pub use rust::RustAdapter as RustLspAdapter;
 pub use typescript::{JavaScriptAdapter, TypeScriptAdapter as TypeScriptLspAdapter};

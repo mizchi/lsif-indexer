@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use cli::SimpleCli;
+use cli::Cli;
 
 fn main() -> Result<()> {
     // 環境変数でログレベルを設定可能にする
@@ -19,7 +19,7 @@ fn main() -> Result<()> {
         .init();
 
     // CLIパース＆実行
-    let cli = SimpleCli::parse();
+    let cli = Cli::parse();
     cli.execute()?;
 
     Ok(())

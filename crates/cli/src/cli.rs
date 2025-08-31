@@ -1,4 +1,4 @@
-use crate::differential_indexer::{DifferentialIndexer, IndexMode};
+use crate::differential_indexer::DifferentialIndexer;
 use crate::git_diff::GitDiffDetector;
 use crate::storage::IndexStorage;
 use core::CodeGraph;
@@ -15,7 +15,7 @@ const MAX_CHANGES_DISPLAY: usize = 15;
 #[command(name = "lsif")]
 #[command(about = "AI-optimized code indexer with automatic differential updates")]
 #[command(version)]
-pub struct SimpleCli {
+pub struct Cli {
     /// Index database path (default: .lsif-index.db in current directory)
     #[arg(short = 'd', long, global = true)]
     pub db: Option<String>,
@@ -29,11 +29,11 @@ pub struct SimpleCli {
     pub no_auto_index: bool,
 
     #[command(subcommand)]
-    pub command: SimpleCommands,
+    pub command: Commands,
 }
 
 #[derive(Subcommand)]
-pub enum SimpleCommands {
+pub enum Commands {
     /// Go to definition (LSP: textDocument/definition)
     Definition {
         /// File path or file:line:column
@@ -143,12 +143,6 @@ pub enum SimpleCommands {
         /// Show detailed progress
         #[arg(short, long)]
         verbose: bool,
-        /// Use LSP for precise symbol extraction (slower but more accurate)
-        #[arg(short, long)]
-        lsp: bool,
-        /// Indexing mode: fast, lsp, or auto
-        #[arg(short = 'm', long, default_value = "auto")]
-        mode: String,
     },
 
     /// Show graph diff - track related changes in the code graph
@@ -203,7 +197,7 @@ fn parse_location(file: &str, line: Option<u32>, column: Option<u32>) -> (String
     (file.to_string(), line.unwrap_or(1), column.unwrap_or(1))
 }
 
-impl SimpleCli {
+impl Cli {
     pub fn execute(self) -> Result<()> {
         // デフォルト値の設定
         let db_path = self.db.unwrap_or_else(|| DEFAULT_INDEX_PATH.to_string());
@@ -216,11 +210,11 @@ impl SimpleCli {
 
         // コマンドの実行
         match self.command {
-            SimpleCommands::Definition { file, line, column } => {
+            Commands::Definition { file, line, column } => {
                 let (file_path, line_num, col_num) = parse_location(&file, line, column);
                 find_definition(&db_path, &file_path, line_num, col_num)?;
             }
-            SimpleCommands::References {
+            Commands::References {
                 file,
                 line,
                 column,
@@ -229,14 +223,14 @@ impl SimpleCli {
                 let (file_path, line_num, col_num) = parse_location(&file, line, column);
                 find_references_recursive(&db_path, &file_path, line_num, col_num, depth)?;
             }
-            SimpleCommands::CallHierarchy {
+            Commands::CallHierarchy {
                 symbol,
                 depth,
                 direction,
             } => {
                 show_call_hierarchy(&db_path, &symbol, depth, &direction)?;
             }
-            SimpleCommands::TypeDefinition {
+            Commands::TypeDefinition {
                 file,
                 line,
                 column,
@@ -245,43 +239,43 @@ impl SimpleCli {
                 let (file_path, line_num, col_num) = parse_location(&file, line, column);
                 find_type_definition(&db_path, &file_path, line_num, col_num, depth)?;
             }
-            SimpleCommands::Implementation { type_name, depth } => {
+            Commands::Implementation { type_name, depth } => {
                 find_implementations(&db_path, &type_name, depth)?;
             }
-            SimpleCommands::Symbols { file, kind } => {
+            Commands::Symbols { file, kind } => {
                 show_document_symbols(&db_path, file.as_deref(), kind.as_deref())?;
             }
-            SimpleCommands::WorkspaceSymbols {
+            Commands::WorkspaceSymbols {
                 query,
                 limit,
                 fuzzy,
             } => {
                 search_workspace_symbols(&db_path, &query, limit, fuzzy)?;
             }
-            SimpleCommands::Graph {
+            Commands::Graph {
                 pattern,
                 limit,
                 depth,
             } => {
                 execute_graph_query(&db_path, &pattern, limit, depth)?;
             }
-            SimpleCommands::Unused { public_only } => {
+            Commands::Unused { public_only } => {
                 show_unused_code(&db_path, public_only)?;
             }
-            SimpleCommands::Index { force, verbose, lsp, mode } => {
-                rebuild_index(&db_path, &project_root, force, verbose, lsp, &mode)?;
+            Commands::Index { force, verbose } => {
+                rebuild_index(&db_path, &project_root, force, verbose)?;
             }
-            SimpleCommands::Diff {
+            Commands::Diff {
                 base,
                 related,
                 depth,
             } => {
                 show_graph_diff(&db_path, &project_root, base.as_deref(), related, depth)?;
             }
-            SimpleCommands::Status => {
+            Commands::Status => {
                 show_status(&db_path, &project_root)?;
             }
-            SimpleCommands::Export { format, output } => {
+            Commands::Export { format, output } => {
                 export_index(&db_path, &format, &output)?;
             }
         }
@@ -941,45 +935,53 @@ fn show_document_symbols(db_path: &str, file: Option<&str>, kind: Option<&str>) 
 
 /// ワークスペースシンボルを検索
 fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: bool) -> Result<()> {
-    use crate::fuzzy_search::{fuzzy_search, needs_fuzzy_search};
-
     let storage = IndexStorage::open_read_only(db_path)?;
     let graph: CodeGraph = storage
         .load_data("graph")?
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif index' first."))?;
 
     if fuzzy {
+        // 新しいFuzzySearchIndexを使用
+        use core::FuzzySearchIndex;
         println!("🔍 Fuzzy searching workspace for '{query}'");
-
-        // Collect all symbols for fuzzy search
-        let all_symbols: Vec<_> = graph.get_all_symbols().cloned().collect();
-        let matches = fuzzy_search(query, &all_symbols);
-
-        if matches.is_empty() {
+        
+        // インデックスを構築
+        let index = FuzzySearchIndex::build_from_graph(&graph);
+        
+        // 曖昧検索を実行
+        let results = index.search(query, limit);
+        
+        if results.is_empty() {
             println!("  No symbols found matching '{query}'");
             println!("  💡 Tips:");
-            println!("     - Try partial matches: 'relat' for 'RelationshipPattern'");
-            println!("     - Use lowercase: 'rp' matches 'JsonRpcRequest'");
-            println!("     - Abbreviations work best with capitals: 'RP' for names with R and P");
+            println!("     - Try partial matches: 'calc' for 'calculate'");
+            println!("     - Typos are handled: 'conection' finds 'connection'");
+            println!("     - Case insensitive: 'helloworld' matches 'HelloWorld'");
         } else {
-            let limited = matches.into_iter().take(limit).collect::<Vec<_>>();
             println!(
-                "  Found {} symbols (showing top {}):",
-                limited.len(),
-                limited.len()
+                "  Found {} symbols:",
+                results.len()
             );
-
-            for (i, fuzzy_match) in limited.iter().enumerate() {
-                let symbol = fuzzy_match.symbol;
+            for (i, result) in results.iter().enumerate() {
+                let symbol = &result.symbol;
+                let match_type = match result.match_type {
+                    core::fuzzy_search::MatchType::Exact => "exact",
+                    core::fuzzy_search::MatchType::Prefix => "prefix",
+                    core::fuzzy_search::MatchType::Substring => "substring",
+                    core::fuzzy_search::MatchType::CamelCase => "camel",
+                    core::fuzzy_search::MatchType::Fuzzy => "fuzzy",
+                    core::fuzzy_search::MatchType::Typo => "typo",
+                };
                 println!(
-                    "  {} {:?} {} at {}:{}:{} (score: {:.2})",
+                    "  {} {:?} {} at {}:{}:{} ({}, score: {:.2})",
                     i + 1,
                     symbol.kind,
                     symbol.name,
                     symbol.file_path,
                     symbol.range.start.line + 1,
                     symbol.range.start.character + 1,
-                    fuzzy_match.score
+                    match_type,
+                    result.score
                 );
             }
         }
@@ -996,21 +998,16 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: boo
         if matches.is_empty() {
             println!("  No symbols found matching '{query}'");
 
-            // 曖昧検索を提案
-            if needs_fuzzy_search(query, 0) {
-                println!("\n  💡 Try fuzzy search: lsif workspace-symbols {query} --fuzzy");
-
-                // プレビューとして少し表示
-                let all_symbols: Vec<_> = graph.get_all_symbols().cloned().collect();
-                let fuzzy_matches = fuzzy_search(query, &all_symbols);
-                if !fuzzy_matches.is_empty() {
-                    println!(
-                        "     Would find {} symbols like:",
-                        fuzzy_matches.len().min(3)
-                    );
-                    for m in fuzzy_matches.iter().take(3) {
-                        println!("       - {}", m.symbol.name);
-                    }
+            println!("\n  💡 Try fuzzy search: lsif workspace-symbols {query} --fuzzy");
+            
+            // プレビューとしてfuzzy検索結果を表示
+            use core::FuzzySearchIndex;
+            let index = FuzzySearchIndex::build_from_graph(&graph);
+            let fuzzy_results = index.search(query, 3);
+            if !fuzzy_results.is_empty() {
+                println!("     Would find symbols like:");
+                for result in fuzzy_results.iter() {
+                    println!("       - {} (score: {:.1})", result.symbol.name, result.score);
                 }
             }
         } else {
@@ -1028,7 +1025,7 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: boo
             }
 
             // 結果が少ない場合は曖昧検索も提案
-            if needs_fuzzy_search(query, matches.len()) {
+            if matches.len() < 5 {
                 println!("\n  💡 For more results, try: lsif workspace-symbols {query} --fuzzy");
             }
         }
@@ -1038,30 +1035,19 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: boo
 }
 
 /// verboseオプション付き
-fn rebuild_index(db_path: &str, project_root: &str, force: bool, verbose: bool, lsp: bool, mode: &str) -> Result<()> {
+fn rebuild_index(db_path: &str, project_root: &str, force: bool, verbose: bool) -> Result<()> {
     let project_path = Path::new(project_root);
     let start = Instant::now();
 
     let mut indexer = DifferentialIndexer::new(db_path, project_path)?;
 
-    // LSPモードを設定
-    let index_mode = if lsp {
-        IndexMode::LspPrecise
-    } else {
-        match mode.to_lowercase().as_str() {
-            "fast" => IndexMode::FastRegex,
-            "lsp" => IndexMode::LspPrecise,
-            "auto" => IndexMode::Auto,
-            _ => IndexMode::Auto,
-        }
-    };
-    indexer.set_index_mode(index_mode);
+    // LSPのみを使用（正規表現モードは削除済み）
 
     if verbose {
         println!("🔍 Starting index rebuild...");
         println!("  Database: {db_path}");
         println!("  Project: {project_root}");
-        println!("  Index mode: {:?}", index_mode);
+        println!("  Index mode: LSP (precise)");
     }
 
     let result = if force {

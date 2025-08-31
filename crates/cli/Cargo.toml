@@ -38,6 +38,7 @@ chrono.workspace = true
 rmp-serde.workspace = true
 bincode.workspace = true
 rayon.workspace = true
+num_cpus = "1.16"
 
 [dev-dependencies]
 core = { path = "../core", features = ["experimental-optimizations"] }
@@ -81,6 +82,6 @@ harness = false
 path = "../../benches/string_intern_benchmark.rs"
 
 [[bench]]
-name = "lockfree_benchmark"
+name = "fuzzy_search_benchmark"
 harness = false
-path = "../../benches/lockfree_benchmark.rs"
+path = "../../benches/fuzzy_search_benchmark.rs"

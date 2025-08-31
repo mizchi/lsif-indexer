@@ -3,7 +3,7 @@ use lsp_types::*;
 use std::path::{Path, PathBuf};
 use tracing::{info, warn};
 
-use super::adapter::lsp::detect_language;
+use super::language_detector::{detect_file_language, create_language_adapter};
 use super::lsp_client::LspClient;
 use core::graph::CodeGraph;
 use core::graph::{Range, Symbol, SymbolKind as LSIFSymbolKind};
@@ -16,10 +16,17 @@ pub struct LspIntegration {
 impl LspIntegration {
     pub fn new(root_path: PathBuf) -> Result<Self> {
         let sample_file = Self::find_sample_file(&root_path)?;
-        let adapter = detect_language(&sample_file.to_string_lossy())
-            .ok_or_else(|| anyhow!("Unable to detect language for project"))?;
+        let language = detect_file_language(&sample_file);
+        let adapter = create_language_adapter(&language)
+            .ok_or_else(|| anyhow!("Unable to create language adapter for {:?}", language))?;
 
-        let client = LspClient::new(adapter)?;
+        let mut client = LspClient::new(adapter)?;
+        
+        // LSPサーバーを初期化（短いタイムアウトで）
+        if let Err(e) = client.initialize_with_timeout(&root_path, std::time::Duration::from_secs(5)) {
+            warn!("Failed to initialize LSP server: {}", e);
+            return Err(anyhow!("LSP server initialization failed: {}", e));
+        }
 
         Ok(Self { client, root_path })
     }
@@ -75,12 +82,12 @@ impl LspIntegration {
         let uri = Url::from_file_path(file_path).map_err(|_| anyhow!("Invalid file path"))?;
 
         let content = std::fs::read_to_string(file_path)?;
-        let language_id = detect_language(&file_path.to_string_lossy())
-            .map(|_| "rust".to_string())
-            .unwrap_or_else(|| "text".to_string());
+        // language_idは不要（open_documentで処理される）
 
-        self.client
-            .open_document(uri.clone(), content.clone(), language_id)?;
+        // ファイルを開く
+        let path = uri.to_file_path()
+            .map_err(|_| anyhow::anyhow!("Invalid file URI: {}", uri))?;
+        self.client.open_document(&path)?;
 
         let symbols = self.client.document_symbols(uri.clone())?;
 
@@ -153,7 +160,7 @@ impl LspIntegration {
                 symbol.name
             );
 
-            if let Ok(references) = self.client.find_references(uri.clone(), position, false) {
+            if let Ok(references) = self.client.references(uri.clone(), position) {
                 for reference in references {
                     let _ref_id = format!(
                         "{}:{}:{}",
@@ -261,16 +268,8 @@ impl LspIntegration {
             character: column - 1,
         };
 
-        if let Some(hover) = self.client.hover(uri, position)? {
-            match hover.contents {
-                HoverContents::Scalar(content) => Ok(self.markup_content_to_string(content)),
-                HoverContents::Array(contents) => Ok(contents
-                    .into_iter()
-                    .map(|c| self.markup_content_to_string(c))
-                    .collect::<Vec<_>>()
-                    .join("\n\n")),
-                HoverContents::Markup(markup) => Ok(markup.value),
-            }
+        if let Some(hover_text) = self.client.hover(uri, position)? {
+            Ok(hover_text)
         } else {
             Ok("No hover information available".to_string())
         }

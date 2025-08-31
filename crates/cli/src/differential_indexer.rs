@@ -16,6 +16,7 @@ use walkdir;
 // LSP統合のためのインポート
 use lsp::lsp_indexer::LspIndexer;
 use lsp::language_detector::detect_project_language;
+use lsp::lsp_pool::{LspClientPool, PoolConfig};
 
 /// 差分インデックスのメタデータ
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,16 +54,6 @@ pub struct DifferentialIndexResult {
     pub duration: Duration,
 }
 
-/// インデックス作成モード
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum IndexMode {
-    /// 正規表現ベースの高速モード
-    FastRegex,
-    /// LSPを使用した高精度モード
-    LspPrecise,
-    /// 自動選択（ファイル数やプロジェクトサイズに基づく）
-    Auto,
-}
 
 /// 差分インデクサー
 pub struct DifferentialIndexer {
@@ -72,11 +63,10 @@ pub struct DifferentialIndexer {
     metadata: Option<DifferentialIndexMetadata>,
     #[allow(dead_code)] // 将来の並列処理拡張用
     parallel_processor: AdaptiveIncrementalProcessor,
-    /// インデックス作成モード
-    index_mode: IndexMode,
-    /// LSPインデクサー（遅延初期化）
-    #[allow(dead_code)]
+    /// LSPインデクサー
     lsp_indexer: Option<LspIndexer>,
+    /// LSPクライアントプール
+    lsp_pool: LspClientPool,
 }
 
 impl DifferentialIndexer {
@@ -97,21 +87,26 @@ impl DifferentialIndexer {
         let parallel_config = AdaptiveParallelConfig::default();
         let parallel_processor = AdaptiveIncrementalProcessor::new(parallel_config)?;
 
+        // LSPプールの設定
+        let pool_config = PoolConfig {
+            max_idle_time: std::time::Duration::from_secs(300),
+            init_timeout: std::time::Duration::from_secs(30),
+            request_timeout: std::time::Duration::from_secs(5),
+            max_retries: 3,
+        };
+        let lsp_pool = LspClientPool::new(pool_config);
+
         Ok(Self {
             storage,
             git_detector,
             project_root,
             metadata,
             parallel_processor,
-            index_mode: IndexMode::Auto,
             lsp_indexer: None,
+            lsp_pool,
         })
     }
 
-    /// インデックスモードを設定
-    pub fn set_index_mode(&mut self, mode: IndexMode) {
-        self.index_mode = mode;
-    }
 
     /// LSPインデクサーを初期化（遅延初期化）
     #[allow(dead_code)]
@@ -133,10 +128,12 @@ impl DifferentialIndexer {
 
     /// ファイルからシンボルを抽出（LSPモード）
     fn extract_symbols_with_lsp(&mut self, path: &Path) -> Result<Vec<Symbol>> {
-        use lsp::adapter::lsp::{detect_language, GenericLspClient};
         use std::fs::canonicalize;
+        use std::time::Instant;
         
         debug!("Using LSP to extract symbols from: {}", path.display());
+        
+        let start = Instant::now();
         
         // ファイルの絶対パスを取得
         let absolute_path = if path.is_absolute() {
@@ -145,34 +142,39 @@ impl DifferentialIndexer {
             canonicalize(path)?
         };
         
-        // ファイルの言語を検出
         let file_uri = format!("file://{}", absolute_path.display());
-        if let Some(adapter) = detect_language(&path.to_string_lossy()) {
-            // LSPクライアントを作成
-            match GenericLspClient::new(adapter) {
-                Ok(mut client) => {
-                    // ドキュメントシンボルを取得
-                    match client.get_document_symbols(&file_uri) {
-                        Ok(lsp_symbols) => {
-                            debug!("LSP extracted {} symbols from {}", lsp_symbols.len(), path.display());
-                            // LSPシンボルをコアのSymbol型に変換
-                            let symbols = self.convert_lsp_symbols_to_core(&lsp_symbols, path);
-                            Ok(symbols)
-                        }
-                        Err(e) => {
-                            warn!("LSP extraction failed for {}: {}. Using fallback.", path.display(), e);
-                            self.extract_symbols_with_fallback(path)
+        
+        // LSPプールからクライアントを取得
+        match self.lsp_pool.get_or_create_client(path, &self.project_root) {
+            Ok(client_arc) => {
+                // クライアントをロックして使用
+                match client_arc.lock() {
+                    Ok(mut client) => {
+                        // ドキュメントシンボルを取得
+                        match client.get_document_symbols(&file_uri) {
+                            Ok(lsp_symbols) => {
+                                debug!("LSP extracted {} symbols from {} in {:?}", 
+                                       lsp_symbols.len(), path.display(), start.elapsed());
+                                // LSPシンボルをコアのSymbol型に変換
+                                let symbols = self.convert_lsp_symbols_to_core(&lsp_symbols, path);
+                                Ok(symbols)
+                            }
+                            Err(e) => {
+                                warn!("LSP extraction failed for {}: {}. Using fallback.", path.display(), e);
+                                self.extract_symbols_with_fallback(path)
+                            }
                         }
                     }
-                }
-                Err(e) => {
-                    warn!("Failed to create LSP client for {}: {}. Using fallback.", path.display(), e);
-                    self.extract_symbols_with_fallback(path)
+                    Err(e) => {
+                        warn!("Failed to lock LSP client for {}: {}. Using fallback.", path.display(), e);
+                        self.extract_symbols_with_fallback(path)
+                    }
                 }
             }
-        } else {
-            debug!("No LSP adapter for file extension. Using fallback.");
-            self.extract_symbols_with_fallback(path)
+            Err(e) => {
+                warn!("Failed to get LSP client from pool for {}: {}. Using fallback.", path.display(), e);
+                self.extract_symbols_with_fallback(path)
+            }
         }
     }
 
@@ -187,9 +189,9 @@ impl DifferentialIndexer {
             let symbols = self.convert_lsp_symbols_to_core(&lsp_symbols, path);
             Ok(symbols)
         } else {
-            // フォールバックも使えない場合は正規表現モードに戻る
-            debug!("Fallback indexer not available, using regex");
-            self.extract_symbols_regex(path)
+            // フォールバックも使えない場合は空のリストを返す
+            debug!("No indexer available for file: {}", path.display());
+            Ok(Vec::new())
         }
     }
     
@@ -267,7 +269,14 @@ impl DifferentialIndexer {
         } else {
             self.git_detector.detect_changes_since(last_commit)?
         };
-        info!("Detected {} file changes", changes.len());
+        
+        let total_files = changes.len();
+        info!("Detected {} file changes", total_files);
+        
+        // プログレス表示の準備
+        if total_files > 10 {
+            eprintln!("🚀 Processing {} files...", total_files);
+        }
 
         let mut result = DifferentialIndexResult {
             files_added: 0,
@@ -287,11 +296,20 @@ impl DifferentialIndexer {
 
         // ファイルごとに処理
         let mut new_file_hashes = HashMap::new();
+        let mut processed_count = 0;
 
         for change in changes {
             // コンテンツハッシュを記録
             if let Some(ref hash) = change.content_hash {
                 new_file_hashes.insert(change.path.clone(), hash.clone());
+            }
+            
+            // プログレス表示
+            processed_count += 1;
+            if total_files > 10 && processed_count % 10 == 0 {
+                eprintln!("  ⚡ Processed {}/{} files ({:.0}%)", 
+                         processed_count, total_files, 
+                         (processed_count as f64 / total_files as f64) * 100.0);
             }
 
             match change.status {
@@ -432,200 +450,22 @@ impl DifferentialIndexer {
         Ok(true)
     }
 
-    /// ファイルからシンボルを抽出（簡易版）
+    /// ファイルからシンボルを抽出
     fn extract_symbols_from_file(&mut self, path: &Path) -> Result<Vec<Symbol>> {
-        // モードに応じて処理を分岐
-        let should_use_lsp = match self.index_mode {
-            IndexMode::LspPrecise => true,
-            IndexMode::FastRegex => false,
-            IndexMode::Auto => {
-                // 自動モード: ファイルサイズやプロジェクトサイズで判断
-                let file_size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
-                // 100KB以上のファイルまたは複雑な言語の場合はLSPを使用
-                file_size > 100_000 || matches!(
-                    path.extension().and_then(|s| s.to_str()),
-                    Some("rs") | Some("ts") | Some("tsx") | Some("go") | Some("java")
-                )
+        // 常にLSPを使用し、失敗した場合はフォールバックを使用
+        match self.extract_symbols_with_lsp(path) {
+            Ok(symbols) => {
+                debug!("Successfully extracted {} symbols using LSP from {}", 
+                       symbols.len(), path.display());
+                Ok(symbols)
             }
-        };
-
-        if should_use_lsp {
-            // LSPモードで処理
-            match self.extract_symbols_with_lsp(path) {
-                Ok(symbols) => {
-                    debug!("Successfully extracted {} symbols using LSP from {}", 
-                           symbols.len(), path.display());
-                    Ok(symbols)
-                }
-                Err(e) => {
-                    debug!("LSP extraction failed: {}, falling back to regex", e);
-                    self.extract_symbols_regex(path)
-                }
+            Err(e) => {
+                debug!("LSP extraction failed: {}, trying fallback", e);
+                self.extract_symbols_with_fallback(path)
             }
-        } else {
-            // 正規表現モードで処理
-            self.extract_symbols_regex(path)
         }
     }
 
-    /// ファイルからシンボルを抽出（正規表現版）
-    fn extract_symbols_regex(&self, path: &Path) -> Result<Vec<Symbol>> {
-        let mut symbols = Vec::new();
-
-        // ファイル拡張子で言語を判定
-        let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
-        debug!(
-            "Processing file with regex: {} (extension: {})",
-            path.display(),
-            extension
-        );
-
-        match extension {
-            "rs" => {
-                // Rustファイルの解析
-                let content = std::fs::read_to_string(path)?;
-                let rust_symbols = self.extract_rust_symbols(path, &content)?;
-                debug!(
-                    "Found {} Rust symbols in {}",
-                    rust_symbols.len(),
-                    path.display()
-                );
-                symbols.extend(rust_symbols);
-            }
-            "ts" | "tsx" | "js" | "jsx" => {
-                // TypeScript/JavaScriptファイルの解析
-                let content = std::fs::read_to_string(path)?;
-                let ts_symbols = self.extract_typescript_symbols(path, &content)?;
-                debug!(
-                    "Found {} TypeScript symbols in {}",
-                    ts_symbols.len(),
-                    path.display()
-                );
-                symbols.extend(ts_symbols);
-            }
-            _ => {
-                debug!("Unsupported file type: {}", extension);
-            }
-        }
-
-        Ok(symbols)
-    }
-
-    /// Rustシンボルを抽出（簡易版）
-    fn extract_rust_symbols(&self, path: &Path, content: &str) -> Result<Vec<Symbol>> {
-        let mut symbols = Vec::new();
-        let path_str = path.to_string_lossy().to_string();
-
-        for (line_no, line) in content.lines().enumerate() {
-            let trimmed = line.trim();
-
-            // 関数定義
-            if trimmed.starts_with("fn ") || trimmed.starts_with("pub fn ") {
-                if let Some(name) = extract_function_name(trimmed) {
-                    symbols.push(Symbol {
-                        id: format!("{}#{}:{}", path_str, line_no + 1, name),
-                        kind: SymbolKind::Function,
-                        name: name.to_string(),
-                        file_path: path_str.clone(),
-                        range: core::Range {
-                            start: core::Position {
-                                line: line_no as u32,
-                                character: 0,
-                            },
-                            end: core::Position {
-                                line: line_no as u32,
-                                character: line.len() as u32,
-                            },
-                        },
-                        documentation: None,
-                    });
-                }
-            }
-
-            // 構造体定義
-            if trimmed.starts_with("struct ") || trimmed.starts_with("pub struct ") {
-                if let Some(name) = extract_struct_name(trimmed) {
-                    symbols.push(Symbol {
-                        id: format!("{}#{}:{}", path_str, line_no + 1, name),
-                        kind: SymbolKind::Class,
-                        name: name.to_string(),
-                        file_path: path_str.clone(),
-                        range: core::Range {
-                            start: core::Position {
-                                line: line_no as u32,
-                                character: 0,
-                            },
-                            end: core::Position {
-                                line: line_no as u32,
-                                character: line.len() as u32,
-                            },
-                        },
-                        documentation: None,
-                    });
-                }
-            }
-        }
-
-        Ok(symbols)
-    }
-
-    /// TypeScriptシンボルを抽出（簡易版）
-    fn extract_typescript_symbols(&self, path: &Path, content: &str) -> Result<Vec<Symbol>> {
-        let mut symbols = Vec::new();
-        let path_str = path.to_string_lossy().to_string();
-
-        for (line_no, line) in content.lines().enumerate() {
-            let trimmed = line.trim();
-
-            // 関数定義
-            if trimmed.starts_with("function ") || trimmed.starts_with("export function ") {
-                if let Some(name) = extract_ts_function_name(trimmed) {
-                    symbols.push(Symbol {
-                        id: format!("{}#{}:{}", path_str, line_no + 1, name),
-                        kind: SymbolKind::Function,
-                        name: name.to_string(),
-                        file_path: path_str.clone(),
-                        range: core::Range {
-                            start: core::Position {
-                                line: line_no as u32,
-                                character: 0,
-                            },
-                            end: core::Position {
-                                line: line_no as u32,
-                                character: line.len() as u32,
-                            },
-                        },
-                        documentation: None,
-                    });
-                }
-            }
-
-            // クラス定義
-            if trimmed.starts_with("class ") || trimmed.starts_with("export class ") {
-                if let Some(name) = extract_ts_class_name(trimmed) {
-                    symbols.push(Symbol {
-                        id: format!("{}#{}:{}", path_str, line_no + 1, name),
-                        kind: SymbolKind::Class,
-                        name: name.to_string(),
-                        file_path: path_str.clone(),
-                        range: core::Range {
-                            start: core::Position {
-                                line: line_no as u32,
-                                character: 0,
-                            },
-                            end: core::Position {
-                                line: line_no as u32,
-                                character: line.len() as u32,
-                            },
-                        },
-                        documentation: None,
-                    });
-                }
-            }
-        }
-
-        Ok(symbols)
-    }
 
     /// メタデータを更新
     fn update_metadata(&mut self) -> Result<()> {
@@ -842,32 +682,6 @@ impl DifferentialIndexer {
     }
 }
 
-// ヘルパー関数
-fn extract_function_name(line: &str) -> Option<&str> {
-    let line = line.trim_start_matches("pub ").trim_start_matches("fn ");
-    line.split(&['(', '<'][..]).next()
-}
-
-fn extract_struct_name(line: &str) -> Option<&str> {
-    let line = line
-        .trim_start_matches("pub ")
-        .trim_start_matches("struct ");
-    line.split(&[' ', '<', '{'][..]).next()
-}
-
-fn extract_ts_function_name(line: &str) -> Option<&str> {
-    let line = line
-        .trim_start_matches("export ")
-        .trim_start_matches("function ");
-    line.split(&['(', '<'][..]).next()
-}
-
-fn extract_ts_class_name(line: &str) -> Option<&str> {
-    let line = line
-        .trim_start_matches("export ")
-        .trim_start_matches("class ");
-    line.split(&[' ', '<', '{'][..]).next()
-}
 
 #[cfg(test)]
 mod tests {
@@ -912,39 +726,6 @@ mod tests {
         assert_eq!(result.duration.as_secs(), 1);
     }
 
-    #[test]
-    fn test_extract_function_name() {
-        assert_eq!(extract_function_name("fn main()"), Some("main"));
-        assert_eq!(extract_function_name("pub fn test()"), Some("test"));
-        assert_eq!(extract_function_name("fn foo<T>()"), Some("foo"));
-        assert_eq!(extract_function_name("fn bar(x: i32)"), Some("bar"));
-    }
-
-    #[test]
-    fn test_extract_struct_name() {
-        assert_eq!(extract_struct_name("struct Foo"), Some("Foo"));
-        assert_eq!(extract_struct_name("pub struct Bar"), Some("Bar"));
-        assert_eq!(extract_struct_name("struct Baz<T>"), Some("Baz"));
-        assert_eq!(extract_struct_name("struct Qux {"), Some("Qux"));
-    }
-
-    #[test]
-    fn test_extract_ts_function_name() {
-        assert_eq!(extract_ts_function_name("function foo()"), Some("foo"));
-        assert_eq!(
-            extract_ts_function_name("export function bar()"),
-            Some("bar")
-        );
-        assert_eq!(extract_ts_function_name("function baz<T>()"), Some("baz"));
-    }
-
-    #[test]
-    fn test_extract_ts_class_name() {
-        assert_eq!(extract_ts_class_name("class Foo"), Some("Foo"));
-        assert_eq!(extract_ts_class_name("export class Bar"), Some("Bar"));
-        assert_eq!(extract_ts_class_name("class Baz<T>"), Some("Baz"));
-        assert_eq!(extract_ts_class_name("class Qux {"), Some("Qux"));
-    }
 
     #[test]
     fn test_new_differential_indexer() {
@@ -1023,28 +804,6 @@ mod tests {
         assert!(not_found.is_none());
     }
 
-    #[test]
-    fn test_index_mode() {
-        let temp_dir = TempDir::new().unwrap();
-        let storage_path = temp_dir.path().join("test.db");
-        let project_root = temp_dir.path();
-
-        // Git初期化
-        fs::create_dir_all(project_root.join(".git")).unwrap();
-
-        let mut indexer = DifferentialIndexer::new(&storage_path, project_root).unwrap();
-        
-        // デフォルトはAutoモード
-        assert_eq!(indexer.index_mode, IndexMode::Auto);
-        
-        // LSPモードに設定
-        indexer.set_index_mode(IndexMode::LspPrecise);
-        assert_eq!(indexer.index_mode, IndexMode::LspPrecise);
-        
-        // Regexモードに設定
-        indexer.set_index_mode(IndexMode::FastRegex);
-        assert_eq!(indexer.index_mode, IndexMode::FastRegex);
-    }
 
     #[test]
     fn test_convert_lsp_symbol_kind() {
@@ -1080,42 +839,4 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_extract_symbols_regex() {
-        let temp_dir = TempDir::new().unwrap();
-        let storage_path = temp_dir.path().join("test.db");
-        let project_root = temp_dir.path();
-
-        // Git初期化とテストファイル作成
-        fs::create_dir_all(project_root.join(".git")).unwrap();
-        
-        let rust_code = r#"
-pub fn test_function() -> i32 {
-    42
-}
-
-struct TestStruct {
-    field: String,
-}
-
-impl TestStruct {
-    fn new() -> Self {
-        Self { field: String::new() }
-    }
-}
-"#;
-        
-        let test_file = project_root.join("test.rs");
-        fs::write(&test_file, rust_code).unwrap();
-
-        let indexer = DifferentialIndexer::new(&storage_path, project_root).unwrap();
-        
-        // 正規表現モードでシンボル抽出
-        let symbols = indexer.extract_symbols_regex(&test_file).unwrap();
-        
-        // 関数と構造体が検出されることを確認
-        assert!(symbols.iter().any(|s| s.name == "test_function" && s.kind == SymbolKind::Function));
-        assert!(symbols.iter().any(|s| s.name == "TestStruct" && s.kind == SymbolKind::Class));
-        assert!(symbols.iter().any(|s| s.name == "new" && s.kind == SymbolKind::Function));
-    }
 }

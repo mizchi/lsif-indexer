@@ -1,5 +1,5 @@
-use super::common::{c_style_comments, spawn_lsp_server};
-use super::minimal::{CommentStyles, MinimalLanguageAdapter};
+use super::common::spawn_lsp_server;
+use super::language::{LanguageAdapter, DefinitionPattern, PatternType};
 use anyhow::Result;
 
 /// TypeScript/JavaScript言語のアダプタ実装
@@ -60,7 +60,7 @@ impl Default for TypeScriptAdapter {
     }
 }
 
-impl MinimalLanguageAdapter for TypeScriptAdapter {
+impl LanguageAdapter for TypeScriptAdapter {
     fn language_id(&self) -> &str {
         if self.js_only {
             "javascript"
@@ -81,11 +81,83 @@ impl MinimalLanguageAdapter for TypeScriptAdapter {
         spawn_lsp_server("typescript-language-server", &["--stdio"])
     }
 
-    fn comment_styles(&self) -> CommentStyles {
-        // 基本的にC言語スタイルだが、JSDocも考慮
-        let mut styles = c_style_comments();
-        styles.block_comment.push(("/**", "*/"));
-        styles
+    fn definition_patterns(&self) -> Vec<DefinitionPattern> {
+        let mut patterns = vec![
+            DefinitionPattern {
+                keywords: vec!["function".to_string()],
+                pattern_type: PatternType::FunctionDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["class".to_string()],
+                pattern_type: PatternType::ClassDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["const".to_string()],
+                pattern_type: PatternType::VariableDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["let".to_string()],
+                pattern_type: PatternType::VariableDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["var".to_string()],
+                pattern_type: PatternType::VariableDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["async".to_string(), "function".to_string()],
+                pattern_type: PatternType::FunctionDef,
+                requires_name_after: true,
+            },
+        ];
+
+        // TypeScript固有のパターンを追加
+        if !self.js_only {
+            patterns.extend(vec![
+                DefinitionPattern {
+                    keywords: vec!["interface".to_string()],
+                    pattern_type: PatternType::InterfaceDef,
+                    requires_name_after: true,
+                },
+                DefinitionPattern {
+                    keywords: vec!["type".to_string()],
+                    pattern_type: PatternType::TypeDef,
+                    requires_name_after: true,
+                },
+                DefinitionPattern {
+                    keywords: vec!["enum".to_string()],
+                    pattern_type: PatternType::EnumDef,
+                    requires_name_after: true,
+                },
+            ]);
+        }
+
+        patterns
+    }
+
+    fn build_reference_pattern(&self, name: &str, _kind: &core::SymbolKind) -> String {
+        format!(r"\b{}\b", regex::escape(name))
+    }
+
+    fn is_definition_context(&self, line: &str, position: usize) -> bool {
+        let before = &line[..position.min(line.len())];
+        before.contains("function ") || before.contains("class ") ||
+        before.contains("const ") || before.contains("let ") || before.contains("var ") ||
+        before.contains("async function ") ||
+        (!self.js_only && (before.contains("interface ") || before.contains("type ") || before.contains("enum ")))
+    }
+
+    fn is_in_string_or_comment(&self, line: &str, position: usize) -> bool {
+        let before = &line[..position.min(line.len())];
+        // 簡易的な判定
+        before.contains("//") || before.contains("/*") ||
+        before.chars().filter(|&c| c == '"').count() % 2 == 1 ||
+        before.chars().filter(|&c| c == '\'').count() % 2 == 1 ||
+        before.chars().filter(|&c| c == '`').count() % 2 == 1
     }
 }
 
@@ -173,10 +245,31 @@ mod tests {
     }
 
     #[test]
-    fn test_comment_styles() {
+    fn test_definition_patterns() {
         let adapter = TypeScriptAdapter::new();
-        let styles = adapter.comment_styles();
-        assert_eq!(styles.line_comment, vec!["//"]);
-        assert_eq!(styles.block_comment.len(), 2); // /* */ と /** */
+        let patterns = adapter.definition_patterns();
+        assert!(!patterns.is_empty());
+        
+        // function定義パターンをチェック
+        let has_function = patterns.iter().any(|p| p.keywords == vec!["function"]);
+        assert!(has_function);
+        
+        // TypeScript固有のinterfaceパターンをチェック
+        let has_interface = patterns.iter().any(|p| p.keywords == vec!["interface"]);
+        assert!(has_interface);
+    }
+
+    #[test]
+    fn test_js_only_patterns() {
+        let adapter = TypeScriptAdapter::javascript_only();
+        let patterns = adapter.definition_patterns();
+        
+        // JavaScript用なのでinterfaceは含まれない
+        let has_interface = patterns.iter().any(|p| p.keywords == vec!["interface"]);
+        assert!(!has_interface);
+        
+        // しかしfunctionは含まれる
+        let has_function = patterns.iter().any(|p| p.keywords == vec!["function"]);
+        assert!(has_function);
     }
 }

@@ -1,5 +1,5 @@
-use super::common::{is_command_available, python_style_comments, spawn_lsp_server};
-use super::minimal::{CommentStyles, MinimalLanguageAdapter};
+use super::common::{is_command_available, spawn_lsp_server};
+use super::language::{LanguageAdapter, DefinitionPattern, PatternType};
 use anyhow::Result;
 
 /// Python言語のアダプタ実装
@@ -58,7 +58,7 @@ impl Default for PythonAdapter {
     }
 }
 
-impl MinimalLanguageAdapter for PythonAdapter {
+impl LanguageAdapter for PythonAdapter {
     fn language_id(&self) -> &str {
         "python"
     }
@@ -80,8 +80,43 @@ impl MinimalLanguageAdapter for PythonAdapter {
         }
     }
 
-    fn comment_styles(&self) -> CommentStyles {
-        python_style_comments()
+    fn definition_patterns(&self) -> Vec<DefinitionPattern> {
+        vec![
+            DefinitionPattern {
+                keywords: vec!["def".to_string()],
+                pattern_type: PatternType::FunctionDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["class".to_string()],
+                pattern_type: PatternType::ClassDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["async".to_string(), "def".to_string()],
+                pattern_type: PatternType::FunctionDef,
+                requires_name_after: true,
+            },
+        ]
+    }
+
+    fn build_reference_pattern(&self, name: &str, _kind: &core::SymbolKind) -> String {
+        format!(r"\b{}\b", regex::escape(name))
+    }
+
+    fn is_definition_context(&self, line: &str, position: usize) -> bool {
+        let before = &line[..position.min(line.len())];
+        before.contains("def ") || before.contains("class ") || 
+        before.contains("async def ")
+    }
+
+    fn is_in_string_or_comment(&self, line: &str, position: usize) -> bool {
+        let before = &line[..position.min(line.len())];
+        // 簡易的な判定
+        before.contains("#") || 
+        before.chars().filter(|&c| c == '"').count() % 2 == 1 ||
+        before.chars().filter(|&c| c == '\'').count() % 2 == 1 ||
+        before.contains("\"\"\"")
     }
 }
 
@@ -122,10 +157,17 @@ mod tests {
     }
 
     #[test]
-    fn test_comment_styles() {
+    fn test_definition_patterns() {
         let adapter = PythonAdapter::new();
-        let styles = adapter.comment_styles();
-        assert_eq!(styles.line_comment, vec!["#"]);
-        assert_eq!(styles.block_comment.len(), 2);
+        let patterns = adapter.definition_patterns();
+        assert!(!patterns.is_empty());
+        
+        // def関数の定義パターンをチェック
+        let has_def = patterns.iter().any(|p| p.keywords == vec!["def"]);
+        assert!(has_def);
+        
+        // class定義パターンをチェック
+        let has_class = patterns.iter().any(|p| p.keywords == vec!["class"]);
+        assert!(has_class);
     }
 }

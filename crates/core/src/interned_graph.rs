@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::{
     graph::{CodeGraph, EdgeKind, Symbol, SymbolKind, Position, Range},
-    string_interner::{InternedString, InternedSymbol, StringInterner},
+    string_interner::{InternedString, InternedSymbol, StringInterner, intern},
 };
 
 /// String interningを使用した最適化グラフ
@@ -12,8 +12,6 @@ pub struct InternedGraph {
     symbols: Arc<DashMap<InternedString, InternedSymbol>>,
     /// エッジ情報（インターン化されたID使用）
     edges: Arc<DashMap<(InternedString, InternedString, EdgeKind), ()>>,
-    /// 専用のStringインターナー
-    interner: Arc<StringInterner>,
 }
 
 impl InternedGraph {
@@ -22,20 +20,20 @@ impl InternedGraph {
         Self {
             symbols: Arc::new(DashMap::new()),
             edges: Arc::new(DashMap::new()),
-            interner: Arc::new(StringInterner::new()),
         }
     }
 
     /// Symbolを追加（文字列をインターン化）
     pub fn add_symbol(&self, symbol: Symbol) -> InternedString {
-        let interned_id = self.interner.intern(&symbol.id);
+        // グローバルインターナーを使用
+        let interned_id = intern(&symbol.id);
         let interned_symbol = InternedSymbol {
             id: interned_id,
-            name: self.interner.intern(&symbol.name),
+            name: intern(&symbol.name),
             kind: symbol.kind,
-            file_path: self.interner.intern(&symbol.file_path),
+            file_path: intern(&symbol.file_path),
             range: symbol.range,
-            documentation: symbol.documentation.as_deref().map(|d| self.interner.intern(d)),
+            documentation: symbol.documentation.as_deref().map(|d| intern(d)),
         };
         
         self.symbols.insert(interned_id, interned_symbol);
@@ -51,14 +49,14 @@ impl InternedGraph {
 
     /// エッジを追加
     pub fn add_edge(&self, from: &str, to: &str, kind: EdgeKind) {
-        let from_id = self.interner.intern(from);
-        let to_id = self.interner.intern(to);
+        let from_id = intern(from);
+        let to_id = intern(to);
         self.edges.insert((from_id, to_id, kind), ());
     }
 
     /// Symbolを取得
     pub fn get_symbol(&self, id: &str) -> Option<Symbol> {
-        let interned_id = self.interner.intern(id);
+        let interned_id = intern(id);
         self.symbols.get(&interned_id).map(|entry| {
             entry.value().to_symbol()
         })
@@ -84,7 +82,7 @@ impl InternedGraph {
 
     /// 参照を検索
     pub fn find_references(&self, symbol_id: &str) -> Vec<String> {
-        let target_id = self.interner.intern(symbol_id);
+        let target_id = intern(symbol_id);
         
         self.edges
             .iter()
@@ -101,7 +99,7 @@ impl InternedGraph {
 
     /// 定義を検索
     pub fn find_definition(&self, symbol_id: &str) -> Option<String> {
-        let source_id = self.interner.intern(symbol_id);
+        let source_id = intern(symbol_id);
         
         self.edges
             .iter()
@@ -125,15 +123,15 @@ impl InternedGraph {
         let edge_size = std::mem::size_of::<(InternedString, InternedString, EdgeKind)>();
         let edges_memory = self.edges.len() * edge_size;
         
-        // インターナーのメモリ使用量
-        let interner_memory = self.interner.estimated_memory_usage();
+        // グローバルインターナーのメモリ使用量（推定）
+        let interner_memory = 0; // グローバルインターナーの使用量は別途計測
         
         symbols_memory + edges_memory + interner_memory
     }
 
     /// インターナーの統計情報を取得
     pub fn interner_stats(&self) -> crate::string_interner::InternerStats {
-        self.interner.stats()
+        crate::string_interner::interner_stats()
     }
 
     /// 通常のCodeGraphに変換

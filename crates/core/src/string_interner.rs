@@ -96,7 +96,10 @@ impl StringInterner {
     /// IDから文字列を取得
     pub fn get(&self, interned: InternedString) -> &'static str {
         let id_to_string = self.id_to_string.read();
-        id_to_string[interned.0 as usize]
+        id_to_string
+            .get(interned.0 as usize)
+            .copied()
+            .unwrap_or("")
     }
 
     /// 統計情報を取得
@@ -202,8 +205,9 @@ mod tests {
         assert_eq!(s1, s3); // 同じIDを持つ
         assert_ne!(s1, s2);
         
-        assert_eq!(s1.as_str(), "hello");
-        assert_eq!(s2.as_str(), "world");
+        // ローカルインターナーを使う場合は、getメソッドを直接使う
+        assert_eq!(interner.get(s1), "hello");
+        assert_eq!(interner.get(s2), "world");
         
         let stats = interner.stats();
         assert_eq!(stats.total_strings, 2); // "hello"と"world"のみ
