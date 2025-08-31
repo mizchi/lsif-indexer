@@ -12,6 +12,17 @@ pub mod call_hierarchy;
 pub mod type_relations;
 pub mod definition_chain;
 pub mod parallel;
+// パフォーマンス検証用（本番では標準実装を使用）
+#[cfg(feature = "experimental-optimizations")]
+pub mod memory_pool;
+#[cfg(feature = "experimental-optimizations")]
+pub mod optimized_graph;
+#[cfg(feature = "experimental-optimizations")]
+pub mod string_interner;
+#[cfg(feature = "experimental-optimizations")]
+pub mod interned_graph;
+#[cfg(feature = "experimental-optimizations")]
+pub mod lockfree_graph;
 
 // Re-export main types
 pub use graph::{CodeGraph, EdgeKind, Symbol, SymbolKind, Position, Range};

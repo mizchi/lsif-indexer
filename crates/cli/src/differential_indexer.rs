@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use tracing::{debug, info};
 
+use crate::adaptive_parallel::{AdaptiveParallelConfig, AdaptiveIncrementalProcessor};
 use crate::git_diff::{FileChange, FileChangeStatus, GitDiffDetector};
 use crate::reference_finder;
 use crate::storage::IndexStorage;
@@ -54,6 +55,8 @@ pub struct DifferentialIndexer {
     git_detector: GitDiffDetector,
     project_root: PathBuf,
     metadata: Option<DifferentialIndexMetadata>,
+    #[allow(dead_code)] // 将来の並列処理拡張用
+    parallel_processor: AdaptiveIncrementalProcessor,
 }
 
 impl DifferentialIndexer {
@@ -70,11 +73,16 @@ impl DifferentialIndexer {
         let metadata =
             storage.load_data::<DifferentialIndexMetadata>("__differential_metadata__")?;
 
+        // 適応的並列処理の設定
+        let parallel_config = AdaptiveParallelConfig::default();
+        let parallel_processor = AdaptiveIncrementalProcessor::new(parallel_config)?;
+
         Ok(Self {
             storage,
             git_detector,
             project_root,
             metadata,
+            parallel_processor,
         })
     }
 

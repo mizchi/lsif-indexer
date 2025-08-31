@@ -1,6 +1,7 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-// use lsif_indexer::core::parallel_optimized::{OptimizedParallelGraph, OptimizedParallelIndex};
-use lsif_indexer::core::{CodeGraph, IncrementalIndex, Position, Range, Symbol, SymbolKind};
+// use core::parallel_optimized::{OptimizedParallelGraph, OptimizedParallelIndex};
+use core::{CodeGraph, IncrementalIndex, Position, Range, Symbol, SymbolKind};
+use core::incremental::FileUpdate;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -287,7 +288,7 @@ fn benchmark_incremental_indexing(c: &mut Criterion) {
                     .map(|file| {
                         let symbols = extract_symbols_from_file(file);
                         let hash = format!("hash_{}", file.to_string_lossy());
-                        lsif_indexer::core::FileUpdate::Added {
+                        FileUpdate::Added {
                             path: file.clone(),
                             symbols,
                             hash,
@@ -316,7 +317,7 @@ fn benchmark_incremental_indexing(c: &mut Criterion) {
                         let symbols = extract_symbols_from_file(file);
                         let hash = format!("new_hash_{}", file.to_string_lossy());
 
-                        lsif_indexer::core::FileUpdate::Modified {
+                        FileUpdate::Modified {
                             path: file.clone(),
                             symbols,
                             hash,

@@ -1,12 +1,13 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use lsif_indexer::core::parallel::{
+use core::parallel::{
     parallel_lsif::ParallelLsifGenerator, ParallelCodeGraph, ParallelFileAnalyzer,
     ParallelIncrementalIndex,
 };
-// use lsif_indexer::core::parallel_optimized::{OptimizedDeadCodeDetector, OptimizedParallelGraph};
-use lsif_indexer::core::{
+// use core::parallel_optimized::{OptimizedDeadCodeDetector, OptimizedParallelGraph};
+use core::{
     CodeGraph, EdgeKind, IncrementalIndex, Position, Range, Symbol, SymbolKind,
 };
+use core::incremental::UpdateResult;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -333,7 +334,7 @@ fn benchmark_dead_code_detection(c: &mut Criterion) {
             b.iter_batched(
                 || index.clone(),
                 |mut idx| {
-                    let mut result = lsif_indexer::core::incremental::UpdateResult::default();
+                    let mut result = UpdateResult::default();
                     idx.detect_dead_code(&mut result);
                     result.dead_symbols
                 },
@@ -386,7 +387,7 @@ fn benchmark_lsif_generation(c: &mut Criterion) {
 
         // Sequential LSIF generation
         group.bench_with_input(BenchmarkId::new("sequential", size), &graph, |b, graph| {
-            b.iter(|| lsif_indexer::core::generate_lsif(graph.clone()).unwrap())
+            b.iter(|| core::LsifGenerator::new(graph.clone()).generate().unwrap())
         });
 
         // Parallel LSIF generation
@@ -441,7 +442,7 @@ fn benchmark_file_hash_calculation(c: &mut Criterion) {
                 b.iter(|| {
                     let mut hashes = HashMap::new();
                     for (path, content) in files {
-                        let hash = lsif_indexer::core::calculate_file_hash(content);
+                        let hash = core::calculate_file_hash(content);
                         hashes.insert(path.clone(), hash);
                     }
                     hashes

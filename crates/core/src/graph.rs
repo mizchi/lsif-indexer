@@ -3,7 +3,7 @@ use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Symbol {
     pub id: String,
     pub kind: SymbolKind,
@@ -13,7 +13,7 @@ pub struct Symbol {
     pub documentation: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum SymbolKind {
     File,
     Module,
@@ -46,19 +46,19 @@ pub enum SymbolKind {
     Unknown,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct Range {
     pub start: Position,
     pub end: Position,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct Position {
     pub line: u32,
     pub character: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum EdgeKind {
     Definition,
     Reference,
@@ -72,8 +72,8 @@ pub enum EdgeKind {
 
 #[derive(Debug, Clone)]
 pub struct CodeGraph {
-    pub(crate) graph: StableDiGraph<Symbol, EdgeKind>,
-    pub(crate) symbol_index: HashMap<String, NodeIndex>,
+    pub graph: StableDiGraph<Symbol, EdgeKind>,
+    pub symbol_index: HashMap<String, NodeIndex>,
 }
 
 impl Default for CodeGraph {

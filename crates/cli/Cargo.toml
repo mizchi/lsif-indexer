@@ -37,7 +37,50 @@ thiserror.workspace = true
 chrono.workspace = true
 rmp-serde.workspace = true
 bincode.workspace = true
+rayon.workspace = true
 
 [dev-dependencies]
 tempfile = { workspace = true }
 criterion = { workspace = true }
+rayon = { workspace = true }
+core-benchmarks = { package = "core", path = "../core", features = ["experimental-optimizations"] }
+
+[[bench]]
+name = "index_benchmark"
+harness = false
+path = "../../benches/index_benchmark.rs"
+
+[[bench]]
+name = "index_performance_benchmark"
+harness = false
+path = "../../benches/index_performance_benchmark.rs"
+
+[[bench]]
+name = "storage_benchmark"
+harness = false
+path = "../../benches/storage_benchmark.rs"
+
+[[bench]]
+name = "parallel_benchmark"
+harness = false
+path = "../../benches/parallel_benchmark.rs"
+
+[[bench]]
+name = "multi_language_benchmark"
+harness = false
+path = "../../benches/multi_language_benchmark.rs"
+
+[[bench]]
+name = "memory_pool_benchmark"
+harness = false
+path = "../../benches/memory_pool_benchmark.rs"
+
+[[bench]]
+name = "string_intern_benchmark"
+harness = false
+path = "../../benches/string_intern_benchmark.rs"
+
+[[bench]]
+name = "lockfree_benchmark"
+harness = false
+path = "../../benches/lockfree_benchmark.rs"

@@ -1,9 +1,12 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use lsif_indexer::cli::storage::IndexStorage;
-use lsif_indexer::core::{
-    generate_lsif, parse_lsif, CallHierarchyAnalyzer, CodeGraph, EdgeKind, FileUpdate,
+use cli::storage::IndexStorage;
+use core::{
+    CodeGraph, EdgeKind,
     IncrementalIndex, Position, Range, Symbol, SymbolKind,
 };
+use core::incremental::{FileUpdate, UpdateResult};
+use core::call_hierarchy::CallHierarchyAnalyzer;
+use core::lsif::{generate_lsif, parse_lsif};
 use std::collections::HashMap;
 
 fn create_small_graph() -> CodeGraph {
@@ -532,7 +535,7 @@ fn benchmark_incremental_updates(c: &mut Criterion) {
 
         b.iter(|| {
             let mut index = index_with_dead.clone();
-            let mut result = lsif_indexer::core::incremental::UpdateResult::default();
+            let mut result = UpdateResult::default();
             index.detect_dead_code(&mut result);
             result.dead_symbols.len()
         })

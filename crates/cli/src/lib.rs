@@ -3,6 +3,7 @@
 //! This crate provides the command-line interface, storage, and IO operations.
 
 // CLI components
+pub mod adaptive_parallel;
 pub mod call_hierarchy_cmd;
 pub mod differential_indexer;
 pub mod indexer;

@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use lsif_indexer::cli::storage::{IndexFormat, IndexMetadata, IndexStorage};
-use lsif_indexer::core::graph::{CodeGraph, Position, Range, Symbol, SymbolKind};
+use cli::storage::{IndexFormat, IndexMetadata, IndexStorage};
+use core::graph::{CodeGraph, Position, Range, Symbol, SymbolKind};
 use tempfile::TempDir;
 
 fn generate_test_symbols(count: usize) -> Vec<Symbol> {

@@ -2,6 +2,67 @@
 
 このドキュメントは、LSIF Indexerの開発とメンテナンスに必要な手順を記載しています。
 
+## プロジェクト概要
+
+LSIF Indexerは、高速なコードインデックス作成と検索を提供するRust製のツールです。LSP（Language Server Protocol）を活用して、複数の言語に対応した統一的なコード解析を実現します。
+
+### 主な特徴
+
+- **高速インデックス作成**: 並列処理により大規模コードベースも高速にインデックス化
+- **差分更新**: Gitの変更を検知して必要な部分のみを再インデックス（0.1秒以内）
+- **LSP統合**: 既存のLSPサーバーを活用した正確なシンボル解析
+- **多言語対応**: Rust、Go、Python、TypeScript/JavaScriptなどに対応
+- **リッチなクエリ**: 定義参照、型階層、コールグラフ、未使用コード検出など
+
+### アーキテクチャ
+
+プロジェクトは3つのクレートで構成されています：
+
+```
+crates/
+├── core/       # コアロジック
+│   ├── graph.rs           # コードグラフのデータ構造
+│   ├── graph_builder.rs   # グラフ構築
+│   ├── graph_query.rs     # クエリエンジン
+│   ├── incremental.rs     # インクリメンタル更新
+│   ├── call_hierarchy.rs  # コール階層解析
+│   ├── type_relations.rs  # 型関係解析
+│   └── lsif.rs           # LSIF形式のサポート
+│
+├── lsp/        # LSP統合層
+│   ├── lsp_client.rs      # 汎用LSPクライアント
+│   ├── lsp_minimal_client.rs # 軽量LSPクライアント
+│   ├── language_detector.rs  # 言語自動検出
+│   ├── *_adapter.rs       # 各言語のアダプタ実装
+│   └── fallback_indexer.rs # フォールバックインデクサ
+│
+└── cli/        # CLI・IO層
+    ├── simple_cli.rs      # CLIインターフェース
+    ├── storage.rs         # Sledベースの永続化
+    ├── indexer.rs         # インデックス作成
+    ├── differential_indexer.rs # 差分インデックス
+    └── git_diff.rs        # Git差分検出
+```
+
+### 使用方法
+
+```bash
+# インデックス作成
+./target/release/lsif index
+
+# 定義へジャンプ
+./target/release/lsif definition --file src/main.rs --line 10 --column 5
+
+# 参照検索
+./target/release/lsif references --file src/lib.rs --line 20 --column 10
+
+# コール階層表示
+./target/release/lsif call-hierarchy --symbol "main"
+
+# 未使用コード検出
+./target/release/lsif unused
+```
+
 ## 重要な開発ルール
 
 ### 一時ファイルの生成場所
