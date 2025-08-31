@@ -1,5 +1,5 @@
-use crate::common_adapter::{is_command_available, python_style_comments, spawn_lsp_server};
-use crate::minimal_language_adapter::{CommentStyles, MinimalLanguageAdapter};
+use super::common::{is_command_available, python_style_comments, spawn_lsp_server};
+use super::minimal::{CommentStyles, MinimalLanguageAdapter};
 use anyhow::Result;
 
 /// Python言語のアダプタ実装

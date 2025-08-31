@@ -1,9 +1,9 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use lsp::go_adapter::GoAdapter;
+use lsp::adapter::go::GoAdapter;
 use lsp::lsp_minimal_client::MinimalLspClient;
-use lsp::minimal_language_adapter::MinimalLanguageAdapter;
-use lsp::python_adapter::PythonAdapter;
-use lsp::typescript_adapter::TypeScriptAdapter;
+use lsp::adapter::minimal::MinimalLanguageAdapter;
+use lsp::adapter::python::PythonAdapter;
+use lsp::adapter::typescript::TypeScriptAdapter;
 use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;

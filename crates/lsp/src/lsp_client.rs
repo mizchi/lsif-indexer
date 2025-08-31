@@ -3,7 +3,7 @@ use lsp_types::*;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use super::lsp_adapter::{GenericLspClient, LspAdapter};
+use super::adapter::lsp::{GenericLspClient, LspAdapter};
 
 #[derive(Clone)]
 pub struct LspClient {

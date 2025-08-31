@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::adaptive_parallel::{AdaptiveParallelConfig, AdaptiveIncrementalProcessor};
 use crate::git_diff::{FileChange, FileChangeStatus, GitDiffDetector};
@@ -12,6 +12,10 @@ use core::{CodeGraph, Symbol, SymbolKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use walkdir;
+
+// LSP統合のためのインポート
+use lsp::lsp_indexer::LspIndexer;
+use lsp::language_detector::detect_project_language;
 
 /// 差分インデックスのメタデータ
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,6 +53,17 @@ pub struct DifferentialIndexResult {
     pub duration: Duration,
 }
 
+/// インデックス作成モード
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum IndexMode {
+    /// 正規表現ベースの高速モード
+    FastRegex,
+    /// LSPを使用した高精度モード
+    LspPrecise,
+    /// 自動選択（ファイル数やプロジェクトサイズに基づく）
+    Auto,
+}
+
 /// 差分インデクサー
 pub struct DifferentialIndexer {
     storage: IndexStorage,
@@ -57,6 +72,11 @@ pub struct DifferentialIndexer {
     metadata: Option<DifferentialIndexMetadata>,
     #[allow(dead_code)] // 将来の並列処理拡張用
     parallel_processor: AdaptiveIncrementalProcessor,
+    /// インデックス作成モード
+    index_mode: IndexMode,
+    /// LSPインデクサー（遅延初期化）
+    #[allow(dead_code)]
+    lsp_indexer: Option<LspIndexer>,
 }
 
 impl DifferentialIndexer {
@@ -83,7 +103,142 @@ impl DifferentialIndexer {
             project_root,
             metadata,
             parallel_processor,
+            index_mode: IndexMode::Auto,
+            lsp_indexer: None,
         })
+    }
+
+    /// インデックスモードを設定
+    pub fn set_index_mode(&mut self, mode: IndexMode) {
+        self.index_mode = mode;
+    }
+
+    /// LSPインデクサーを初期化（遅延初期化）
+    #[allow(dead_code)]
+    fn ensure_lsp_indexer(&mut self) -> Result<()> {
+        if self.lsp_indexer.is_none() {
+            info!("Initializing LSP indexer for project: {}", self.project_root.display());
+            
+            // プロジェクトの言語を検出
+            let language = detect_project_language(&self.project_root);
+            debug!("Detected project language: {:?}", language);
+            
+            // LSPインデクサーを作成（単純にnewで作成される）
+            let indexer = LspIndexer::new(self.project_root.to_string_lossy().to_string());
+            info!("LSP indexer initialized successfully");
+            self.lsp_indexer = Some(indexer);
+        }
+        Ok(())
+    }
+
+    /// ファイルからシンボルを抽出（LSPモード）
+    fn extract_symbols_with_lsp(&mut self, path: &Path) -> Result<Vec<Symbol>> {
+        use lsp::adapter::lsp::{detect_language, GenericLspClient};
+        use std::fs::canonicalize;
+        
+        debug!("Using LSP to extract symbols from: {}", path.display());
+        
+        // ファイルの絶対パスを取得
+        let absolute_path = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            canonicalize(path)?
+        };
+        
+        // ファイルの言語を検出
+        let file_uri = format!("file://{}", absolute_path.display());
+        if let Some(adapter) = detect_language(&path.to_string_lossy()) {
+            // LSPクライアントを作成
+            match GenericLspClient::new(adapter) {
+                Ok(mut client) => {
+                    // ドキュメントシンボルを取得
+                    match client.get_document_symbols(&file_uri) {
+                        Ok(lsp_symbols) => {
+                            debug!("LSP extracted {} symbols from {}", lsp_symbols.len(), path.display());
+                            // LSPシンボルをコアのSymbol型に変換
+                            let symbols = self.convert_lsp_symbols_to_core(&lsp_symbols, path);
+                            Ok(symbols)
+                        }
+                        Err(e) => {
+                            warn!("LSP extraction failed for {}: {}. Using fallback.", path.display(), e);
+                            self.extract_symbols_with_fallback(path)
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to create LSP client for {}: {}. Using fallback.", path.display(), e);
+                    self.extract_symbols_with_fallback(path)
+                }
+            }
+        } else {
+            debug!("No LSP adapter for file extension. Using fallback.");
+            self.extract_symbols_with_fallback(path)
+        }
+    }
+
+    /// ファイルからシンボルを抽出（フォールバック）
+    fn extract_symbols_with_fallback(&self, path: &Path) -> Result<Vec<Symbol>> {
+        use lsp::fallback_indexer::FallbackIndexer;
+        
+        debug!("Using fallback indexer for: {}", path.display());
+        if let Some(fallback) = FallbackIndexer::from_extension(path) {
+            let lsp_symbols = fallback.extract_symbols(path)?;
+            // LSPシンボルをコアのSymbol型に変換
+            let symbols = self.convert_lsp_symbols_to_core(&lsp_symbols, path);
+            Ok(symbols)
+        } else {
+            // フォールバックも使えない場合は正規表現モードに戻る
+            debug!("Fallback indexer not available, using regex");
+            self.extract_symbols_regex(path)
+        }
+    }
+    
+    /// LSPのDocumentSymbolをコアのSymbol型に変換
+    fn convert_lsp_symbols_to_core(&self, lsp_symbols: &[lsp_types::DocumentSymbol], path: &Path) -> Vec<Symbol> {
+        let mut symbols = Vec::new();
+        let path_str = path.to_string_lossy().to_string();
+        
+        for lsp_symbol in lsp_symbols {
+            let symbol = Symbol {
+                id: format!("{}#{}:{}", path_str, lsp_symbol.range.start.line + 1, lsp_symbol.name),
+                kind: self.convert_lsp_symbol_kind(lsp_symbol.kind),
+                name: lsp_symbol.name.clone(),
+                file_path: path_str.clone(),
+                range: core::Range {
+                    start: core::Position {
+                        line: lsp_symbol.range.start.line,
+                        character: lsp_symbol.range.start.character,
+                    },
+                    end: core::Position {
+                        line: lsp_symbol.range.end.line,
+                        character: lsp_symbol.range.end.character,
+                    },
+                },
+                documentation: lsp_symbol.detail.clone(),
+            };
+            symbols.push(symbol);
+            
+            // 子シンボルも処理
+            if let Some(children) = &lsp_symbol.children {
+                symbols.extend(self.convert_lsp_symbols_to_core(children, path));
+            }
+        }
+        
+        symbols
+    }
+    
+    /// LSPのSymbolKindをコアのSymbolKindに変換
+    fn convert_lsp_symbol_kind(&self, lsp_kind: lsp_types::SymbolKind) -> SymbolKind {
+        use lsp_types::SymbolKind as LspKind;
+        
+        match lsp_kind {
+            LspKind::FUNCTION | LspKind::METHOD => SymbolKind::Function,
+            LspKind::CLASS | LspKind::STRUCT | LspKind::INTERFACE => SymbolKind::Class,
+            LspKind::MODULE | LspKind::NAMESPACE => SymbolKind::Module,
+            LspKind::VARIABLE | LspKind::CONSTANT | LspKind::PROPERTY | LspKind::FIELD => SymbolKind::Variable,
+            LspKind::ENUM | LspKind::ENUM_MEMBER => SymbolKind::Enum,
+            _ => SymbolKind::Unknown,
+        }
     }
 
     /// 差分インデックスを実行
@@ -278,13 +433,49 @@ impl DifferentialIndexer {
     }
 
     /// ファイルからシンボルを抽出（簡易版）
-    fn extract_symbols_from_file(&self, path: &Path) -> Result<Vec<Symbol>> {
+    fn extract_symbols_from_file(&mut self, path: &Path) -> Result<Vec<Symbol>> {
+        // モードに応じて処理を分岐
+        let should_use_lsp = match self.index_mode {
+            IndexMode::LspPrecise => true,
+            IndexMode::FastRegex => false,
+            IndexMode::Auto => {
+                // 自動モード: ファイルサイズやプロジェクトサイズで判断
+                let file_size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+                // 100KB以上のファイルまたは複雑な言語の場合はLSPを使用
+                file_size > 100_000 || matches!(
+                    path.extension().and_then(|s| s.to_str()),
+                    Some("rs") | Some("ts") | Some("tsx") | Some("go") | Some("java")
+                )
+            }
+        };
+
+        if should_use_lsp {
+            // LSPモードで処理
+            match self.extract_symbols_with_lsp(path) {
+                Ok(symbols) => {
+                    debug!("Successfully extracted {} symbols using LSP from {}", 
+                           symbols.len(), path.display());
+                    Ok(symbols)
+                }
+                Err(e) => {
+                    debug!("LSP extraction failed: {}, falling back to regex", e);
+                    self.extract_symbols_regex(path)
+                }
+            }
+        } else {
+            // 正規表現モードで処理
+            self.extract_symbols_regex(path)
+        }
+    }
+
+    /// ファイルからシンボルを抽出（正規表現版）
+    fn extract_symbols_regex(&self, path: &Path) -> Result<Vec<Symbol>> {
         let mut symbols = Vec::new();
 
         // ファイル拡張子で言語を判定
         let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
         debug!(
-            "Processing file: {} (extension: {})",
+            "Processing file with regex: {} (extension: {})",
             path.display(),
             extension
         );
@@ -591,7 +782,7 @@ impl DifferentialIndexer {
         // グラフの中のすべてのシンボルを取得
         let all_symbols: Vec<_> = graph
             .get_all_symbols()
-            .map(|s| (s.name.clone(), s.id.clone(), s.kind.clone()))
+            .map(|s| (s.name.clone(), s.id.clone(), s.kind))
             .collect();
 
         // 各シンボルに対して、このファイル内での参照を検索
@@ -830,5 +1021,101 @@ mod tests {
 
         let not_found = indexer.find_symbol_at_position(&graph, "test.rs", 10, 5);
         assert!(not_found.is_none());
+    }
+
+    #[test]
+    fn test_index_mode() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage_path = temp_dir.path().join("test.db");
+        let project_root = temp_dir.path();
+
+        // Git初期化
+        fs::create_dir_all(project_root.join(".git")).unwrap();
+
+        let mut indexer = DifferentialIndexer::new(&storage_path, project_root).unwrap();
+        
+        // デフォルトはAutoモード
+        assert_eq!(indexer.index_mode, IndexMode::Auto);
+        
+        // LSPモードに設定
+        indexer.set_index_mode(IndexMode::LspPrecise);
+        assert_eq!(indexer.index_mode, IndexMode::LspPrecise);
+        
+        // Regexモードに設定
+        indexer.set_index_mode(IndexMode::FastRegex);
+        assert_eq!(indexer.index_mode, IndexMode::FastRegex);
+    }
+
+    #[test]
+    fn test_convert_lsp_symbol_kind() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage_path = temp_dir.path().join("test.db");
+        let project_root = temp_dir.path();
+
+        // Git初期化
+        fs::create_dir_all(project_root.join(".git")).unwrap();
+
+        let indexer = DifferentialIndexer::new(&storage_path, project_root).unwrap();
+        
+        // LSP SymbolKindをコアのSymbolKindに変換
+        assert_eq!(
+            indexer.convert_lsp_symbol_kind(lsp_types::SymbolKind::FUNCTION),
+            SymbolKind::Function
+        );
+        assert_eq!(
+            indexer.convert_lsp_symbol_kind(lsp_types::SymbolKind::CLASS),
+            SymbolKind::Class
+        );
+        assert_eq!(
+            indexer.convert_lsp_symbol_kind(lsp_types::SymbolKind::MODULE),
+            SymbolKind::Module
+        );
+        assert_eq!(
+            indexer.convert_lsp_symbol_kind(lsp_types::SymbolKind::VARIABLE),
+            SymbolKind::Variable
+        );
+        assert_eq!(
+            indexer.convert_lsp_symbol_kind(lsp_types::SymbolKind::ENUM),
+            SymbolKind::Enum
+        );
+    }
+
+    #[test]
+    fn test_extract_symbols_regex() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage_path = temp_dir.path().join("test.db");
+        let project_root = temp_dir.path();
+
+        // Git初期化とテストファイル作成
+        fs::create_dir_all(project_root.join(".git")).unwrap();
+        
+        let rust_code = r#"
+pub fn test_function() -> i32 {
+    42
+}
+
+struct TestStruct {
+    field: String,
+}
+
+impl TestStruct {
+    fn new() -> Self {
+        Self { field: String::new() }
+    }
+}
+"#;
+        
+        let test_file = project_root.join("test.rs");
+        fs::write(&test_file, rust_code).unwrap();
+
+        let indexer = DifferentialIndexer::new(&storage_path, project_root).unwrap();
+        
+        // 正規表現モードでシンボル抽出
+        let symbols = indexer.extract_symbols_regex(&test_file).unwrap();
+        
+        // 関数と構造体が検出されることを確認
+        assert!(symbols.iter().any(|s| s.name == "test_function" && s.kind == SymbolKind::Function));
+        assert!(symbols.iter().any(|s| s.name == "TestStruct" && s.kind == SymbolKind::Class));
+        assert!(symbols.iter().any(|s| s.name == "new" && s.kind == SymbolKind::Function));
     }
 }

@@ -363,123 +363,147 @@ impl FallbackIndexer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     use tempfile::TempDir;
 
     #[test]
-    fn test_rust_fallback() -> Result<()> {
-        let dir = TempDir::new()?;
-        let file = dir.path().join("test.rs");
-        std::fs::write(
-            &file,
-            r#"
-pub struct User {
-    name: String,
-}
-
-impl User {
-    pub fn new(name: String) -> Self {
-        Self { name }
-    }
-}
-
-pub trait Greet {
-    fn greet(&self);
-}
-"#,
-        )?;
-
-        let indexer = FallbackIndexer::new(FallbackLanguage::Rust);
-        let symbols = indexer.extract_symbols(&file)?;
-
-        assert!(symbols.len() >= 3);
-        assert!(symbols.iter().any(|s| s.name == "User"));
-        assert!(symbols.iter().any(|s| s.name.contains("impl")));
-        assert!(symbols.iter().any(|s| s.name == "Greet"));
-
-        Ok(())
+    fn test_fallback_language_from_extension() {
+        // Rust
+        assert!(FallbackIndexer::from_extension(Path::new("test.rs")).is_some());
+        
+        // TypeScript/JavaScript
+        assert!(FallbackIndexer::from_extension(Path::new("test.ts")).is_some());
+        assert!(FallbackIndexer::from_extension(Path::new("test.tsx")).is_some());
+        assert!(FallbackIndexer::from_extension(Path::new("test.js")).is_some());
+        assert!(FallbackIndexer::from_extension(Path::new("test.jsx")).is_some());
+        
+        // Python
+        assert!(FallbackIndexer::from_extension(Path::new("test.py")).is_some());
+        assert!(FallbackIndexer::from_extension(Path::new("test.pyi")).is_some());
+        
+        // Go
+        assert!(FallbackIndexer::from_extension(Path::new("test.go")).is_some());
+        
+        // 未対応の拡張子
+        assert!(FallbackIndexer::from_extension(Path::new("test.xyz")).is_none());
+        assert!(FallbackIndexer::from_extension(Path::new("test")).is_none());
     }
 
     #[test]
-    fn test_python_fallback() -> Result<()> {
-        let dir = TempDir::new()?;
-        let file = dir.path().join("test.py");
-        std::fs::write(
-            &file,
-            r#"
-class User:
-    def __init__(self, name):
-        self.name = name
+    fn test_extract_rust_symbols() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.rs");
+        
+        let rust_code = r#"
+fn main() {
+    println!("Hello");
+}
+
+pub struct MyStruct {
+    field: String,
+}
+
+impl MyStruct {
+    pub fn new() -> Self {
+        Self { field: String::new() }
+    }
+}
+
+trait MyTrait {
+    fn method(&self);
+}
+"#;
+        
+        fs::write(&file_path, rust_code).unwrap();
+        
+        let indexer = FallbackIndexer::from_extension(&file_path).unwrap();
+        let symbols = indexer.extract_symbols(&file_path).unwrap();
+        
+        // 関数、構造体、トレイトが検出されることを確認
+        assert!(symbols.iter().any(|s| s.name == "main" && s.kind == SymbolKind::FUNCTION));
+        assert!(symbols.iter().any(|s| s.name == "MyStruct" && s.kind == SymbolKind::STRUCT));
+        assert!(symbols.iter().any(|s| s.name == "new" && s.kind == SymbolKind::FUNCTION));
+        assert!(symbols.iter().any(|s| s.name == "MyTrait" && s.kind == SymbolKind::INTERFACE));
+    }
+
+    #[test]
+    fn test_extract_typescript_symbols() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.ts");
+        
+        let ts_code = r#"
+function hello() {
+    console.log("Hello");
+}
+
+class MyClass {
+    constructor() {}
     
-    def greet(self):
-        print(f"Hello, {self.name}")
+    method() {
+        return 42;
+    }
+}
 
-def main():
-    user = User("Alice")
-    user.greet()
-"#,
-        )?;
+interface MyInterface {
+    prop: string;
+}
 
-        let indexer = FallbackIndexer::new(FallbackLanguage::Python);
-        let symbols = indexer.extract_symbols(&file)?;
-
-        assert!(symbols.len() >= 4);
-        assert!(symbols.iter().any(|s| s.name == "User"));
-        assert!(symbols.iter().any(|s| s.name == "__init__"));
-        assert!(symbols.iter().any(|s| s.name == "greet"));
-        assert!(symbols.iter().any(|s| s.name == "main"));
-
-        Ok(())
+const myVar = 123;
+export const exportedVar = "test";
+"#;
+        
+        fs::write(&file_path, ts_code).unwrap();
+        
+        let indexer = FallbackIndexer::from_extension(&file_path).unwrap();
+        let symbols = indexer.extract_symbols(&file_path).unwrap();
+        
+        // 関数、クラス、インターフェース、変数が検出されることを確認
+        assert!(symbols.iter().any(|s| s.name == "hello" && s.kind == SymbolKind::FUNCTION));
+        assert!(symbols.iter().any(|s| s.name == "MyClass" && s.kind == SymbolKind::CLASS));
+        assert!(symbols.iter().any(|s| s.name == "MyInterface" && s.kind == SymbolKind::INTERFACE));
+        assert!(symbols.iter().any(|s| s.name == "myVar" && s.kind == SymbolKind::VARIABLE));
+        assert!(symbols.iter().any(|s| s.name == "exportedVar" && s.kind == SymbolKind::VARIABLE));
     }
 
     #[test]
-    fn test_typescript_fallback() -> Result<()> {
-        let dir = TempDir::new()?;
-        let file = dir.path().join("test.ts");
-        std::fs::write(
-            &file,
-            r#"
-interface User {
-    name: string;
-    age: number;
-}
+    fn test_extract_python_symbols() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.py");
+        
+        let py_code = r#"
+def hello():
+    print("Hello")
 
-class UserImpl implements User {
-    constructor(public name: string, public age: number) {}
+class MyClass:
+    def __init__(self):
+        self.value = 0
     
-    greet(): void {
-        console.log(`Hello, ${this.name}`);
-    }
-}
+    def method(self):
+        return self.value
 
-export function createUser(name: string, age: number): User {
-    return new UserImpl(name, age);
-}
-
-const greetUser = (user: User) => {
-    console.log(`Hi ${user.name}`);
-};
-"#,
-        )?;
-
-        let indexer = FallbackIndexer::new(FallbackLanguage::TypeScript);
-        let symbols = indexer.extract_symbols(&file)?;
-
-        assert!(symbols.len() >= 4);
-        assert!(symbols.iter().any(|s| s.name == "User"));
-        assert!(symbols.iter().any(|s| s.name == "UserImpl"));
-        assert!(symbols.iter().any(|s| s.name == "createUser"));
-        assert!(symbols.iter().any(|s| s.name == "greetUser"));
-
-        Ok(())
+async def async_function():
+    await some_task()
+"#;
+        
+        fs::write(&file_path, py_code).unwrap();
+        
+        let indexer = FallbackIndexer::from_extension(&file_path).unwrap();
+        let symbols = indexer.extract_symbols(&file_path).unwrap();
+        
+        // 関数、クラス、メソッドが検出されることを確認
+        assert!(symbols.iter().any(|s| s.name == "hello" && s.kind == SymbolKind::FUNCTION));
+        assert!(symbols.iter().any(|s| s.name == "MyClass" && s.kind == SymbolKind::CLASS));
+        assert!(symbols.iter().any(|s| s.name == "__init__" && s.kind == SymbolKind::METHOD));
+        assert!(symbols.iter().any(|s| s.name == "method" && s.kind == SymbolKind::METHOD));
+        assert!(symbols.iter().any(|s| s.name == "async_function" && s.kind == SymbolKind::FUNCTION));
     }
 
     #[test]
-    fn test_go_fallback() -> Result<()> {
-        let dir = TempDir::new()?;
-        let file = dir.path().join("test.go");
-        std::fs::write(
-            &file,
-            r#"
+    fn test_extract_go_symbols() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.go");
+        
+        let go_code = r#"
 package main
 
 type User struct {
@@ -494,17 +518,16 @@ func (u *User) Greet() {
 func CreateUser(name string, age int) *User {
     return &User{Name: name, Age: age}
 }
-"#,
-        )?;
-
-        let indexer = FallbackIndexer::new(FallbackLanguage::Go);
-        let symbols = indexer.extract_symbols(&file)?;
-
-        assert!(symbols.len() >= 3);
-        assert!(symbols.iter().any(|s| s.name == "User"));
-        assert!(symbols.iter().any(|s| s.name == "Greet"));
-        assert!(symbols.iter().any(|s| s.name == "CreateUser"));
-
-        Ok(())
+"#;
+        
+        fs::write(&file_path, go_code).unwrap();
+        
+        let indexer = FallbackIndexer::from_extension(&file_path).unwrap();
+        let symbols = indexer.extract_symbols(&file_path).unwrap();
+        
+        // 構造体、メソッド、関数が検出されることを確認
+        assert!(symbols.iter().any(|s| s.name == "User" && s.kind == SymbolKind::STRUCT));
+        assert!(symbols.iter().any(|s| s.name == "Greet" && s.kind == SymbolKind::FUNCTION));
+        assert!(symbols.iter().any(|s| s.name == "CreateUser" && s.kind == SymbolKind::FUNCTION));
     }
 }

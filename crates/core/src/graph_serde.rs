@@ -41,7 +41,7 @@ impl Serialize for CodeGraph {
                         edges.push(SerializedEdge {
                             from_id: from_symbol.id.clone(),
                             to_id: to_symbol.id.clone(),
-                            kind: edge_kind.clone(),
+                            kind: *edge_kind,
                         });
                     }
                 }

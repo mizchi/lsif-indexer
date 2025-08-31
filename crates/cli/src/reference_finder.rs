@@ -1,4 +1,4 @@
-use lsp::language_adapter::{detect_language_adapter, LanguageAdapter};
+use lsp::adapter::language::{LanguageAdapter, RustLanguageAdapter, TypeScriptLanguageAdapter};
 /// 参照検索の実装
 ///
 /// ファイル内容を実際に検索して使用箇所を見つける
@@ -45,7 +45,16 @@ pub fn find_all_references(
     {
         let path = entry.path();
         // 言語アダプターを検出
-        if let Some(adapter) = detect_language_adapter(&path.to_string_lossy()) {
+        // 言語に応じたアダプタを取得
+        let language_adapter = match path.extension().and_then(|s| s.to_str()) {
+            Some("rs") => Some(Box::new(RustLanguageAdapter) as Box<dyn LanguageAdapter>),
+            Some("ts") | Some("tsx") | Some("js") | Some("jsx") => {
+                Some(Box::new(TypeScriptLanguageAdapter) as Box<dyn LanguageAdapter>)
+            }
+            _ => None,
+        };
+        
+        if let Some(adapter) = language_adapter {
             if adapter.is_source_file(path) {
                 if let Ok(content) = std::fs::read_to_string(path) {
                     let refs = find_references_in_file(
@@ -134,7 +143,7 @@ fn find_references_in_file(
             let symbol = Symbol {
                 id: format!("{}#{}:{}:{}", path_str, line_no + 1, start_col, target_name),
                 kind: if is_definition {
-                    target_kind.clone()
+                    *target_kind
                 } else {
                     SymbolKind::Reference
                 },
@@ -166,7 +175,6 @@ fn find_references_in_file(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lsp::language_adapter::{RustLanguageAdapter, TypeScriptLanguageAdapter};
     use std::fs;
     use tempfile::TempDir;
 

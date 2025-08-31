@@ -3,7 +3,7 @@ use lsp_types::*;
 use std::path::{Path, PathBuf};
 use tracing::{info, warn};
 
-use super::lsp_adapter::detect_language;
+use super::adapter::lsp::detect_language;
 use super::lsp_client::LspClient;
 use core::graph::CodeGraph;
 use core::graph::{Range, Symbol, SymbolKind as LSIFSymbolKind};

@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, BatchSize};
-use core::{CodeGraph, Symbol, SymbolKind, Position, Range, EdgeKind};
+use core::{CodeGraph, Symbol, SymbolKind, Position, Range};
 use core::optimized_graph::OptimizedCodeGraph;
 use core::memory_pool::SymbolPool;
 
@@ -119,7 +119,7 @@ fn benchmark_graph_construction(c: &mut Criterion) {
                     
                     // Symbolをバッチで追加
                     let symbols: Vec<Symbol> = (0..size)
-                        .map(|i| create_test_symbol(i))
+                        .map(create_test_symbol)
                         .collect();
                     graph.add_symbols_batch(symbols);
                     
@@ -154,7 +154,7 @@ fn benchmark_symbol_operations(c: &mut Criterion) {
     let optimized_graph = {
         let graph = OptimizedCodeGraph::with_pool_size(size);
         let symbols: Vec<Symbol> = (0..size)
-            .map(|i| create_test_symbol(i))
+            .map(create_test_symbol)
             .collect();
         graph.add_symbols_batch(symbols);
         // エッジは追加しない（Symbol処理のみのベンチマーク）
@@ -274,7 +274,7 @@ fn benchmark_realistic_indexing(c: &mut Criterion) {
             let graph = OptimizedCodeGraph::with_pool_size(3000);
             
             let symbols: Vec<Symbol> = (0..3000)
-                .map(|i| create_test_symbol(i))
+                .map(create_test_symbol)
                 .collect();
             graph.add_symbols_batch(symbols);
             
@@ -303,7 +303,7 @@ fn benchmark_realistic_indexing(c: &mut Criterion) {
             let graph = OptimizedCodeGraph::with_pool_size(25000);
             
             let symbols: Vec<Symbol> = (0..25000)
-                .map(|i| create_test_symbol(i))
+                .map(create_test_symbol)
                 .collect();
             graph.add_symbols_batch(symbols);
             

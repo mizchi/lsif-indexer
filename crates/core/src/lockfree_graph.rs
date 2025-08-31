@@ -254,6 +254,12 @@ enum WriteOp {
     AddEdge(String, String, EdgeKind),
 }
 
+impl Default for WaitFreeReadGraph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WaitFreeReadGraph {
     /// 新しいWait-Free読み取りグラフを作成
     pub fn new() -> Self {

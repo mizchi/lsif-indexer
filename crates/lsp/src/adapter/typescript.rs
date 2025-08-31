@@ -1,5 +1,5 @@
-use crate::common_adapter::{c_style_comments, spawn_lsp_server};
-use crate::minimal_language_adapter::{CommentStyles, MinimalLanguageAdapter};
+use super::common::{c_style_comments, spawn_lsp_server};
+use super::minimal::{CommentStyles, MinimalLanguageAdapter};
 use anyhow::Result;
 
 /// TypeScript/JavaScript言語のアダプタ実装

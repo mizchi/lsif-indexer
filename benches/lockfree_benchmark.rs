@@ -306,7 +306,7 @@ fn benchmark_batch_operations(c: &mut Criterion) {
             |b, &size| {
                 b.iter(|| {
                     let graph = LockFreeGraph::new();
-                    let symbols: Vec<Symbol> = (0..size).map(|i| create_test_symbol(i)).collect();
+                    let symbols: Vec<Symbol> = (0..size).map(create_test_symbol).collect();
                     graph.add_symbols_batch(symbols);
                     black_box(graph.symbol_count())
                 })

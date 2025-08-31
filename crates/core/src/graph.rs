@@ -552,3 +552,4 @@ mod tests {
         assert_eq!(graph.get_all_symbols().count(), 0);
     }
 }
+// Test comment

@@ -320,6 +320,7 @@ impl GitDiffDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::process::Command;
     use tempfile::TempDir;
 
     #[test]
@@ -393,6 +394,14 @@ mod tests {
         // The current implementation tracks files in hash_cache,
         // so deletion is detected when a cached file no longer exists
         let temp_dir = TempDir::new().unwrap();
+        
+        // Initialize git repository
+        Command::new("git")
+            .args(["init"])
+            .current_dir(temp_dir.path())
+            .output()
+            .expect("Failed to initialize git");
+            
         let file1 = temp_dir.path().join("file1.rs");
 
         // Create and detect initial file

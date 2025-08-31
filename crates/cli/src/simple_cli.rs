@@ -1,4 +1,4 @@
-use crate::differential_indexer::DifferentialIndexer;
+use crate::differential_indexer::{DifferentialIndexer, IndexMode};
 use crate::git_diff::GitDiffDetector;
 use crate::storage::IndexStorage;
 use core::CodeGraph;
@@ -143,6 +143,12 @@ pub enum SimpleCommands {
         /// Show detailed progress
         #[arg(short, long)]
         verbose: bool,
+        /// Use LSP for precise symbol extraction (slower but more accurate)
+        #[arg(short, long)]
+        lsp: bool,
+        /// Indexing mode: fast, lsp, or auto
+        #[arg(short = 'm', long, default_value = "auto")]
+        mode: String,
     },
 
     /// Show graph diff - track related changes in the code graph
@@ -262,8 +268,8 @@ impl SimpleCli {
             SimpleCommands::Unused { public_only } => {
                 show_unused_code(&db_path, public_only)?;
             }
-            SimpleCommands::Index { force, verbose } => {
-                rebuild_index(&db_path, &project_root, force, verbose)?;
+            SimpleCommands::Index { force, verbose, lsp, mode } => {
+                rebuild_index(&db_path, &project_root, force, verbose, lsp, &mode)?;
             }
             SimpleCommands::Diff {
                 base,
@@ -1032,16 +1038,30 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: boo
 }
 
 /// verboseオプション付き
-fn rebuild_index(db_path: &str, project_root: &str, force: bool, verbose: bool) -> Result<()> {
+fn rebuild_index(db_path: &str, project_root: &str, force: bool, verbose: bool, lsp: bool, mode: &str) -> Result<()> {
     let project_path = Path::new(project_root);
     let start = Instant::now();
 
     let mut indexer = DifferentialIndexer::new(db_path, project_path)?;
 
+    // LSPモードを設定
+    let index_mode = if lsp {
+        IndexMode::LspPrecise
+    } else {
+        match mode.to_lowercase().as_str() {
+            "fast" => IndexMode::FastRegex,
+            "lsp" => IndexMode::LspPrecise,
+            "auto" => IndexMode::Auto,
+            _ => IndexMode::Auto,
+        }
+    };
+    indexer.set_index_mode(index_mode);
+
     if verbose {
         println!("🔍 Starting index rebuild...");
         println!("  Database: {db_path}");
         println!("  Project: {project_root}");
+        println!("  Index mode: {:?}", index_mode);
     }
 
     let result = if force {

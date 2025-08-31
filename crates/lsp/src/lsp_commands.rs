@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use super::lsp_adapter::detect_language;
+use super::adapter::lsp::detect_language;
 use super::lsp_features::{LspClient, LspCodeAnalyzer};
 
 #[derive(Debug, Args)]

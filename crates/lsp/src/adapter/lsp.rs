@@ -339,4 +339,64 @@ mod tests {
         assert!(detect_language("component.jsx").is_some());
         assert!(detect_language("unknown.xyz").is_none());
     }
+
+    #[test]
+    fn test_rust_analyzer_adapter() {
+        let adapter = RustAnalyzerAdapter;
+        assert_eq!(adapter.language_id(), "rust");
+        
+        // 初期化パラメータを取得できることを確認
+        let init_params = adapter.get_init_params();
+        assert!(init_params.capabilities.text_document.is_some());
+        let text_doc = init_params.capabilities.text_document.unwrap();
+        assert!(text_doc.document_symbol.is_some());
+        let doc_symbol = text_doc.document_symbol.unwrap();
+        assert_eq!(doc_symbol.hierarchical_document_symbol_support, Some(true));
+    }
+
+    #[test]
+    fn test_typescript_adapter() {
+        let adapter = TypeScriptAdapter;
+        assert_eq!(adapter.language_id(), "typescript");
+        
+        // 初期化パラメータを取得できることを確認
+        let init_params = adapter.get_init_params();
+        assert!(init_params.capabilities.text_document.is_some());
+    }
+
+    #[test]
+    fn test_detect_language_with_paths() {
+        // 絶対パス
+        assert!(detect_language("/home/user/project/main.rs").is_some());
+        assert!(detect_language("/src/index.ts").is_some());
+        
+        // 相対パス
+        assert!(detect_language("./src/main.rs").is_some());
+        assert!(detect_language("../lib/index.ts").is_some());
+        
+        // 複雑なパス
+        assert!(detect_language("some/deep/path/to/file.rs").is_some());
+        assert!(detect_language("path with spaces/file.ts").is_some());
+    }
+
+    #[test]
+    fn test_detect_language_returns_correct_adapter() {
+        // Rustファイルに対してRustAnalyzerAdapterを返すことを確認
+        if let Some(adapter) = detect_language("test.rs") {
+            // Box<dyn LspAdapter>として返されるため、language_idで判定
+            assert_eq!(adapter.language_id(), "rust");
+        } else {
+            panic!("Expected RustAnalyzer adapter for .rs file");
+        }
+
+        // TypeScript/JavaScriptファイルに対してTypeScriptAdapterを返すことを確認
+        for ext in &["ts", "tsx", "js", "jsx"] {
+            let filename = format!("test.{}", ext);
+            if let Some(adapter) = detect_language(&filename) {
+                assert_eq!(adapter.language_id(), "typescript");
+            } else {
+                panic!("Expected TypeScript adapter for .{} file", ext);
+            }
+        }
+    }
 }

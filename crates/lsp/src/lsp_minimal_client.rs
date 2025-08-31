@@ -16,7 +16,7 @@ use std::process::{Child, ChildStdin, ChildStdout};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
-use crate::minimal_language_adapter::MinimalLanguageAdapter;
+use crate::adapter::minimal::MinimalLanguageAdapter;
 
 pub struct MinimalLspClient {
     process: Child,

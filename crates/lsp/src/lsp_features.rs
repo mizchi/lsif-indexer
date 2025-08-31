@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 use tracing::info;
 
-use super::lsp_adapter::{GenericLspClient, LspAdapter};
+use super::adapter::lsp::{GenericLspClient, LspAdapter};
 
 /// 高度なLSP機能を提供するクライアント
 pub struct LspClient {
@@ -587,7 +587,7 @@ impl DependencyGraph {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lsp_adapter::RustAnalyzerAdapter;
+    use crate::adapter::lsp::RustAnalyzerAdapter;
 
     #[test]
     #[ignore] // Requires rust-analyzer to be installed

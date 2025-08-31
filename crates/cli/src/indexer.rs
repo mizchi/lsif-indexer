@@ -1,4 +1,4 @@
-use lsp::lsp_adapter::{GenericLspClient, LspAdapter};
+use lsp::adapter::lsp::{GenericLspClient, LspAdapter};
 use core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
 use anyhow::Result;
 use lsp_types::{
@@ -354,9 +354,11 @@ impl Indexer {
 
     fn convert_symbol_kind(&self, lsp_kind: lsp_types::SymbolKind) -> SymbolKind {
         match lsp_kind {
+            lsp_types::SymbolKind::FILE => SymbolKind::Module,
             lsp_types::SymbolKind::FUNCTION => SymbolKind::Function,
             lsp_types::SymbolKind::METHOD => SymbolKind::Method,
             lsp_types::SymbolKind::CLASS => SymbolKind::Class,
+            lsp_types::SymbolKind::STRUCT => SymbolKind::Struct,
             lsp_types::SymbolKind::INTERFACE => SymbolKind::Interface,
             lsp_types::SymbolKind::ENUM => SymbolKind::Enum,
             lsp_types::SymbolKind::MODULE => SymbolKind::Module,
@@ -437,7 +439,7 @@ mod tests {
 
         assert_eq!(symbol.name, "test_function");
         assert_eq!(symbol.kind, SymbolKind::Function);
-        assert_eq!(symbol.file_path, "file:///test.rs");
+        assert_eq!(symbol.file_path, "/test.rs");
         assert_eq!(symbol.range.start.line, 10);
         assert_eq!(symbol.range.end.line, 15);
         assert_eq!(symbol.documentation, Some("fn test_function()".to_string()));

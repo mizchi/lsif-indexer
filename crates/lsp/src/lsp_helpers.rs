@@ -1,4 +1,4 @@
-use super::lsp_adapter::{
+use super::adapter::lsp::{
     detect_language, GenericLspClient, RustAnalyzerAdapter, TypeScriptAdapter,
 };
 use anyhow::{Context, Result};

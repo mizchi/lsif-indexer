@@ -2,7 +2,7 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use core::{CodeGraph, Symbol, SymbolKind, Position, Range};
 use core::interned_graph::InternedGraph;
 use core::optimized_graph::OptimizedCodeGraph;
-use core::string_interner::{StringInterner, intern};
+use core::string_interner::StringInterner;
 
 /// テスト用のSymbolを生成（重複する文字列を含む）
 fn create_test_symbol_with_duplicates(id: usize) -> Symbol {
@@ -57,7 +57,7 @@ fn benchmark_string_interning(c: &mut Criterion) {
             size,
             |b, &size| {
                 b.iter_batched_ref(
-                    || StringInterner::new(),
+                    StringInterner::new,
                     |interner| {
                         let mut interned = Vec::with_capacity(size);
                         for i in 0..size {
@@ -106,7 +106,7 @@ fn benchmark_graph_with_interning(c: &mut Criterion) {
                     let graph = OptimizedCodeGraph::with_pool_size(size);
                     
                     let symbols: Vec<Symbol> = (0..size)
-                        .map(|i| create_test_symbol_with_duplicates(i))
+                        .map(create_test_symbol_with_duplicates)
                         .collect();
                     graph.add_symbols_batch(symbols);
                     
@@ -124,7 +124,7 @@ fn benchmark_graph_with_interning(c: &mut Criterion) {
                     let graph = InternedGraph::new();
                     
                     let symbols: Vec<Symbol> = (0..size)
-                        .map(|i| create_test_symbol_with_duplicates(i))
+                        .map(create_test_symbol_with_duplicates)
                         .collect();
                     graph.add_symbols_batch(symbols);
                     
@@ -265,7 +265,7 @@ fn benchmark_realistic_project(c: &mut Criterion) {
             let graph = InternedGraph::new();
             
             let symbols: Vec<Symbol> = (0..total_symbols)
-                .map(|i| create_test_symbol_with_duplicates(i))
+                .map(create_test_symbol_with_duplicates)
                 .collect();
             graph.add_symbols_batch(symbols);
             

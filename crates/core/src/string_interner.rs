@@ -109,6 +109,11 @@ impl StringInterner {
         self.id_to_string.read().len()
     }
 
+    /// インターナーが空かどうかを確認
+    pub fn is_empty(&self) -> bool {
+        self.id_to_string.read().is_empty()
+    }
+
     /// メモリ使用量の推定値（バイト単位）
     pub fn estimated_memory_usage(&self) -> usize {
         let stats = self.stats.read();

@@ -40,10 +40,10 @@ bincode.workspace = true
 rayon.workspace = true
 
 [dev-dependencies]
+core = { path = "../core", features = ["experimental-optimizations"] }
 tempfile = { workspace = true }
 criterion = { workspace = true }
 rayon = { workspace = true }
-core-benchmarks = { package = "core", path = "../core", features = ["experimental-optimizations"] }
 
 [[bench]]
 name = "index_benchmark"

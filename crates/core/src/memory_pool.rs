@@ -11,12 +11,18 @@ pub struct PooledSymbol {
 }
 
 impl PooledSymbol {
-    pub fn as_ref(&self) -> &Symbol {
+    pub fn get_symbol(&self) -> &Symbol {
         &self.inner
     }
 
     pub fn into_inner(self) -> Arc<Symbol> {
         self.inner
+    }
+}
+
+impl AsRef<Symbol> for PooledSymbol {
+    fn as_ref(&self) -> &Symbol {
+        &self.inner
     }
 }
 

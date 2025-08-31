@@ -1,7 +1,7 @@
-use crate::go_adapter::GoAdapter;
-use crate::minimal_language_adapter::MinimalLanguageAdapter;
-use crate::python_adapter::PythonAdapter;
-use crate::typescript_adapter::TypeScriptAdapter;
+use crate::adapter::go::GoAdapter;
+use crate::adapter::minimal::MinimalLanguageAdapter;
+use crate::adapter::python::PythonAdapter;
+use crate::adapter::typescript::TypeScriptAdapter;
 /// 言語自動検出とアダプタ選択モジュール
 use std::path::Path;
 

@@ -1,9 +1,33 @@
-use crate::minimal_language_adapter::CommentStyles;
+use super::minimal::CommentStyles;
 use anyhow::{anyhow, Result};
+use std::process::{Child, Command, Stdio};
+
 /// 言語アダプタの共通実装
 ///
 /// 各言語アダプタで重複していた処理を集約
-use std::process::{Child, Command, Stdio};
+/// 共通アダプタ構造体
+pub struct CommonAdapter {
+    pub language_id: String,
+    pub lsp_server_name: String,
+    pub file_extensions: Vec<String>,
+    pub comment_styles: Vec<String>,
+}
+
+impl CommonAdapter {
+    pub fn new(
+        language_id: &str,
+        lsp_server_name: &str,
+        file_extensions: Vec<&str>,
+        comment_styles: Vec<&str>,
+    ) -> Self {
+        Self {
+            language_id: language_id.to_string(),
+            lsp_server_name: lsp_server_name.to_string(),
+            file_extensions: file_extensions.iter().map(|s| s.to_string()).collect(),
+            comment_styles: comment_styles.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+}
 
 /// LSPサーバー起動の共通実装
 pub fn spawn_lsp_server(command: &str, args: &[&str]) -> Result<Child> {
