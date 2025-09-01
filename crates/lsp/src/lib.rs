@@ -14,11 +14,16 @@ pub mod lsp_integration;
 pub mod lsp_features;
 pub mod lsp_pool;
 pub mod lsp_health_check;
+pub mod lsp_rpc_client;
+pub mod lsp_manager;
+pub mod unified_indexer;
 
 // その他のモジュール
 pub mod language_detector;
 pub mod fallback_indexer;
 pub mod timeout_predictor;
+pub mod regex_cache;
+pub mod optimized_io;
 
 // Re-exports from adapter module
 pub use adapter::{
@@ -34,3 +39,6 @@ pub use lsp_client::LspClient;
 pub use lsp_indexer::LspIndexer;
 pub use fallback_indexer::{FallbackIndexer, FallbackLanguage};
 pub use timeout_predictor::{TimeoutPredictor, PredictorStatistics};
+pub use lsp_rpc_client::LspRpcClient;
+pub use lsp_manager::{UnifiedLspManager, LspServerConfig, LspServerRegistry, ProjectIndex};
+pub use unified_indexer::{UnifiedIndexer, IndexResult};

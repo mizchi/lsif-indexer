@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, BatchSize};
-use core::{CodeGraph, Symbol, SymbolKind, Position, Range};
-use core::optimized_graph::OptimizedCodeGraph;
-use core::memory_pool::SymbolPool;
+use lsif_core::{CodeGraph, Symbol, SymbolKind, Position, Range};
+use lsif_core::optimized_graph::OptimizedCodeGraph;
+use lsif_core::memory_pool::SymbolPool;
 
 /// テスト用のSymbolを生成
 fn create_test_symbol(id: usize) -> Symbol {

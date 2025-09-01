@@ -1,6 +1,6 @@
 use crate::storage::IndexStorage;
-use core::{CodeGraph};
-use core::call_hierarchy::{format_hierarchy, CallHierarchyAnalyzer};
+use lsif_core::{CodeGraph};
+use lsif_core::call_hierarchy::{format_hierarchy, CallHierarchyAnalyzer};
 use anyhow::Result;
 
 pub fn show_call_hierarchy(
@@ -84,7 +84,7 @@ pub fn find_paths(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core::{EdgeKind, Position, Range, Symbol, SymbolKind};
+    use lsif_core::{EdgeKind, Position, Range, Symbol, SymbolKind};
     use tempfile::TempDir;
 
     fn create_test_graph() -> CodeGraph {

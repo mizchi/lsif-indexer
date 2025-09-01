@@ -1,10 +1,16 @@
 //! TypeScript/JavaScript language adapter
 
 use super::{LanguageAdapter, ParsedQuery};
-use core::{Symbol, SymbolKind};
+use lsif_core::{Symbol, SymbolKind};
 use anyhow::Result;
 
 pub struct TypeScriptAdapter;
+
+impl Default for TypeScriptAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl TypeScriptAdapter {
     pub fn new() -> Self {
@@ -19,7 +25,7 @@ impl LanguageAdapter for TypeScriptAdapter {
     
     fn is_public(&self, symbol: &Symbol) -> bool {
         // Check if symbol is exported
-        symbol.detail.as_ref().map_or(true, |d| {
+        symbol.detail.as_ref().is_none_or(|d| {
             d.contains("export") || 
             d.contains("public") ||
             (!d.contains("private") && !d.contains("protected"))
@@ -33,7 +39,7 @@ impl LanguageAdapter for TypeScriptAdapter {
         match symbol.kind {
             SymbolKind::Function | SymbolKind::Class | SymbolKind::Interface | SymbolKind::Variable | SymbolKind::Constant => {
                 // Check if default export
-                if symbol.detail.as_ref().map_or(false, |d| d.contains("export default")) {
+                if symbol.detail.as_ref().is_some_and(|d| d.contains("export default")) {
                     Some(format!("import {} from '{}';", symbol.name, relative_path))
                 } else {
                     Some(format!("import {{ {} }} from '{}';", symbol.name, relative_path))
@@ -118,7 +124,7 @@ impl LanguageAdapter for TypeScriptAdapter {
         symbol.file_path.contains(".test.") ||
         symbol.file_path.contains(".spec.") ||
         symbol.file_path.contains("__tests__") ||
-        symbol.detail.as_ref().map_or(false, |d| {
+        symbol.detail.as_ref().is_some_and(|d| {
             d.contains("describe(") || 
             d.contains("it(") || 
             d.contains("test(") ||
@@ -156,12 +162,12 @@ impl LanguageAdapter for TypeScriptAdapter {
         }
         
         // Export boost
-        if symbol.detail.as_ref().map_or(false, |d| d.contains("export")) {
+        if symbol.detail.as_ref().is_some_and(|d| d.contains("export")) {
             score += 0.5;
         }
         
         // Default export boost
-        if symbol.detail.as_ref().map_or(false, |d| d.contains("export default")) {
+        if symbol.detail.as_ref().is_some_and(|d| d.contains("export default")) {
             score += 0.3;
         }
         
@@ -171,7 +177,7 @@ impl LanguageAdapter for TypeScriptAdapter {
         }
         
         // React component boost
-        if symbol.kind == SymbolKind::Class && symbol.detail.as_ref().map_or(false, |d| d.contains("React")) {
+        if symbol.kind == SymbolKind::Class && symbol.detail.as_ref().is_some_and(|d| d.contains("React")) {
             score += 0.3;
         }
         
@@ -187,7 +193,7 @@ impl LanguageAdapter for TypeScriptAdapter {
 
 impl TypeScriptAdapter {
     fn get_relative_path(&self, target_file: &str, from_file: &str) -> Option<String> {
-        use std::path::{Path, PathBuf};
+        use std::path::Path;
         
         let target = Path::new(target_file);
         let from = Path::new(from_file);

@@ -1,10 +1,16 @@
 //! Python language adapter
 
 use super::{LanguageAdapter, ParsedQuery};
-use core::{Symbol, SymbolKind};
+use lsif_core::{Symbol, SymbolKind};
 use anyhow::Result;
 
 pub struct PythonAdapter;
+
+impl Default for PythonAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl PythonAdapter {
     pub fn new() -> Self {
@@ -85,7 +91,7 @@ impl LanguageAdapter for PythonAdapter {
         symbol.name.starts_with("test_") ||
         symbol.file_path.contains("test_") ||
         symbol.file_path.contains("tests/") ||
-        symbol.detail.as_ref().map_or(false, |d| {
+        symbol.detail.as_ref().is_some_and(|d| {
             d.contains("unittest") || d.contains("pytest")
         })
     }
@@ -133,8 +139,7 @@ impl PythonAdapter {
         for component in path.components() {
             if let std::path::Component::Normal(name) = component {
                 let name_str = name.to_str()?;
-                if name_str.ends_with(".py") {
-                    let module_name = &name_str[..name_str.len()-3];
+                if let Some(module_name) = name_str.strip_suffix(".py") {
                     if module_name != "__init__" {
                         components.push(module_name.to_string());
                     }

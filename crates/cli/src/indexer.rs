@@ -1,5 +1,5 @@
 use lsp::adapter::lsp::{GenericLspClient, LspAdapter};
-use core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
+use lsif_core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
 use anyhow::Result;
 use lsp_types::{
     DocumentSymbol, GotoDefinitionParams, Location, PartialResultParams, Position as LspPosition,
@@ -880,3 +880,4 @@ mod tests {
         assert_eq!(graph.symbol_count(), 1);
     }
 }
+// Differential test

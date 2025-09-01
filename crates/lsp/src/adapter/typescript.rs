@@ -139,7 +139,7 @@ impl LanguageAdapter for TypeScriptAdapter {
         patterns
     }
 
-    fn build_reference_pattern(&self, name: &str, _kind: &core::SymbolKind) -> String {
+    fn build_reference_pattern(&self, name: &str, _kind: &lsif_core::SymbolKind) -> String {
         format!(r"\b{}\b", regex::escape(name))
     }
 

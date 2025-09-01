@@ -14,8 +14,7 @@ pub use query::{QueryEngine, QueryPattern, QueryResult};
 pub use fuzzy::{FuzzySearcher, FuzzyMatch, MatchType};
 pub use adapters::{AdapterRegistry, LanguageAdapter};
 
-use core::CodeGraph;
-use anyhow::Result;
+use lsif_core::CodeGraph;
 
 /// Main engine that combines all search functionality
 pub struct Engine {

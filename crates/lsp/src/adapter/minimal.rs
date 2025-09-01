@@ -1,10 +1,5 @@
-/// 最小限の言語アダプター実装
-///
-/// コメントスタイル定義を提供
-use anyhow::Result;
 
 // LanguageAdapterトレイトは language.rs から使用
-use super::language::LanguageAdapter;
 
 /// コメントスタイル定義
 #[derive(Debug, Clone)]

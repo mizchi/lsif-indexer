@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
-use std::process::{Child, Stdio};
+use std::process::Child;
 use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
 
@@ -40,6 +40,12 @@ pub struct LspHealthChecker {
     request_count: usize,
     /// 最大履歴数
     max_history: usize,
+}
+
+impl Default for LspHealthChecker {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl LspHealthChecker {
@@ -152,7 +158,7 @@ impl LspHealthChecker {
             }
             
             // 操作種別ごとの記録
-            let type_times = self.operation_type_times.entry(op_type).or_insert_with(Vec::new);
+            let type_times = self.operation_type_times.entry(op_type).or_default();
             type_times.push(duration);
             if type_times.len() > self.max_history / 10 {  // 種別ごとは少なめに保持
                 type_times.remove(0);
@@ -367,6 +373,12 @@ pub struct HealthStatus {
 /// LSP起動の段階的確認
 pub struct LspStartupValidator {
     max_startup_wait: Duration,
+}
+
+impl Default for LspStartupValidator {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl LspStartupValidator {

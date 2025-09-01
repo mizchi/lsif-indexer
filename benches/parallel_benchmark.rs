@@ -1,13 +1,13 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use core::parallel::{
+use lsif_core::parallel::{
     parallel_lsif::ParallelLsifGenerator, ParallelCodeGraph, ParallelFileAnalyzer,
     ParallelIncrementalIndex,
 };
-// use core::parallel_optimized::{OptimizedDeadCodeDetector, OptimizedParallelGraph};
-use core::{
+// use lsif_core::parallel_optimized::{OptimizedDeadCodeDetector, OptimizedParallelGraph};
+use lsif_core::{
     CodeGraph, EdgeKind, IncrementalIndex, Position, Range, Symbol, SymbolKind,
 };
-use core::incremental::UpdateResult;
+use lsif_core::incremental::UpdateResult;
 use std::collections::HashMap;
 use std::path::PathBuf;
 

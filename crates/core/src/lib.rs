@@ -34,4 +34,4 @@ pub use type_relations::TypeRelations;
 pub use fuzzy_search::{FuzzySearchIndex, SearchResult, MatchType};
 
 // Utility functions
-pub use incremental::calculate_file_hash;
+pub use incremental::calculate_file_hash;// Another test

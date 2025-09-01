@@ -2,7 +2,7 @@ use lsp::adapter::language::{LanguageAdapter, RustLanguageAdapter, TypeScriptLan
 /// 参照検索の実装
 ///
 /// ファイル内容を実際に検索して使用箇所を見つける
-use core::{Position, Range, Symbol, SymbolKind};
+use lsif_core::{Position, Range, Symbol, SymbolKind};
 use anyhow::Result;
 use regex::Regex;
 use std::collections::HashSet;

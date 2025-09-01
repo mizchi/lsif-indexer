@@ -40,7 +40,7 @@ pub trait LanguageAdapter: Send + Sync {
     fn definition_patterns(&self) -> Vec<DefinitionPattern>;
 
     /// 参照パターンの正規表現を構築
-    fn build_reference_pattern(&self, name: &str, kind: &core::SymbolKind) -> String;
+    fn build_reference_pattern(&self, name: &str, kind: &lsif_core::SymbolKind) -> String;
 
     /// 定義コンテキストかを判定
     fn is_definition_context(&self, line: &str, position: usize) -> bool;
@@ -130,8 +130,8 @@ impl LanguageAdapter for RustLanguageAdapter {
         ]
     }
 
-    fn build_reference_pattern(&self, name: &str, kind: &core::SymbolKind) -> String {
-        use core::SymbolKind;
+    fn build_reference_pattern(&self, name: &str, kind: &lsif_core::SymbolKind) -> String {
+        use lsif_core::SymbolKind;
         let escaped = regex::escape(name);
 
         match kind {
@@ -285,7 +285,7 @@ impl LanguageAdapter for TypeScriptLanguageAdapter {
         ]
     }
 
-    fn build_reference_pattern(&self, name: &str, _kind: &core::SymbolKind) -> String {
+    fn build_reference_pattern(&self, name: &str, _kind: &lsif_core::SymbolKind) -> String {
         let escaped = regex::escape(name);
         // TypeScriptではすべて単純な単語境界でOK（::は使わない）
         format!(r"\b{}\b", escaped)

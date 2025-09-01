@@ -110,12 +110,14 @@ pub struct GenericLspClient {
     language_id: String,
     timeout_predictor: TimeoutPredictor,
     health_checker: LspHealthChecker,
+    /// LSPサーバーのCapabilities
+    server_capabilities: Option<lsp_types::ServerCapabilities>,
 }
 
 impl GenericLspClient {
     /// Create a new LSP client with the given adapter (without initialization)
     pub fn new_uninit(adapter: Box<dyn LspAdapter>) -> Result<Self> {
-        use tracing::{debug, info};
+        use tracing::info;
         
         let language_id = adapter.language_id().to_string();
         info!("Creating LSP client for language: {}", language_id);
@@ -141,6 +143,7 @@ impl GenericLspClient {
             language_id: language_id.clone(),
             timeout_predictor: TimeoutPredictor::with_config(5, 3, 120),
             health_checker: LspHealthChecker::new(),
+            server_capabilities: None,
         };
         
         // 初期化前にプロセスが生きているか再確認
@@ -187,6 +190,12 @@ impl GenericLspClient {
         info!("Received initialize response from {} in {:?}", self.language_id, duration);
         debug!("Server capabilities: {:?}", response.capabilities);
         
+        // サーバーのCapabilitiesを保存
+        self.server_capabilities = Some(response.capabilities.clone());
+        
+        // 言語固有の最適化を適用
+        self.optimize_for_language();
+        
         // initialized通知を送信する前に少し待つ
         std::thread::sleep(Duration::from_millis(100));
         
@@ -201,12 +210,15 @@ impl GenericLspClient {
         use std::fs::canonicalize;
         
         let root_uri = canonicalize(project_root)
-            .and_then(|p| Ok(Url::from_file_path(p).map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid path"))?))?;
+            .and_then(|p| Url::from_file_path(p).map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid path")))?;
+        
+        // 言語固有のクライアントCapabilitiesを構築
+        let client_capabilities = self.build_client_capabilities();
         
         let params = InitializeParams {
             process_id: Some(std::process::id()),
             root_uri: Some(root_uri),
-            capabilities: ClientCapabilities::default(),
+            capabilities: client_capabilities,
             initialization_options: None,
             client_info: Some(ClientInfo {
                 name: "lsif-indexer".to_string(),
@@ -222,9 +234,255 @@ impl GenericLspClient {
         self.initialize_with_params(params, timeout)?;
         Ok(())
     }
+    
+    /// 言語固有のクライアントCapabilitiesを構築
+    fn build_client_capabilities(&self) -> ClientCapabilities {
+        use lsp_types::*;
+        
+        let mut capabilities = ClientCapabilities::default();
+        
+        // テキストドキュメント関連のCapabilities
+        let mut text_document = TextDocumentClientCapabilities::default();
+        
+        // DocumentSymbol
+        text_document.document_symbol = Some(DocumentSymbolClientCapabilities {
+            dynamic_registration: Some(false),
+            hierarchical_document_symbol_support: Some(true),
+            symbol_kind: Some(SymbolKindCapability {
+                value_set: Some(vec![
+                    SymbolKind::FILE,
+                    SymbolKind::MODULE,
+                    SymbolKind::NAMESPACE,
+                    SymbolKind::PACKAGE,
+                    SymbolKind::CLASS,
+                    SymbolKind::METHOD,
+                    SymbolKind::PROPERTY,
+                    SymbolKind::FIELD,
+                    SymbolKind::CONSTRUCTOR,
+                    SymbolKind::ENUM,
+                    SymbolKind::INTERFACE,
+                    SymbolKind::FUNCTION,
+                    SymbolKind::VARIABLE,
+                    SymbolKind::CONSTANT,
+                    SymbolKind::STRING,
+                    SymbolKind::NUMBER,
+                    SymbolKind::BOOLEAN,
+                    SymbolKind::ARRAY,
+                    SymbolKind::OBJECT,
+                    SymbolKind::KEY,
+                    SymbolKind::NULL,
+                    SymbolKind::ENUM_MEMBER,
+                    SymbolKind::STRUCT,
+                    SymbolKind::EVENT,
+                    SymbolKind::OPERATOR,
+                    SymbolKind::TYPE_PARAMETER,
+                ]),
+            }),
+            tag_support: None,
+        });
+        
+        // Definition
+        text_document.definition = Some(GotoCapability {
+            dynamic_registration: Some(false),
+            link_support: Some(true),
+        });
+        
+        // References
+        text_document.references = Some(ReferenceClientCapabilities {
+            dynamic_registration: Some(false),
+        });
+        
+        // Type Definition
+        text_document.type_definition = Some(GotoCapability {
+            dynamic_registration: Some(false),
+            link_support: Some(true),
+        });
+        
+        // Implementation
+        text_document.implementation = Some(GotoCapability {
+            dynamic_registration: Some(false),
+            link_support: Some(true),
+        });
+        
+        // Call Hierarchy
+        text_document.call_hierarchy = Some(CallHierarchyClientCapabilities {
+            dynamic_registration: Some(false),
+        });
+        
+        capabilities.text_document = Some(text_document);
+        
+        // Workspace関連のCapabilities
+        let mut workspace = WorkspaceClientCapabilities::default();
+        workspace.symbol = Some(WorkspaceSymbolClientCapabilities {
+            dynamic_registration: Some(false),
+            symbol_kind: Some(SymbolKindCapability {
+                value_set: Some(vec![
+                    SymbolKind::FILE,
+                    SymbolKind::MODULE,
+                    SymbolKind::NAMESPACE,
+                    SymbolKind::PACKAGE,
+                    SymbolKind::CLASS,
+                    SymbolKind::METHOD,
+                    SymbolKind::PROPERTY,
+                    SymbolKind::FIELD,
+                    SymbolKind::CONSTRUCTOR,
+                    SymbolKind::ENUM,
+                    SymbolKind::INTERFACE,
+                    SymbolKind::FUNCTION,
+                    SymbolKind::VARIABLE,
+                    SymbolKind::CONSTANT,
+                    SymbolKind::STRING,
+                    SymbolKind::NUMBER,
+                    SymbolKind::BOOLEAN,
+                    SymbolKind::ARRAY,
+                    SymbolKind::OBJECT,
+                    SymbolKind::KEY,
+                    SymbolKind::NULL,
+                    SymbolKind::ENUM_MEMBER,
+                    SymbolKind::STRUCT,
+                    SymbolKind::EVENT,
+                    SymbolKind::OPERATOR,
+                    SymbolKind::TYPE_PARAMETER,
+                ]),
+            }),
+            tag_support: None,
+            resolve_support: None,
+        });
+        
+        capabilities.workspace = Some(workspace);
+        
+        capabilities
+    }
+
+    /// サーバーがサポートする機能をチェック
+    pub fn has_capability(&self, capability: &str) -> bool {
+        match &self.server_capabilities {
+            Some(caps) => match capability {
+                "textDocument/documentSymbol" => caps.document_symbol_provider.is_some(),
+                "textDocument/definition" => caps.definition_provider.is_some(),
+                "textDocument/references" => caps.references_provider.is_some(),
+                "textDocument/typeDefinition" => caps.type_definition_provider.is_some(),
+                "textDocument/implementation" => caps.implementation_provider.is_some(),
+                "workspace/symbol" => caps.workspace_symbol_provider.is_some(),
+                "textDocument/prepareCallHierarchy" => caps.call_hierarchy_provider.is_some(),
+                "textDocument/hover" => caps.hover_provider.is_some(),
+                "textDocument/completion" => caps.completion_provider.is_some(),
+                "textDocument/signatureHelp" => caps.signature_help_provider.is_some(),
+                "textDocument/codeAction" => caps.code_action_provider.is_some(),
+                "textDocument/codeLens" => caps.code_lens_provider.is_some(),
+                "textDocument/documentHighlight" => caps.document_highlight_provider.is_some(),
+                "textDocument/documentLink" => caps.document_link_provider.is_some(),
+                "textDocument/formatting" => caps.document_formatting_provider.is_some(),
+                "textDocument/rangeFormatting" => caps.document_range_formatting_provider.is_some(),
+                "textDocument/onTypeFormatting" => caps.document_on_type_formatting_provider.is_some(),
+                "textDocument/rename" => caps.rename_provider.is_some(),
+                "textDocument/foldingRange" => caps.folding_range_provider.is_some(),
+                "textDocument/selectionRange" => caps.selection_range_provider.is_some(),
+                "textDocument/semanticTokens" => {
+                    caps.semantic_tokens_provider.is_some()
+                }
+                "textDocument/linkedEditingRange" => caps.linked_editing_range_provider.is_some(),
+                "textDocument/moniker" => caps.moniker_provider.is_some(),
+                "textDocument/inlayHint" => caps.inlay_hint_provider.is_some(),
+                "textDocument/inlineValue" => caps.inline_value_provider.is_some(),
+                "textDocument/diagnostic" => caps.diagnostic_provider.is_some(),
+                _ => false,
+            },
+            None => false,
+        }
+    }
+    
+    /// サーバーがサポートするシンボルの種類を取得
+    pub fn get_supported_symbol_kinds(&self) -> Vec<lsp_types::SymbolKind> {
+        // デフォルトで全てのシンボル種類をサポート
+        vec![
+            lsp_types::SymbolKind::FILE,
+            lsp_types::SymbolKind::MODULE,
+            lsp_types::SymbolKind::NAMESPACE,
+            lsp_types::SymbolKind::PACKAGE,
+            lsp_types::SymbolKind::CLASS,
+            lsp_types::SymbolKind::METHOD,
+            lsp_types::SymbolKind::PROPERTY,
+            lsp_types::SymbolKind::FIELD,
+            lsp_types::SymbolKind::CONSTRUCTOR,
+            lsp_types::SymbolKind::ENUM,
+            lsp_types::SymbolKind::INTERFACE,
+            lsp_types::SymbolKind::FUNCTION,
+            lsp_types::SymbolKind::VARIABLE,
+            lsp_types::SymbolKind::CONSTANT,
+            lsp_types::SymbolKind::STRING,
+            lsp_types::SymbolKind::NUMBER,
+            lsp_types::SymbolKind::BOOLEAN,
+            lsp_types::SymbolKind::ARRAY,
+            lsp_types::SymbolKind::OBJECT,
+            lsp_types::SymbolKind::KEY,
+            lsp_types::SymbolKind::NULL,
+            lsp_types::SymbolKind::ENUM_MEMBER,
+            lsp_types::SymbolKind::STRUCT,
+            lsp_types::SymbolKind::EVENT,
+            lsp_types::SymbolKind::OPERATOR,
+            lsp_types::SymbolKind::TYPE_PARAMETER,
+        ]
+    }
+    
+    /// 言語IDを取得
+    pub fn get_language_id(&self) -> &str {
+        &self.language_id
+    }
+    
+    /// サーバーCapabilitiesを取得
+    pub fn get_server_capabilities(&self) -> Option<&lsp_types::ServerCapabilities> {
+        self.server_capabilities.as_ref()
+    }
+    
+    /// 言語固有の最適化を適用（Capabilitiesに基づく）
+    pub fn optimize_for_language(&mut self) {
+        use tracing::info;
+        
+        match self.language_id.as_str() {
+            "rust" => {
+                // Rustの場合、rust-analyzerの特性に合わせて最適化
+                if self.has_capability("textDocument/semanticTokens") {
+                    info!("Rust: Semantic tokens are supported, using for better symbol extraction");
+                }
+                if self.has_capability("textDocument/inlayHint") {
+                    info!("Rust: Inlay hints are supported, can extract type information");
+                }
+            }
+            "typescript" | "javascript" => {
+                // TypeScript/JavaScriptの場合
+                if self.has_capability("textDocument/completion") {
+                    info!("TypeScript: Completion is supported, can extract more detailed type info");
+                }
+            }
+            "python" => {
+                // Pythonの場合
+                if self.has_capability("textDocument/hover") {
+                    info!("Python: Hover is supported, can extract docstrings");
+                }
+            }
+            "go" => {
+                // Goの場合
+                if self.has_capability("textDocument/implementation") {
+                    info!("Go: Implementation is supported, can track interface implementations");
+                }
+            }
+            _ => {
+                info!("Using default LSP capabilities for language: {}", self.language_id);
+            }
+        }
+    }
 
     pub fn get_document_symbols(&mut self, file_uri: &str) -> Result<Vec<DocumentSymbol>> {
         use std::time::Instant;
+        
+        // Capabilityをチェック
+        if !self.has_capability("textDocument/documentSymbol") {
+            return Err(anyhow!(
+                "LSP server for {} does not support textDocument/documentSymbol",
+                self.language_id
+            ));
+        }
         
         let start = Instant::now();
         
@@ -300,6 +558,14 @@ impl GenericLspClient {
     }
 
     pub fn find_references(&mut self, params: ReferenceParams) -> Result<Vec<Location>> {
+        // Capabilityをチェック
+        if !self.has_capability("textDocument/references") {
+            return Err(anyhow!(
+                "LSP server for {} does not support textDocument/references",
+                self.language_id
+            ));
+        }
+        
         let response: Option<Vec<Location>> =
             self.send_request("textDocument/references", params)?;
 
@@ -307,6 +573,14 @@ impl GenericLspClient {
     }
 
     pub fn goto_definition(&mut self, params: GotoDefinitionParams) -> Result<Location> {
+        // Capabilityをチェック
+        if !self.has_capability("textDocument/definition") {
+            return Err(anyhow!(
+                "LSP server for {} does not support textDocument/definition",
+                self.language_id
+            ));
+        }
+        
         let response: Option<GotoDefinitionResponse> =
             self.send_request("textDocument/definition", params)?;
 

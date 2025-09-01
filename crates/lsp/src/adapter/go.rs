@@ -1,6 +1,5 @@
-use super::common::{c_style_comments, spawn_lsp_server};
+use super::common::spawn_lsp_server;
 use super::language::{LanguageAdapter, DefinitionPattern, PatternType};
-use super::minimal::CommentStyles;
 use anyhow::Result;
 
 /// Go言語のアダプタ実装
@@ -55,7 +54,7 @@ impl LanguageAdapter for GoAdapter {
         ]
     }
 
-    fn build_reference_pattern(&self, name: &str, _kind: &core::SymbolKind) -> String {
+    fn build_reference_pattern(&self, name: &str, _kind: &lsif_core::SymbolKind) -> String {
         format!(r"\b{}\b", regex::escape(name))
     }
 

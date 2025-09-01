@@ -622,3 +622,7 @@ mod tests {
     }
 }
 // Test comment
+
+// Test comment for differential index
+// Test change for differential indexing
+// Test comment for differential

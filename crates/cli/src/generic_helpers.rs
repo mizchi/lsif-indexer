@@ -1,7 +1,7 @@
 /// 言語非依存の汎用ヘルパー関数
 ///
 /// すべての言語で共通利用可能な解析ロジック
-use core::SymbolKind;
+use lsif_core::SymbolKind;
 
 /// 基本的な参照パターンを構築（99%のケースをカバー）
 pub fn build_basic_reference_pattern(name: &str) -> String {

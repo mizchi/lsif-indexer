@@ -156,12 +156,15 @@ pub struct ParallelExecutionStats {
 /// インクリメンタル更新の適応的処理
 pub struct AdaptiveIncrementalProcessor {
     executor: AdaptiveParallelExecutor,
+    pub config: AdaptiveParallelConfig,
 }
 
 impl AdaptiveIncrementalProcessor {
     pub fn new(config: AdaptiveParallelConfig) -> Result<Self> {
+        let config_clone = config.clone();
         Ok(Self {
             executor: AdaptiveParallelExecutor::new(config)?,
+            config: config_clone,
         })
     }
 

@@ -1,4 +1,4 @@
-use core::{fuzzy_search::FuzzySearchIndex, Symbol, SymbolKind, Position, Range, CodeGraph};
+use lsif_core::{fuzzy_search::FuzzySearchIndex, Symbol, SymbolKind, Position, Range, CodeGraph};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::collections::HashSet;
 

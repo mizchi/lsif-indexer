@@ -1,10 +1,10 @@
 //! Fuzzy search functionality
 
-use core::{CodeGraph, Symbol, SymbolKind};
+use lsif_core::{CodeGraph, Symbol, SymbolKind};
 use dashmap::DashMap;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::Arc;
 use anyhow::Result;
 
@@ -84,21 +84,21 @@ impl FuzzySearcher {
         let name_lower = name.to_lowercase();
         self.name_index
             .entry(name_lower.clone())
-            .or_insert_with(HashSet::new)
+            .or_default()
             .insert(id.clone());
         
         // N-gram indices
         for bigram in Self::generate_ngrams(&name_lower, 2) {
             self.bigram_index
                 .entry(bigram)
-                .or_insert_with(HashSet::new)
+                .or_default()
                 .insert(id.clone());
         }
         
         for trigram in Self::generate_ngrams(&name_lower, 3) {
             self.trigram_index
                 .entry(trigram)
-                .or_insert_with(HashSet::new)
+                .or_default()
                 .insert(id.clone());
         }
         
@@ -107,7 +107,7 @@ impl FuzzySearcher {
             let prefix = name_lower[..i].to_string();
             self.prefix_index
                 .entry(prefix)
-                .or_insert_with(HashSet::new)
+                .or_default()
                 .insert(id.clone());
         }
         
@@ -115,7 +115,7 @@ impl FuzzySearcher {
         for word in Self::split_camel_case(&name) {
             self.word_index
                 .entry(word.to_lowercase())
-                .or_insert_with(HashSet::new)
+                .or_default()
                 .insert(id.clone());
         }
     }

@@ -1,8 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, BatchSize};
-use core::{CodeGraph, Symbol, SymbolKind, Position, Range};
-use core::interned_graph::InternedGraph;
-use core::optimized_graph::OptimizedCodeGraph;
-use core::string_interner::StringInterner;
+use lsif_core::{CodeGraph, Symbol, SymbolKind, Position, Range};
+use lsif_core::interned_graph::InternedGraph;
+use lsif_core::optimized_graph::OptimizedCodeGraph;
+use lsif_core::string_interner::StringInterner;
 
 /// テスト用のSymbolを生成（重複する文字列を含む）
 fn create_test_symbol_with_duplicates(id: usize) -> Symbol {

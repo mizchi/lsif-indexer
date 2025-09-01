@@ -1,8 +1,7 @@
 //! Basic search functionality
 
-use core::{CodeGraph, Symbol, SymbolKind, Position, Range};
+use lsif_core::{CodeGraph, Symbol, SymbolKind, Position};
 use anyhow::Result;
-use std::collections::HashSet;
 
 /// Search options
 #[derive(Debug, Clone, Default)]
@@ -60,7 +59,7 @@ impl SearchEngine {
                     }
                 }
                 
-                if !options.include_private && self.is_private_symbol(&symbol) {
+                if !options.include_private && self.is_private_symbol(symbol) {
                     continue;
                 }
                 

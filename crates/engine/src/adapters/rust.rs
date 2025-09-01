@@ -1,10 +1,16 @@
 //! Rust language adapter
 
 use super::{LanguageAdapter, ParsedQuery};
-use core::{Symbol, SymbolKind};
+use lsif_core::{Symbol, SymbolKind};
 use anyhow::Result;
 
 pub struct RustAdapter;
+
+impl Default for RustAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl RustAdapter {
     pub fn new() -> Self {
@@ -20,7 +26,7 @@ impl LanguageAdapter for RustAdapter {
     fn is_public(&self, symbol: &Symbol) -> bool {
         // Check if symbol is public
         !symbol.name.starts_with("_") && 
-        !symbol.detail.as_ref().map_or(false, |d| d.contains("pub(crate)") || d.contains("pub(super)"))
+        !symbol.detail.as_ref().is_some_and(|d| d.contains("pub(crate)") || d.contains("pub(super)"))
     }
     
     fn get_import_statement(&self, symbol: &Symbol, from_file: &str) -> Option<String> {
@@ -106,7 +112,7 @@ impl LanguageAdapter for RustAdapter {
     
     fn is_test(&self, symbol: &Symbol) -> bool {
         // Check if symbol is a test function
-        symbol.detail.as_ref().map_or(false, |d| d.contains("#[test]") || d.contains("#[cfg(test)]")) ||
+        symbol.detail.as_ref().is_some_and(|d| d.contains("#[test]") || d.contains("#[cfg(test)]")) ||
         symbol.name.starts_with("test_") ||
         symbol.name.ends_with("_test") ||
         symbol.file_path.contains("/tests/") ||
@@ -186,8 +192,7 @@ impl RustAdapter {
                 if name_str == "src" {
                     continue;
                 }
-                if name_str.ends_with(".rs") {
-                    let module_name = &name_str[..name_str.len()-3];
+                if let Some(module_name) = name_str.strip_suffix(".rs") {
                     if module_name != "main" && module_name != "lib" {
                         components.push(module_name.to_string());
                     }

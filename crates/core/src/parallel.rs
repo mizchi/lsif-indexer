@@ -764,3 +764,5 @@ mod tests {
         assert_eq!(inner_index.graph.symbol_count(), 0);
     }
 }
+
+// Another test comment

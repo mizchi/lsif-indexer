@@ -5,8 +5,8 @@ use tracing::{info, warn};
 
 use super::language_detector::{detect_file_language, create_language_adapter};
 use super::lsp_client::LspClient;
-use core::graph::CodeGraph;
-use core::graph::{Range, Symbol, SymbolKind as LSIFSymbolKind};
+use lsif_core::CodeGraph;
+use lsif_core::{Range, Symbol, SymbolKind as LSIFSymbolKind};
 
 pub struct LspIntegration {
     client: LspClient,
@@ -121,11 +121,11 @@ impl LspIntegration {
             kind: self.convert_symbol_kind(symbol.kind),
             file_path: file_uri.path().to_string(),
             range: Range {
-                start: core::graph::Position {
+                start: lsif_core::Position {
                     line: symbol.selection_range.start.line,
                     character: symbol.selection_range.start.character,
                 },
-                end: core::graph::Position {
+                end: lsif_core::Position {
                     line: symbol.selection_range.end.line,
                     character: symbol.selection_range.end.character,
                 },

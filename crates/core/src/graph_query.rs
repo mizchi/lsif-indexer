@@ -888,3 +888,4 @@ mod tests {
         assert_eq!(pattern.relationships[0].max_depth, Some(5));
     }
 }
+// Another test comment

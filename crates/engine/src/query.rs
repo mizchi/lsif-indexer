@@ -1,6 +1,6 @@
 //! Query engine for advanced graph traversal
 
-use core::{CodeGraph, Symbol, SymbolKind, EdgeKind};
+use lsif_core::{CodeGraph, Symbol, SymbolKind, EdgeKind};
 use anyhow::{Result, anyhow};
 use std::collections::{HashSet, VecDeque, HashMap};
 
@@ -181,8 +181,8 @@ impl QueryEngine {
         current: &Symbol,
         pattern: &QueryPattern,
         node_index: usize,
-        mut bindings: HashMap<String, Symbol>,
-        mut path: Vec<Symbol>,
+        bindings: HashMap<String, Symbol>,
+        path: Vec<Symbol>,
         matches: &mut Vec<Match>,
     ) -> Result<()> {
         if node_index >= pattern.nodes.len() {

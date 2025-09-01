@@ -8,7 +8,7 @@ use crate::adaptive_parallel::{AdaptiveParallelConfig, AdaptiveIncrementalProces
 use crate::git_diff::{FileChange, FileChangeStatus, GitDiffDetector};
 use crate::reference_finder;
 use crate::storage::IndexStorage;
-use core::{CodeGraph, Symbol, SymbolKind};
+use lsif_core::{CodeGraph, Symbol, SymbolKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use walkdir;
@@ -88,6 +88,8 @@ pub struct DifferentialIndexer {
     lsp_indexer: Option<LspIndexer>,
     /// LSPクライアントプール
     lsp_pool: LspClientPool,
+    /// フォールバックインデクサーのみを使用するかどうか
+    fallback_only: bool,
 }
 
 impl DifferentialIndexer {
@@ -125,9 +127,51 @@ impl DifferentialIndexer {
             parallel_processor,
             lsp_indexer: None,
             lsp_pool,
+            fallback_only: false,
         })
     }
 
+    /// フォールバックインデクサーのみを使用するモードを設定
+    pub fn set_fallback_only(&mut self, fallback_only: bool) {
+        self.fallback_only = fallback_only;
+        if fallback_only {
+            info!("Using fallback indexer only mode (faster but less accurate)");
+            eprintln!("ℹ️  Using fallback indexer only mode (faster but less accurate)");
+        }
+    }
+    
+    /// 並列処理の設定
+    pub fn set_parallel_config(&mut self, threads: usize, parallel: bool) -> Result<()> {
+        use crate::adaptive_parallel::AdaptiveParallelConfig;
+        
+        let mut config = AdaptiveParallelConfig::default();
+        
+        // 並列処理を有効化
+        if parallel {
+            config.parallel_threshold = 1; // 即座に並列処理を開始
+        }
+        
+        // スレッド数の設定
+        if threads > 0 {
+            config.max_threads = threads;
+        } else if parallel {
+            // 自動設定（CPU数に基づく）
+            config.max_threads = 0; // 0 = auto
+        }
+        
+        // チャンクサイズの調整
+        if threads > 8 {
+            config.chunk_size = 50; // 多スレッド時は小さめのチャンク
+        }
+        
+        self.parallel_processor = AdaptiveIncrementalProcessor::new(config)?;
+        
+        info!("Parallel processing configured: threads={}, enabled={}", 
+              if threads == 0 { num_cpus::get() } else { threads }, 
+              parallel);
+              
+        Ok(())
+    }
 
     /// LSPインデクサーを初期化（遅延初期化）
     #[allow(dead_code)]
@@ -172,6 +216,16 @@ impl DifferentialIndexer {
         let file_uri = format!("file://{}", absolute_path.display());
         debug!("File URI: {}", file_uri);
         
+        // 言語IDを取得
+        use lsp::adapter::lsp::get_language_id;
+        let language_id = get_language_id(path).unwrap_or_else(|| "unknown".to_string());
+        
+        // LSPがドキュメントシンボルをサポートしているかチェック
+        if !self.lsp_pool.has_capability_for_language(&language_id, "textDocument/documentSymbol") {
+            debug!("LSP server for {} does not support documentSymbol, using fallback", language_id);
+            return self.extract_symbols_with_fallback(path);
+        }
+        
         // LSPプールからクライアントを取得（短いタイムアウト）
         match self.lsp_pool.get_or_create_client(path, &self.project_root) {
             Ok(client_arc) => {
@@ -191,7 +245,12 @@ impl DifferentialIndexer {
                                 Ok(symbols)
                             }
                             Err(e) => {
-                                warn!("LSP symbol extraction failed for {}: {}. Using fallback.", path.display(), e);
+                                // エラーメッセージにサポートされていないという情報が含まれている場合
+                                if e.to_string().contains("does not support") {
+                                    info!("LSP server does not support documentSymbol for {}, using fallback", path.display());
+                                } else {
+                                    warn!("LSP symbol extraction failed for {}: {}. Using fallback.", path.display(), e);
+                                }
                                 self.extract_symbols_with_fallback(path)
                             }
                         }
@@ -260,12 +319,12 @@ impl DifferentialIndexer {
                 kind: self.convert_lsp_symbol_kind(lsp_symbol.kind),
                 name: lsp_symbol.name.clone(),
                 file_path: path_str.clone(),
-                range: core::Range {
-                    start: core::Position {
+                range: lsif_core::Range {
+                    start: lsif_core::Position {
                         line: lsp_symbol.range.start.line,
                         character: lsp_symbol.range.start.character,
                     },
-                    end: core::Position {
+                    end: lsif_core::Position {
                         line: lsp_symbol.range.end.line,
                         character: lsp_symbol.range.end.character,
                     },
@@ -306,8 +365,17 @@ impl DifferentialIndexer {
 
         // 前回のメタデータからハッシュキャッシュを復元
         if let Some(ref metadata) = self.metadata {
+            // ファイルコンテンツハッシュをGitDetectorに設定
+            for (path, hash) in &metadata.file_content_hashes {
+                self.git_detector.set_cached_hash(path.clone(), hash.clone());
+            }
+            info!("Restored {} file hashes from metadata", metadata.file_content_hashes.len());
+            
+            // ハッシュキャッシュファイルも読み込み（存在する場合）
             if let Some(ref cache_path) = metadata.hash_cache_path {
-                self.git_detector.load_hash_cache(cache_path).ok();
+                if cache_path.exists() {
+                    self.git_detector.load_hash_cache(cache_path).ok();
+                }
             }
         }
 
@@ -376,26 +444,220 @@ impl DifferentialIndexer {
             .load_data::<CodeGraph>("graph")?
             .unwrap_or_else(CodeGraph::new);
 
-        // ファイルごとに処理
+        // ファイルごとに処理（並列処理対応）
         let mut new_file_hashes = HashMap::new();
         let mut processed_count = 0;
-
-        for change in changes {
-            // コンテンツハッシュを記録
-            if let Some(ref hash) = change.content_hash {
-                new_file_hashes.insert(change.path.clone(), hash.clone());
+        
+        // 並列処理の閾値を確認（デフォルトは50ファイル以上で並列化）
+        let should_parallel = total_files >= self.parallel_processor.config.parallel_threshold;
+        
+        // 並列処理は現在パフォーマンス問題があるため、明示的に有効化された場合のみ使用
+        if should_parallel && self.parallel_processor.config.parallel_threshold == 1 {
+            // 並列処理モード
+            use rayon::prelude::*;
+            
+            use lsp::fallback_indexer::FallbackIndexer;
+            
+            eprintln!("⚡ Using parallel processing for {} files", total_files);
+            
+            // シンボル抽出を並列化
+            let symbols_results: Vec<(PathBuf, FileChangeStatus, Option<Vec<Symbol>>)> = changes
+                .par_iter()
+                .map(|change| {
+                    let symbols = match &change.status {
+                        FileChangeStatus::Added | FileChangeStatus::Modified | FileChangeStatus::Renamed { .. } | FileChangeStatus::Untracked => {
+                            // ファイルごとにフォールバックインデクサーを作成
+                            match FallbackIndexer::from_extension(&change.path) {
+                                Some(indexer) => {
+                                    match indexer.extract_symbols(&change.path) {
+                                        Ok(doc_symbols) => {
+                                            // DocumentSymbolをSymbolに変換
+                                            let file_uri = format!("file://{}", change.path.display());
+                                            let symbols: Vec<Symbol> = doc_symbols.into_iter().map(|doc_sym| {
+                                                let file_path = change.path.to_string_lossy().to_string();
+                                                Symbol {
+                                                    id: format!("{}#{}:{}", file_path, doc_sym.range.start.line, doc_sym.name),
+                                                    name: doc_sym.name,
+                                                    kind: match doc_sym.kind {
+                                                        lsp_types::SymbolKind::FUNCTION => SymbolKind::Function,
+                                                        lsp_types::SymbolKind::CLASS => SymbolKind::Class,
+                                                        lsp_types::SymbolKind::INTERFACE => SymbolKind::Interface,
+                                                        lsp_types::SymbolKind::STRUCT => SymbolKind::Class,
+                                                        lsp_types::SymbolKind::ENUM => SymbolKind::Enum,
+                                                        lsp_types::SymbolKind::CONSTANT => SymbolKind::Constant,
+                                                        lsp_types::SymbolKind::VARIABLE => SymbolKind::Variable,
+                                                        lsp_types::SymbolKind::METHOD => SymbolKind::Function,
+                                                        lsp_types::SymbolKind::PROPERTY => SymbolKind::Property,
+                                                        _ => SymbolKind::Variable,
+                                                    },
+                                                    file_path: file_path.clone(),
+                                                    range: lsif_core::Range {
+                                                        start: lsif_core::Position {
+                                                            line: doc_sym.range.start.line,
+                                                            character: doc_sym.range.start.character,
+                                                        },
+                                                        end: lsif_core::Position {
+                                                            line: doc_sym.range.end.line,
+                                                            character: doc_sym.range.end.character,
+                                                        },
+                                                    },
+                                                    documentation: doc_sym.detail,
+                                                    detail: None,
+                                                }
+                                            }).collect();
+                                            Some(symbols)
+                                        }
+                                        Err(e) => {
+                                            warn!("Failed to extract symbols from {}: {}", change.path.display(), e);
+                                            None
+                                        }
+                                    }
+                                }
+                                None => {
+                                    debug!("No fallback indexer for {}", change.path.display());
+                                    None
+                                }
+                            }
+                        }
+                        FileChangeStatus::Deleted => None,
+                    };
+                    (change.path.clone(), change.status.clone(), symbols)
+                })
+                .collect();
+            
+            // グラフとハッシュの更新
+            for (path, status, symbols_opt) in symbols_results {
+                // ハッシュを記録
+                if let Some(change) = changes.iter().find(|c| c.path == path) {
+                    if let Some(ref hash) = change.content_hash {
+                        new_file_hashes.insert(path.clone(), hash.clone());
+                    }
+                }
+                
+                // プログレス表示
+                processed_count += 1;
+                if total_files > 10 && processed_count % 10 == 0 {
+                    eprintln!("  ⚡ Processed {}/{} files ({:.0}%)", 
+                             processed_count, total_files, 
+                             (processed_count as f64 / total_files as f64) * 100.0);
+                }
+                
+                match status {
+                    FileChangeStatus::Added | FileChangeStatus::Untracked => {
+                        result.files_added += 1;
+                        
+                        if let Some(symbols) = symbols_opt {
+                            result.symbols_added += symbols.len();
+                            
+                            for symbol in symbols {
+                                if result.added_symbols.len() < 20 {
+                                    result.added_symbols.push(SymbolSummary {
+                                        name: symbol.name.clone(),
+                                        kind: symbol.kind,
+                                        file_path: symbol.file_path.clone(),
+                                        line: symbol.range.start.line,
+                                    });
+                                }
+                                graph.add_symbol(symbol);
+                            }
+                            
+                            // 参照の追加
+                            if let Err(e) = self.add_references_to_graph(&mut graph, &path) {
+                                warn!("Failed to add references for {}: {}", path.display(), e);
+                            }
+                        }
+                    }
+                    FileChangeStatus::Modified | FileChangeStatus::Renamed { .. } => {
+                        result.files_modified += 1;
+                        
+                        // 既存シンボルの削除
+                        let path_str = path.to_string_lossy();
+                        let old_symbols: Vec<_> = graph
+                            .get_all_symbols()
+                            .filter(|s| s.file_path == path_str)
+                            .cloned()
+                            .collect();
+                        
+                        for symbol in &old_symbols {
+                            if result.deleted_symbols.len() < 20 {
+                                result.deleted_symbols.push(SymbolSummary {
+                                    name: symbol.name.clone(),
+                                    kind: symbol.kind,
+                                    file_path: symbol.file_path.clone(),
+                                    line: symbol.range.start.line,
+                                });
+                            }
+                            graph.remove_symbol(&symbol.id);
+                        }
+                        
+                        result.symbols_deleted += old_symbols.len();
+                        
+                        // 新規シンボルの追加
+                        if let Some(symbols) = symbols_opt {
+                            result.symbols_updated += symbols.len();
+                            
+                            for symbol in symbols {
+                                if result.added_symbols.len() < 20 {
+                                    result.added_symbols.push(SymbolSummary {
+                                        name: symbol.name.clone(),
+                                        kind: symbol.kind,
+                                        file_path: symbol.file_path.clone(),
+                                        line: symbol.range.start.line,
+                                    });
+                                }
+                                graph.add_symbol(symbol);
+                            }
+                            
+                            if let Err(e) = self.add_references_to_graph(&mut graph, &path) {
+                                warn!("Failed to add references for {}: {}", path.display(), e);
+                            }
+                        }
+                    }
+                    FileChangeStatus::Deleted => {
+                        result.files_deleted += 1;
+                        
+                        let path_str = path.to_string_lossy();
+                        let old_symbols: Vec<_> = graph
+                            .get_all_symbols()
+                            .filter(|s| s.file_path == path_str)
+                            .cloned()
+                            .collect();
+                        
+                        for symbol in &old_symbols {
+                            if result.deleted_symbols.len() < 20 {
+                                result.deleted_symbols.push(SymbolSummary {
+                                    name: symbol.name.clone(),
+                                    kind: symbol.kind,
+                                    file_path: symbol.file_path.clone(),
+                                    line: symbol.range.start.line,
+                                });
+                            }
+                            graph.remove_symbol(&symbol.id);
+                        }
+                        
+                        result.symbols_deleted += old_symbols.len();
+                    }
+                }
             }
             
-            // プログレス表示
-            processed_count += 1;
-            if total_files > 10 && processed_count % 10 == 0 {
-                eprintln!("  ⚡ Processed {}/{} files ({:.0}%)", 
-                         processed_count, total_files, 
-                         (processed_count as f64 / total_files as f64) * 100.0);
-            }
+        } else {
+            // シーケンシャル処理（小規模プロジェクト用）
+            for change in changes {
+                // コンテンツハッシュを記録
+                if let Some(ref hash) = change.content_hash {
+                    new_file_hashes.insert(change.path.clone(), hash.clone());
+                }
+                
+                // プログレス表示
+                processed_count += 1;
+                if total_files > 10 && processed_count % 10 == 0 {
+                    eprintln!("  ⚡ Processed {}/{} files ({:.0}%)", 
+                             processed_count, total_files, 
+                             (processed_count as f64 / total_files as f64) * 100.0);
+                }
 
-            match change.status {
-                FileChangeStatus::Added => {
+                match change.status {
+                FileChangeStatus::Added | FileChangeStatus::Untracked => {
                     result.files_added += 1;
                     
                     info!("Processing added file: {}", change.path.display());
@@ -414,7 +676,7 @@ impl DifferentialIndexer {
                         if result.added_symbols.len() < 20 {
                             result.added_symbols.push(SymbolSummary {
                                 name: symbol.name.clone(),
-                                kind: symbol.kind.clone(),
+                                kind: symbol.kind,
                                 file_path: symbol.file_path.clone(),
                                 line: symbol.range.start.line,
                             });
@@ -447,7 +709,7 @@ impl DifferentialIndexer {
                         if result.deleted_symbols.len() < 20 {
                             result.deleted_symbols.push(SymbolSummary {
                                 name: symbol.name.clone(),
-                                kind: symbol.kind.clone(),
+                                kind: symbol.kind,
                                 file_path: symbol.file_path.clone(),
                                 line: symbol.range.start.line,
                             });
@@ -465,7 +727,7 @@ impl DifferentialIndexer {
                         if result.added_symbols.len() < 20 {
                             result.added_symbols.push(SymbolSummary {
                                 name: symbol.name.clone(),
-                                kind: symbol.kind.clone(),
+                                kind: symbol.kind,
                                 file_path: symbol.file_path.clone(),
                                 line: symbol.range.start.line,
                             });
@@ -492,7 +754,7 @@ impl DifferentialIndexer {
                         if result.deleted_symbols.len() < 20 {
                             result.deleted_symbols.push(SymbolSummary {
                                 name: symbol.name.clone(),
-                                kind: symbol.kind.clone(),
+                                kind: symbol.kind,
                                 file_path: symbol.file_path.clone(),
                                 line: symbol.range.start.line,
                             });
@@ -531,6 +793,7 @@ impl DifferentialIndexer {
                     }
                 }
             }
+        }
         }
 
         // CodeGraphを保存
@@ -593,42 +856,56 @@ impl DifferentialIndexer {
 
     /// ファイルからシンボルを抽出
     fn extract_symbols_from_file(&mut self, path: &Path) -> Result<Vec<Symbol>> {
-        // フォールバックインデクサーを優先的に使用（信頼性重視）
         info!("Extracting symbols from: {}", path.display());
         
-        // まずフォールバックを試行
-        match self.extract_symbols_with_fallback(path) {
-            Ok(symbols) if !symbols.is_empty() => {
-                info!("Successfully extracted {} symbols using fallback indexer from {}", 
-                      symbols.len(), path.display());
-                Ok(symbols)
-            }
-            Ok(_) => {
-                // フォールバックで空の結果が返った場合はLSPを試行
-                info!("Fallback returned no symbols, trying LSP for: {}", path.display());
-                match self.extract_symbols_with_lsp(path) {
-                    Ok(symbols) => {
-                        info!("LSP extracted {} symbols from {}", symbols.len(), path.display());
-                        Ok(symbols)
-                    }
-                    Err(e) => {
-                        warn!("Both fallback and LSP failed for {}: {}", path.display(), e);
-                        Ok(Vec::new())
-                    }
+        // フォールバックオンリーモードの場合は直接フォールバックを使用
+        if self.fallback_only {
+            match self.extract_symbols_with_fallback(path) {
+                Ok(symbols) => {
+                    info!("Fallback extracted {} symbols from {}", symbols.len(), path.display());
+                    Ok(symbols)
+                }
+                Err(e) => {
+                    warn!("Fallback indexer failed for {}: {}", path.display(), e);
+                    Ok(Vec::new())
                 }
             }
-            Err(e) => {
-                warn!("Fallback indexer failed for {}: {}, trying LSP", path.display(), e);
-                match self.extract_symbols_with_lsp(path) {
-                    Ok(symbols) => {
-                        info!("LSP extracted {} symbols after fallback failed from {}", 
-                              symbols.len(), path.display());
-                        Ok(symbols)
+        } else {
+            // LSPインデクサーを優先的に使用（より正確なシンボル情報を取得）
+            // まずLSPを試行
+            match self.extract_symbols_with_lsp(path) {
+                Ok(symbols) if !symbols.is_empty() => {
+                    info!("Successfully extracted {} symbols using LSP from {}", 
+                          symbols.len(), path.display());
+                    Ok(symbols)
+                }
+                Ok(_) => {
+                    // LSPで空の結果が返った場合はフォールバックを試行
+                    info!("LSP returned no symbols, trying fallback for: {}", path.display());
+                    match self.extract_symbols_with_fallback(path) {
+                        Ok(symbols) => {
+                            info!("Fallback extracted {} symbols from {}", symbols.len(), path.display());
+                            Ok(symbols)
+                        }
+                        Err(e) => {
+                            warn!("Both LSP and fallback failed for {}: {}", path.display(), e);
+                            Ok(Vec::new())
+                        }
                     }
-                    Err(lsp_error) => {
-                        warn!("Both fallback and LSP failed for {}: fallback={}, lsp={}", 
-                              path.display(), e, lsp_error);
-                        Ok(Vec::new())
+                }
+                Err(e) => {
+                    warn!("LSP indexer failed for {}: {}, trying fallback", path.display(), e);
+                    match self.extract_symbols_with_fallback(path) {
+                        Ok(symbols) => {
+                            info!("Fallback extracted {} symbols after LSP failed from {}", 
+                                  symbols.len(), path.display());
+                            Ok(symbols)
+                        }
+                        Err(fallback_error) => {
+                            warn!("Both LSP and fallback failed for {}: lsp={}, fallback={}", 
+                                  path.display(), e, fallback_error);
+                            Ok(Vec::new())
+                        }
                     }
                 }
             }
@@ -638,7 +915,11 @@ impl DifferentialIndexer {
 
     /// メタデータを更新
     fn update_metadata(&mut self) -> Result<()> {
-        let hash_cache_path = self.project_root.join(".lsif-hash-cache.json");
+        // DBディレクトリ内にハッシュキャッシュを保存（プロジェクトルートではなく）
+        let db_dir = self.storage.get_db_path()?;
+        let hash_cache_path = db_dir.join("hash-cache.json");
+        
+        info!("Saving hash cache to: {:?}", hash_cache_path);
 
         // ハッシュキャッシュを保存
         self.git_detector.save_hash_cache(&hash_cache_path)?;
@@ -906,7 +1187,7 @@ impl DifferentialIndexer {
                             graph.get_node_index(&source_symbol.id),
                             graph.get_node_index(&symbol_id),
                         ) {
-                            graph.add_edge(from_idx, to_idx, core::EdgeKind::Reference);
+                            graph.add_edge(from_idx, to_idx, lsif_core::EdgeKind::Reference);
                             debug!(
                                 "Added reference edge: {} -> {}",
                                 source_symbol.id, symbol_id
@@ -1044,12 +1325,12 @@ mod tests {
             name: "test".to_string(),
             kind: SymbolKind::Function,
             file_path: "test.rs".to_string(),
-            range: core::Range {
-                start: core::Position {
+            range: lsif_core::Range {
+                start: lsif_core::Position {
                     line: 0,
                     character: 0,
                 },
-                end: core::Position {
+                end: lsif_core::Position {
                     line: 5,
                     character: 10,
                 },

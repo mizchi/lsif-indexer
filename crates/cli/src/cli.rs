@@ -1,7 +1,7 @@
 use crate::differential_indexer::DifferentialIndexer;
 use crate::git_diff::GitDiffDetector;
 use crate::storage::IndexStorage;
-use core::CodeGraph;
+use lsif_core::CodeGraph;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::Path;
@@ -143,6 +143,15 @@ pub enum Commands {
         /// Show detailed progress
         #[arg(short, long)]
         verbose: bool,
+        /// Use fallback indexer only (faster but less accurate)
+        #[arg(long)]
+        fallback_only: bool,
+        /// Number of parallel threads (0 = auto, based on CPU cores)
+        #[arg(short = 't', long, default_value = "0")]
+        threads: usize,
+        /// Enable parallel processing for large projects
+        #[arg(long)]
+        parallel: bool,
     },
 
     /// Show graph diff - track related changes in the code graph
@@ -203,8 +212,11 @@ impl Cli {
         let db_path = self.db.unwrap_or_else(|| DEFAULT_INDEX_PATH.to_string());
         let project_root = self.project.unwrap_or_else(|| ".".to_string());
 
-        // 自動インデックスの実行（--no-auto-indexフラグがない限り）
-        if !self.no_auto_index {
+        // Indexコマンドの場合は自動インデックスをスキップ
+        let should_auto_index = !self.no_auto_index && !matches!(self.command, Commands::Index { .. });
+        
+        // 自動インデックスの実行
+        if should_auto_index {
             auto_index(&db_path, &project_root)?;
         }
 
@@ -262,8 +274,8 @@ impl Cli {
             Commands::Unused { public_only } => {
                 show_unused_code(&db_path, public_only)?;
             }
-            Commands::Index { force, verbose } => {
-                rebuild_index(&db_path, &project_root, force, verbose)?;
+            Commands::Index { force, verbose, fallback_only, threads, parallel } => {
+                rebuild_index(&db_path, &project_root, force, verbose, fallback_only, threads, parallel)?;
             }
             Commands::Diff {
                 base,
@@ -386,13 +398,13 @@ fn find_definition(db_path: &str, file: &str, line: u32, column: u32) -> Result<
         .ok_or_else(|| anyhow::anyhow!("No index found. Run 'lsif reindex' first."))?;
 
     // まず指定位置にあるシンボルを探す
-    let position = core::Position {
+    let position = lsif_core::Position {
         line: line - 1, // 0-based indexに変換
         character: column - 1,
     };
 
     // 最も近いシンボルを探す（行が一致するものを優先）
-    let mut best_match: Option<&core::Symbol> = None;
+    let mut best_match: Option<&lsif_core::Symbol> = None;
     for symbol in graph.get_all_symbols() {
         if symbol.file_path == file && symbol.range.start.line == position.line {
             // 同じ行にあるシンボルを優先
@@ -449,13 +461,13 @@ fn find_references_recursive(
     let project_root = Path::new(&metadata.project_root);
 
     // まず指定位置にあるシンボルを探す
-    let position = core::Position {
+    let position = lsif_core::Position {
         line: line - 1, // 0-based indexに変換
         character: column - 1,
     };
 
     // 最も近いシンボルを探す（行が一致するものを優先）
-    let mut target_symbol: Option<&core::Symbol> = None;
+    let mut target_symbol: Option<&lsif_core::Symbol> = None;
     for symbol in graph.get_all_symbols() {
         if symbol.file_path == file && symbol.range.start.line == position.line {
             // 同じ行にあるシンボルを優先
@@ -558,7 +570,7 @@ fn show_call_hierarchy(
 /// 型情報を表示
 #[allow(dead_code)]
 fn show_type_info(db_path: &str, type_name: &str, show_hierarchy: bool) -> Result<()> {
-    use core::type_relations::TypeRelationsAnalyzer;
+    use lsif_core::type_relations::TypeRelationsAnalyzer;
 
     let storage = IndexStorage::open_read_only(db_path)?;
     let graph: CodeGraph = storage
@@ -596,7 +608,7 @@ fn show_type_info(db_path: &str, type_name: &str, show_hierarchy: bool) -> Resul
 
 /// グラフクエリを実行（拡張版）
 fn execute_graph_query(db_path: &str, pattern: &str, limit: usize, _depth: usize) -> Result<()> {
-    use core::graph_query::{QueryEngine, QueryParser};
+    use lsif_core::graph_query::{QueryEngine, QueryParser};
 
     let storage = IndexStorage::open_read_only(db_path)?;
     let graph: CodeGraph = storage
@@ -773,7 +785,7 @@ fn show_status(db_path: &str, project_root: &str) -> Result<()> {
 
 /// インデックスをエクスポート
 fn export_index(db_path: &str, format: &str, output: &str) -> Result<()> {
-    use core::lsif::generate_lsif;
+    use lsif_core::lsif::generate_lsif;
 
     let storage = IndexStorage::open_read_only(db_path)?;
     let graph: CodeGraph = storage
@@ -909,7 +921,7 @@ fn show_document_symbols(db_path: &str, file: Option<&str>, kind: Option<&str>) 
         println!("  Found {} symbols:", symbols.len());
 
         // Group by file
-        let mut by_file: std::collections::HashMap<&str, Vec<&core::Symbol>> =
+        let mut by_file: std::collections::HashMap<&str, Vec<&lsif_core::Symbol>> =
             std::collections::HashMap::new();
         for symbol in symbols.iter() {
             by_file.entry(&symbol.file_path).or_default().push(symbol);
@@ -942,7 +954,7 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: boo
 
     if fuzzy {
         // 新しいFuzzySearchIndexを使用
-        use core::FuzzySearchIndex;
+        use lsif_core::FuzzySearchIndex;
         println!("🔍 Fuzzy searching workspace for '{query}'");
         
         // インデックスを構築
@@ -965,12 +977,12 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: boo
             for (i, result) in results.iter().enumerate() {
                 let symbol = &result.symbol;
                 let match_type = match result.match_type {
-                    core::fuzzy_search::MatchType::Exact => "exact",
-                    core::fuzzy_search::MatchType::Prefix => "prefix",
-                    core::fuzzy_search::MatchType::Substring => "substring",
-                    core::fuzzy_search::MatchType::CamelCase => "camel",
-                    core::fuzzy_search::MatchType::Fuzzy => "fuzzy",
-                    core::fuzzy_search::MatchType::Typo => "typo",
+                    lsif_core::fuzzy_search::MatchType::Exact => "exact",
+                    lsif_core::fuzzy_search::MatchType::Prefix => "prefix",
+                    lsif_core::fuzzy_search::MatchType::Substring => "substring",
+                    lsif_core::fuzzy_search::MatchType::CamelCase => "camel",
+                    lsif_core::fuzzy_search::MatchType::Fuzzy => "fuzzy",
+                    lsif_core::fuzzy_search::MatchType::Typo => "typo",
                 };
                 println!(
                     "  {} {:?} {} at {}:{}:{} ({}, score: {:.2})",
@@ -1001,7 +1013,7 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: boo
             println!("\n  💡 Try fuzzy search: lsif workspace-symbols {query} --fuzzy");
             
             // プレビューとしてfuzzy検索結果を表示
-            use core::FuzzySearchIndex;
+            use lsif_core::FuzzySearchIndex;
             let index = FuzzySearchIndex::build_from_graph(&graph);
             let fuzzy_results = index.search(query, 3);
             if !fuzzy_results.is_empty() {
@@ -1035,19 +1047,33 @@ fn search_workspace_symbols(db_path: &str, query: &str, limit: usize, fuzzy: boo
 }
 
 /// verboseオプション付き
-fn rebuild_index(db_path: &str, project_root: &str, force: bool, verbose: bool) -> Result<()> {
+fn rebuild_index(db_path: &str, project_root: &str, force: bool, verbose: bool, fallback_only: bool, threads: usize, parallel: bool) -> Result<()> {
     let project_path = Path::new(project_root);
     let start = Instant::now();
 
     let mut indexer = DifferentialIndexer::new(db_path, project_path)?;
-
-    // LSPのみを使用（正規表現モードは削除済み）
+    
+    // フォールバックオンリーモードを設定
+    indexer.set_fallback_only(fallback_only);
+    
+    // 並列化設定
+    if parallel || threads > 0 {
+        indexer.set_parallel_config(threads, parallel)?;
+    }
 
     if verbose {
         println!("🔍 Starting index rebuild...");
         println!("  Database: {db_path}");
         println!("  Project: {project_root}");
-        println!("  Index mode: LSP (precise)");
+        if fallback_only {
+            println!("  Index mode: Fallback only (fast but less accurate)");
+        } else {
+            println!("  Index mode: LSP with fallback (precise)");
+        }
+        if parallel {
+            let actual_threads = if threads == 0 { num_cpus::get() } else { threads };
+            println!("  Parallel mode: Enabled ({} threads)", actual_threads);
+        }
     }
 
     let result = if force {

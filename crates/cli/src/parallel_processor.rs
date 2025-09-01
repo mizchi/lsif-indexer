@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use core::Symbol;
+use lsif_core::Symbol;
 
 /// 並列処理用のバッチプロセッサ
 pub struct ParallelProcessor {
@@ -42,7 +42,7 @@ impl ParallelProcessor {
         }
 
         let total_files = files.len();
-        let chunk_size = (total_files + self.thread_count - 1) / self.thread_count;
+        let chunk_size = total_files.div_ceil(self.thread_count);
         
         // プログレストラッカー
         let progress = Arc::new(Mutex::new(ProgressTracker::new(total_files)));
@@ -185,11 +185,11 @@ mod tests {
             Ok(vec![Symbol {
                 id: format!("test_{}", n),
                 name: format!("symbol_{}", n),
-                kind: core::SymbolKind::Function,
+                kind: lsif_core::SymbolKind::Function,
                 file_path: format!("file_{}.rs", n),
-                range: core::Range {
-                    start: core::Position { line: 0, character: 0 },
-                    end: core::Position { line: 0, character: 0 },
+                range: lsif_core::Range {
+                    start: lsif_core::Position { line: 0, character: 0 },
+                    end: lsif_core::Position { line: 0, character: 0 },
                 },
                 documentation: None,
             detail: None,

@@ -1,10 +1,16 @@
 //! Go language adapter
 
 use super::{LanguageAdapter, ParsedQuery};
-use core::{Symbol, SymbolKind};
+use lsif_core::{Symbol, SymbolKind};
 use anyhow::Result;
 
 pub struct GoAdapter;
+
+impl Default for GoAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl GoAdapter {
     pub fn new() -> Self {
@@ -19,7 +25,7 @@ impl LanguageAdapter for GoAdapter {
     
     fn is_public(&self, symbol: &Symbol) -> bool {
         // Go convention: uppercase first letter means public
-        symbol.name.chars().next().map_or(false, |c| c.is_uppercase())
+        symbol.name.chars().next().is_some_and(|c| c.is_uppercase())
     }
     
     fn get_import_statement(&self, symbol: &Symbol, _from_file: &str) -> Option<String> {

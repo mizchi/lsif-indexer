@@ -1,33 +1,41 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct IndexStorage {
     pub(crate) db: sled::Db,
+    db_path: PathBuf,
 }
 
 impl IndexStorage {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let db_path = path.as_ref().to_path_buf();
         let config = sled::Config::new()
-            .path(path)
+            .path(&db_path)
             .cache_capacity(128 * 1024 * 1024) // 128MB cache
             .flush_every_ms(Some(1000)) // Flush every second
             .mode(sled::Mode::HighThroughput); // Optimized for throughput
 
         let db = config.open()?;
-        Ok(Self { db })
+        Ok(Self { db, db_path })
     }
 
     /// Open for read-only operations (same as open but with smaller cache)
     pub fn open_read_only<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let db_path = path.as_ref().to_path_buf();
         // sledのread_onlyモードは削除されたので、小さいキャッシュで代用
         let config = sled::Config::new()
-            .path(path)
+            .path(&db_path)
             .cache_capacity(64 * 1024 * 1024) // 64MB cache for read operations
             .flush_every_ms(Some(5000)); // Less frequent flushes for read-heavy workloads
 
         let db = config.open()?;
-        Ok(Self { db })
+        Ok(Self { db, db_path })
+    }
+    
+    /// Get database path
+    pub fn get_db_path(&self) -> Result<PathBuf> {
+        Ok(self.db_path.clone())
     }
 
     pub fn save_data<T: Serialize>(&self, key: &str, data: &T) -> Result<()> {
@@ -309,3 +317,4 @@ mod tests {
         }
     }
 }
+// Test differential

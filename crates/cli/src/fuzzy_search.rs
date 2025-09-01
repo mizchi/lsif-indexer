@@ -5,7 +5,7 @@
 /// 3. Fuzzy matching（文字の順序を保持）
 /// 4. 略語マッチング（大文字のみ抽出: RP -> RelationshipPattern）
 /// 5. 編集距離（レーベンシュタイン距離）によるタイポ対応
-use core::Symbol;
+use lsif_core::Symbol;
 
 /// 汎用的な曖昧検索の結果
 #[derive(Debug, Clone, PartialEq)]

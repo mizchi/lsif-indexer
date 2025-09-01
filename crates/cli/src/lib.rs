@@ -10,6 +10,7 @@ pub mod indexer;
 pub mod parallel_processor;
 pub mod reference_finder;
 pub mod cli;
+pub mod lsp_unified_cli;
 
 // Storage layer
 pub mod storage;

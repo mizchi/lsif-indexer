@@ -10,7 +10,7 @@ pub use typescript::TypeScriptAdapter;
 pub use python::PythonAdapter;
 pub use go::GoAdapter;
 
-use core::{Symbol, SymbolKind};
+use lsif_core::{Symbol, SymbolKind};
 use anyhow::Result;
 
 /// Language-specific search adapter trait
@@ -52,6 +52,12 @@ pub struct ParsedQuery {
 /// Registry for language adapters
 pub struct AdapterRegistry {
     adapters: std::collections::HashMap<String, Box<dyn LanguageAdapter + Send + Sync>>,
+}
+
+impl Default for AdapterRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AdapterRegistry {
