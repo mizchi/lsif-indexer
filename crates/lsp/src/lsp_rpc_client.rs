@@ -102,6 +102,7 @@ impl LspRpcClient {
             return Err(anyhow::anyhow!("LSP server already initialized"));
         }
         
+        #[allow(deprecated)]
         let params = InitializeParams {
             process_id: Some(std::process::id()),
             work_done_progress_params: WorkDoneProgressParams { work_done_token: None },
@@ -247,15 +248,18 @@ impl LspRpcClient {
             Ok(symbols)
         } else if let Ok(symbol_infos) = serde_json::from_value::<Vec<SymbolInformation>>(response) {
             // Convert SymbolInformation to DocumentSymbol (simplified)
-            Ok(symbol_infos.into_iter().map(|info| DocumentSymbol {
-                name: info.name,
-                detail: None,
-                kind: info.kind,
-                tags: info.tags,
-                deprecated: None,  // deprecated field
-                range: info.location.range,
-                selection_range: info.location.range,
-                children: None,
+            Ok(symbol_infos.into_iter().map(|info| {
+                #[allow(deprecated)]
+                DocumentSymbol {
+                    name: info.name,
+                    detail: None,
+                    kind: info.kind,
+                    tags: info.tags,
+                    deprecated: None,  // deprecated field
+                    range: info.location.range,
+                    selection_range: info.location.range,
+                    children: None,
+                }
             }).collect())
         } else {
             Ok(vec![])

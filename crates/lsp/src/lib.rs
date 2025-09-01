@@ -6,6 +6,7 @@
 pub mod adapter;
 
 // LSP clients
+pub mod auto_switching_client;
 pub mod lsp_client;
 pub mod lsp_indexer;
 pub mod lsp_commands;
@@ -24,6 +25,10 @@ pub mod fallback_indexer;
 pub mod timeout_predictor;
 pub mod regex_cache;
 pub mod optimized_io;
+
+// テスト用ユーティリティ
+#[cfg(test)]
+pub mod test_utils;
 
 // Re-exports from adapter module
 pub use adapter::{

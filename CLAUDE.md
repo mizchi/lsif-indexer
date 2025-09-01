@@ -2,6 +2,52 @@
 
 このドキュメントは、LSIF Indexerの開発とメンテナンスに必要な手順を記載しています。
 
+## 重要：TypeScript LSP (tsgo) の起動方法
+
+**毎回必ず確認すること：tsgoは`tsgo --lsp --stdio`で起動する**
+
+### tsgoのインストール
+```bash
+# TypeScript Native Preview (tsgo) のインストール
+npm install -g @typescript/native-preview
+
+# インストール確認
+tsgo --version
+```
+
+### tsgoのLSPモード起動
+```bash
+# LSPサーバーとして起動（stdioモード）
+tsgo --lsp --stdio
+```
+
+### Rustコードでの使用方法
+```rust
+use anyhow::Result;
+use std::process::{Child, Command, Stdio};
+
+// tsgo LSPアダプタの実装
+pub struct TsgoAdapter;
+
+impl LspAdapter for TsgoAdapter {
+    fn spawn_command(&self) -> Result<Child> {
+        Command::new("tsgo")
+            .args(&["--lsp", "--stdio"])  // 重要：必ず --lsp --stdio を指定
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| anyhow::anyhow!("Failed to spawn tsgo LSP: {}", e))
+    }
+}
+```
+
+### tsgoの特徴
+- **workspace/symbol対応**: プロジェクト全体のシンボル検索が可能
+- **documentSymbol対応**: ファイル単位の詳細なシンボル階層を取得可能
+- **高速**: TypeScriptコンパイラのネイティブ実装
+- **TypeScript/JavaScript両対応**: 両言語で同じLSPサーバーを使用可能
+
 ## プロジェクト概要
 
 LSIF Indexerは、高速なコードインデックス作成と検索を提供するRust製のツールです。LSP（Language Server Protocol）を活用して、複数の言語に対応した統一的なコード解析を実現します。

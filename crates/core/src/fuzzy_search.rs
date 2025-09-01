@@ -87,7 +87,7 @@ impl FuzzySearchIndex {
         let name_lower = name.to_lowercase();
         self.name_index
             .entry(name_lower.clone())
-            .or_insert(HashSet::new())
+            .or_default()
             .insert(id.clone());
         
         // N-gramインデックス
@@ -95,7 +95,7 @@ impl FuzzySearchIndex {
         for bigram in bigrams {
             self.bigram_index
                 .entry(bigram)
-                .or_insert(HashSet::new())
+                .or_default()
                 .insert(id.clone());
         }
         
@@ -103,7 +103,7 @@ impl FuzzySearchIndex {
         for trigram in trigrams {
             self.trigram_index
                 .entry(trigram)
-                .or_insert(HashSet::new())
+                .or_default()
                 .insert(id.clone());
         }
         
@@ -113,7 +113,7 @@ impl FuzzySearchIndex {
             let prefix: String = chars[..i].iter().collect();
             self.prefix_index
                 .entry(prefix)
-                .or_insert(HashSet::new())
+                .or_default()
                 .insert(id.clone());
         }
         
@@ -124,7 +124,7 @@ impl FuzzySearchIndex {
             if !word_lower.is_empty() {
                 self.word_index
                     .entry(word_lower)
-                    .or_insert(HashSet::new())
+                    .or_default()
                     .insert(id.clone());
             }
         }
@@ -174,15 +174,13 @@ impl FuzzySearchIndex {
         }
         
         // 3. CamelCase略語マッチ
-        let camel_matches = self.search_camel_case(&query);
+        let camel_matches = self.search_camel_case(query);
         for (id, symbol) in camel_matches {
-            if !results.contains_key(&id) {
-                results.insert(id, SearchResult {
-                    symbol,
-                    score: 85.0,
-                    match_type: MatchType::CamelCase,
-                });
-            }
+            results.entry(id).or_insert(SearchResult {
+                symbol,
+                score: 85.0,
+                match_type: MatchType::CamelCase,
+            });
         }
         
         // 4. 部分文字列マッチ
@@ -217,9 +215,9 @@ impl FuzzySearchIndex {
         };
         
         for (id, score) in candidates {
-            if !results.contains_key(&id) {
+            if let std::collections::hash_map::Entry::Vacant(e) = results.entry(id.clone()) {
                 if let Some(symbol) = self.symbols.get(&id) {
-                    results.insert(id, SearchResult {
+                    e.insert(SearchResult {
                         symbol: symbol.clone(),
                         score: score * 60.0,
                         match_type: MatchType::Fuzzy,
@@ -416,6 +414,7 @@ impl FuzzySearchIndex {
     }
     
     /// レーベンシュタイン距離を計算
+    #[allow(clippy::needless_range_loop)]
     fn levenshtein_distance(a: &str, b: &str) -> usize {
         let a_chars: Vec<char> = a.chars().collect();
         let b_chars: Vec<char> = b.chars().collect();
@@ -448,18 +447,6 @@ impl FuzzySearchIndex {
         }
         
         matrix[a_len][b_len]
-    }
-    
-    /// CJK文字かどうかを判定
-    fn is_cjk_char(c: char) -> bool {
-        matches!(c as u32,
-            0x3040..=0x309F |  // ひらがな
-            0x30A0..=0x30FF |  // カタカナ
-            0x4E00..=0x9FFF |  // CJK統合漢字
-            0x3400..=0x4DBF |  // CJK統合漢字拡張A
-            0xF900..=0xFAFF |  // CJK互換漢字
-            0xAC00..=0xD7AF    // ハングル
-        )
     }
     
     /// 統計情報を取得
@@ -529,7 +516,7 @@ mod tests {
         index.add_symbol(create_test_symbol("2", "getUserByName"));
         
         let results = index.search("getuserbyid", 10);
-        assert!(results.len() >= 1, "No results found");
+        assert!(!results.is_empty(), "No results found");
         
         // 大文字小文字を区別しないので、高スコアでマッチするはず
         // 小文字化されたクエリは name_index でExactマッチする
@@ -549,7 +536,7 @@ mod tests {
         index.add_symbol(create_test_symbol("2", "setUserName"));
         
         let results = index.search("get", 10);
-        assert!(results.len() >= 1);
+        assert!(!results.is_empty());
         assert_eq!(results[0].symbol.name, "getUserById");
         // 短いクエリなので前方一致として扱われる
         assert!(matches!(results[0].match_type, MatchType::Prefix | MatchType::Substring));
@@ -563,13 +550,13 @@ mod tests {
         
         // getUserByIdの大文字を抽出すると"UBI"になる
         let results = index.search("UBI", 10);
-        assert!(results.len() >= 1, "No results found for UBI");
+        assert!(!results.is_empty(), "No results found for UBI");
         let ubi_match = results.iter().find(|r| r.symbol.name == "getUserById").expect("getUserById not found");
         assert_eq!(ubi_match.match_type, MatchType::CamelCase);
         
         // HTTPServerConfigの大文字は"HTTPSC"
         let results = index.search("HTTPSC", 10);
-        assert!(results.len() >= 1, "No results found for HTTPSC");
+        assert!(!results.is_empty(), "No results found for HTTPSC");
         let hsc_match = results.iter().find(|r| r.symbol.name == "HTTPServerConfig").expect("HTTPServerConfig not found");
         assert_eq!(hsc_match.match_type, MatchType::CamelCase);
     }
@@ -581,7 +568,7 @@ mod tests {
         index.add_symbol(create_test_symbol("2", "getTotalAmount"));
         
         let results = index.search("User", 10);
-        assert!(results.len() >= 1);
+        assert!(!results.is_empty());
         assert!(results.iter().any(|r| r.symbol.name == "calculateUserScore"));
     }
 
@@ -592,7 +579,7 @@ mod tests {
         
         // タイポ: "getUserByld" (Id -> ld)
         let results = index.search("getUserByld", 10);
-        assert!(results.len() >= 1);
+        assert!(!results.is_empty());
         assert_eq!(results[0].symbol.name, "getUserById");
         assert!(matches!(results[0].match_type, MatchType::Typo | MatchType::Fuzzy));
     }
@@ -636,7 +623,7 @@ mod tests {
         index.add_symbol(create_test_symbol("2", "データ保存"));
         
         let results = index.search("ユーザー", 10);
-        assert!(results.len() >= 1);
+        assert!(!results.is_empty());
         assert_eq!(results[0].symbol.name, "ユーザー取得");
     }
 

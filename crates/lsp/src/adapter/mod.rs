@@ -11,6 +11,7 @@ pub mod minimal;
 pub mod go;
 pub mod python;
 pub mod rust;
+pub mod tsgo;
 pub mod typescript;
 
 // Re-exports for convenience
@@ -26,4 +27,5 @@ pub use go::GoAdapter;
 pub use python::PythonAdapter;
 pub use python::PythonAdapter as PythonLspAdapter;
 pub use rust::RustAdapter as RustLspAdapter;
+pub use tsgo::{TsgoAdapter, TypeScriptLSAdapter, JavaScriptAdapter as TsgoJavaScriptAdapter};
 pub use typescript::{JavaScriptAdapter, TypeScriptAdapter as TypeScriptLspAdapter};

@@ -509,7 +509,7 @@ impl LspClient {
         self.get_hover(&path, position)
     }
     
-    pub fn call_hierarchy_prepare(&mut self, uri: Url, position: Position) -> Result<Vec<lsp_types::CallHierarchyItem>> {
+    pub fn call_hierarchy_prepare(&mut self, _uri: Url, _position: Position) -> Result<Vec<lsp_types::CallHierarchyItem>> {
         // 簡易実装（TODO: 実際のcall hierarchy実装が必要）
         Ok(vec![])
     }
@@ -524,7 +524,7 @@ impl LspClient {
         Ok(vec![])
     }
     
-    pub fn completion(&mut self, uri: Url, _position: Position) -> Result<Vec<lsp_types::CompletionItem>> {
+    pub fn completion(&mut self, _uri: Url, _position: Position) -> Result<Vec<lsp_types::CompletionItem>> {
         // 簡易実装
         Ok(vec![])
     }

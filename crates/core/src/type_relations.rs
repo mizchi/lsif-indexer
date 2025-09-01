@@ -314,10 +314,12 @@ impl<'a> TypeRelationsAnalyzer<'a> {
         }
     }
 
-    fn find_parent_types(
+    /// 汎用的な型関係探索メソッド
+    fn find_related_types(
         &self,
         symbol_id: &str,
-        parents: &mut Vec<Symbol>,
+        direction: petgraph::Direction,
+        results: &mut Vec<Symbol>,
         visited: &mut HashSet<String>,
     ) {
         if !visited.insert(symbol_id.to_string()) {
@@ -325,17 +327,31 @@ impl<'a> TypeRelationsAnalyzer<'a> {
         }
 
         if let Some(node_idx) = self.graph.get_node_index(symbol_id) {
-            for edge in self.graph.graph.edges(node_idx) {
+            for edge in self.graph.graph.edges_directed(node_idx, direction) {
                 if matches!(edge.weight(), EdgeKind::Definition) {
-                    if let Some(parent) = self.graph.graph.node_weight(edge.target()) {
-                        if self.is_type_symbol(parent) {
-                            parents.push(parent.clone());
-                            self.find_parent_types(&parent.id, parents, visited);
+                    let related_node = match direction {
+                        petgraph::Direction::Outgoing => edge.target(),
+                        petgraph::Direction::Incoming => edge.source(),
+                    };
+                    
+                    if let Some(related) = self.graph.graph.node_weight(related_node) {
+                        if self.is_type_symbol(related) {
+                            results.push(related.clone());
+                            self.find_related_types(&related.id, direction, results, visited);
                         }
                     }
                 }
             }
         }
+    }
+
+    fn find_parent_types(
+        &self,
+        symbol_id: &str,
+        parents: &mut Vec<Symbol>,
+        visited: &mut HashSet<String>,
+    ) {
+        self.find_related_types(symbol_id, petgraph::Direction::Outgoing, parents, visited);
     }
 
     fn find_child_types(
@@ -344,26 +360,7 @@ impl<'a> TypeRelationsAnalyzer<'a> {
         children: &mut Vec<Symbol>,
         visited: &mut HashSet<String>,
     ) {
-        if !visited.insert(symbol_id.to_string()) {
-            return;
-        }
-
-        if let Some(node_idx) = self.graph.get_node_index(symbol_id) {
-            for edge in self
-                .graph
-                .graph
-                .edges_directed(node_idx, petgraph::Direction::Incoming)
-            {
-                if matches!(edge.weight(), EdgeKind::Definition) {
-                    if let Some(child) = self.graph.graph.node_weight(edge.source()) {
-                        if self.is_type_symbol(child) {
-                            children.push(child.clone());
-                            self.find_child_types(&child.id, children, visited);
-                        }
-                    }
-                }
-            }
-        }
+        self.find_related_types(symbol_id, petgraph::Direction::Incoming, children, visited);
     }
 }
 

@@ -233,17 +233,16 @@ impl CodeGraph {
     /// Find symbol at a specific position in a file
     pub fn find_symbol_at_position(&self, file_path: &str, position: Position) -> anyhow::Result<Option<Symbol>> {
         for symbol in self.get_all_symbols() {
-            if symbol.file_path == file_path {
-                if position.line >= symbol.range.start.line 
-                    && position.line <= symbol.range.end.line {
-                    if position.line == symbol.range.start.line && position.character < symbol.range.start.character {
-                        continue;
-                    }
-                    if position.line == symbol.range.end.line && position.character > symbol.range.end.character {
-                        continue;
-                    }
-                    return Ok(Some(symbol.clone()));
+            if symbol.file_path == file_path
+                && position.line >= symbol.range.start.line 
+                && position.line <= symbol.range.end.line {
+                if position.line == symbol.range.start.line && position.character < symbol.range.start.character {
+                    continue;
                 }
+                if position.line == symbol.range.end.line && position.character > symbol.range.end.character {
+                    continue;
+                }
+                return Ok(Some(symbol.clone()));
             }
         }
         Ok(None)

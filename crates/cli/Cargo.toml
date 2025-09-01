@@ -85,3 +85,7 @@ path = "../../benches/string_intern_benchmark.rs"
 name = "fuzzy_search_benchmark"
 harness = false
 path = "../../benches/fuzzy_search_benchmark.rs"
+
+[[example]]
+name = "test_tsgo_lsp"
+path = "../../examples/test_tsgo_lsp.rs"

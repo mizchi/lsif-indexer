@@ -1,10 +1,31 @@
-use super::common::spawn_lsp_server;
+use super::lsp::LspAdapter;
 use super::language::{LanguageAdapter, DefinitionPattern, PatternType};
 use anyhow::Result;
+use std::process::{Command, Child, Stdio};
 
 /// Go言語のアダプタ実装
 /// goplsを使用してGo言語のコードを解析
 pub struct GoAdapter;
+
+impl LspAdapter for GoAdapter {
+    fn spawn_command(&self) -> Result<Child> {
+        Command::new("gopls")
+            .args(["serve"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| anyhow::anyhow!("Failed to spawn gopls: {}", e))
+    }
+
+    fn language_id(&self) -> &str {
+        "go"
+    }
+    
+    fn supports_workspace_symbol(&self) -> bool {
+        true  // goplsはworkspace/symbolをサポート
+    }
+}
 
 impl LanguageAdapter for GoAdapter {
     fn language_id(&self) -> &str {
@@ -16,7 +37,13 @@ impl LanguageAdapter for GoAdapter {
     }
 
     fn spawn_lsp_command(&self) -> Result<std::process::Child> {
-        spawn_lsp_server("gopls", &["serve"])
+        Command::new("gopls")
+            .args(["serve"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| anyhow::anyhow!("Failed to spawn gopls: {}", e))
     }
 
     fn definition_patterns(&self) -> Vec<DefinitionPattern> {
@@ -41,16 +68,6 @@ impl LanguageAdapter for GoAdapter {
                 pattern_type: PatternType::VariableDef,
                 requires_name_after: true,
             },
-            DefinitionPattern {
-                keywords: vec!["struct".to_string()],
-                pattern_type: PatternType::ClassDef,
-                requires_name_after: false,
-            },
-            DefinitionPattern {
-                keywords: vec!["interface".to_string()],
-                pattern_type: PatternType::InterfaceDef,
-                requires_name_after: false,
-            },
         ]
     }
 
@@ -59,7 +76,6 @@ impl LanguageAdapter for GoAdapter {
     }
 
     fn is_definition_context(&self, line: &str, position: usize) -> bool {
-        // Goの定義キーワードの前にあるかチェック
         let before = &line[..position.min(line.len())];
         before.contains("func ") || before.contains("type ") || 
         before.contains("var ") || before.contains("const ")
@@ -67,7 +83,6 @@ impl LanguageAdapter for GoAdapter {
 
     fn is_in_string_or_comment(&self, line: &str, position: usize) -> bool {
         let before = &line[..position.min(line.len())];
-        // 簡易的な判定
         before.contains("//") || before.contains("/*") || 
         before.chars().filter(|&c| c == '"').count() % 2 == 1 ||
         before.chars().filter(|&c| c == '`').count() % 2 == 1
@@ -102,7 +117,11 @@ mod tests {
     #[test]
     fn test_go_adapter_basic_info() {
         let adapter = GoAdapter;
-        assert_eq!(adapter.language_id(), "go");
+        assert_eq!(LspAdapter::language_id(&adapter), "go");
+        assert!(adapter.supports_workspace_symbol());
+        
+        // LanguageAdapter も確認
+        assert_eq!(LanguageAdapter::language_id(&adapter), "go");
         assert_eq!(adapter.supported_extensions(), vec!["go"]);
     }
 

@@ -2,8 +2,8 @@ use anyhow::{anyhow, Result};
 use lsp_types::{
     ClientCapabilities, ClientInfo, DidOpenTextDocumentParams, DocumentSymbol, DocumentSymbolParams, 
     GotoDefinitionParams, GotoDefinitionResponse, InitializeParams, InitializeResult, 
-    InitializedParams, Location, PartialResultParams, ReferenceParams, TextDocumentIdentifier, 
-    TextDocumentItem, Url, WorkDoneProgressParams,
+    InitializedParams, Location, PartialResultParams, ReferenceParams, SymbolInformation,
+    TextDocumentIdentifier, TextDocumentItem, Url, WorkDoneProgressParams,
 };
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -21,6 +21,11 @@ pub trait LspAdapter {
 
     /// Get the language ID for LSP
     fn language_id(&self) -> &str;
+    
+    /// Whether this LSP supports workspace/symbol
+    fn supports_workspace_symbol(&self) -> bool {
+        false  // デフォルトはfalse、各実装でオーバーライド可能
+    }
 
     /// Get initialization parameters specific to this language
     fn get_init_params(&self) -> InitializeParams {
@@ -600,6 +605,20 @@ impl GenericLspClient {
                 .ok_or_else(|| anyhow!("No definition found")),
             None => Err(anyhow!("No definition found")),
         }
+    }
+
+    /// ワークスペースシンボルを検索
+    pub fn search_workspace_symbols(&mut self, query: &str) -> Result<Vec<SymbolInformation>> {
+        use lsp_types::{WorkspaceSymbolParams, WorkDoneProgressParams, PartialResultParams};
+        
+        let params = WorkspaceSymbolParams {
+            query: query.to_string(),
+            work_done_progress_params: WorkDoneProgressParams::default(),
+            partial_result_params: PartialResultParams::default(),
+        };
+        
+        self.send_request::<_, Option<Vec<SymbolInformation>>>("workspace/symbol", params)?
+            .ok_or_else(|| anyhow!("No workspace symbols found"))
     }
 
     pub fn send_request<P: Serialize, R: for<'de> Deserialize<'de>>(

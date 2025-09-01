@@ -101,7 +101,7 @@ impl UnifiedIndexer {
     }
     
     /// 単一のDocumentSymbolをSymbolに変換
-    fn convert_document_symbol(&self, doc_symbol: &DocumentSymbol, file_uri: &str, file_path: &Path) -> Symbol {
+    fn convert_document_symbol(&self, doc_symbol: &DocumentSymbol, _file_uri: &str, file_path: &Path) -> Symbol {
         let file_path_str = file_path.to_string_lossy().to_string();
         
         Symbol {

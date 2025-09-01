@@ -11,6 +11,8 @@ pub mod parallel_processor;
 pub mod reference_finder;
 pub mod cli;
 pub mod lsp_unified_cli;
+pub mod symbol_extraction_strategy;
+pub mod workspace_symbol_strategy;
 
 // Storage layer
 pub mod storage;

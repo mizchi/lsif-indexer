@@ -13,6 +13,9 @@ pub mod type_relations;
 pub mod definition_chain;
 pub mod parallel;
 pub mod fuzzy_search;
+
+#[cfg(test)]
+pub mod test_fixtures;
 // パフォーマンス検証用（本番では標準実装を使用）
 #[cfg(feature = "experimental-optimizations")]
 pub mod memory_pool;

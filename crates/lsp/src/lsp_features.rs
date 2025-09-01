@@ -590,7 +590,6 @@ mod tests {
     use crate::adapter::lsp::RustAnalyzerAdapter;
 
     #[test]
-    #[ignore] // Requires rust-analyzer to be installed
     fn test_advanced_lsp_features() {
         let adapter = Box::new(RustAnalyzerAdapter);
         let client = Arc::new(LspClient::new(adapter).unwrap());
