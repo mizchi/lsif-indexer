@@ -9,6 +9,10 @@ license.workspace = true
 name = "lsif"
 path = "src/bin/lsif.rs"
 
+[[bin]]
+name = "lsif2"
+path = "src/bin/lsif2.rs"
+
 [dependencies]
 lsif-core = { path = "../core", package = "core" }
 lsp = { path = "../lsp" }
