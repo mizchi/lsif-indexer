@@ -70,6 +70,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         }
     }
 
@@ -135,7 +136,7 @@ mod tests {
         assert_eq!(graph.symbol_count(), 3);
 
         // エッジが正しく追加されているか確認
-        let references = graph.find_references("sym2");
+        let references = graph.find_references("sym2").unwrap();
         assert_eq!(references.len(), 1);
         assert_eq!(references[0].id, "sym1");
     }
@@ -166,7 +167,7 @@ mod tests {
         assert_eq!(graph.symbol_count(), 1);
 
         // 無効なエッジは追加されていない
-        let references = graph.find_references("sym1");
+        let references = graph.find_references("sym1").unwrap();
         assert_eq!(references.len(), 0);
     }
 

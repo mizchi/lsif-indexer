@@ -160,6 +160,7 @@ fn find_references_in_file(
                     },
                 },
                 documentation: None,
+            detail: None,
             };
 
             references.push(Reference {
@@ -410,6 +411,7 @@ fn main() {
                         },
                     },
                     documentation: None,
+            detail: None,
                 },
                 is_definition: false,
             },
@@ -430,6 +432,7 @@ fn main() {
                         },
                     },
                     documentation: None,
+            detail: None,
                 },
                 is_definition: true,
             },
@@ -450,6 +453,7 @@ fn main() {
                         },
                     },
                     documentation: None,
+            detail: None,
                 },
                 is_definition: false,
             },

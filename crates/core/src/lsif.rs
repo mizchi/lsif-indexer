@@ -437,6 +437,7 @@ impl LsifParser {
                                     end: range.end,
                                 },
                                 documentation: None,
+                                detail: None,
                             };
                             self.graph.add_symbol(symbol);
                         }
@@ -501,6 +502,8 @@ mod tests {
                 },
             },
             documentation: Some("Main function".to_string()),
+            detail: None,
+        };
 
         let symbol2 = Symbol {
             id: "symbol2".to_string(),
@@ -518,6 +521,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         };
 
         let idx1 = graph.add_symbol(symbol1);
@@ -648,6 +652,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         };
 
         let range_id = generator.generate_range(&symbol).unwrap();

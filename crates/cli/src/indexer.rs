@@ -349,6 +349,7 @@ impl Indexer {
                 },
             },
             documentation: doc_symbol.detail.clone(),
+            detail: None,
         }
     }
 
@@ -453,8 +454,10 @@ mod tests {
         let symbols = vec![
             DocumentSymbol {
                 name: "func1".to_string(),
+                kind: LspSymbolKind::FUNCTION,
                 tags: None,
                 deprecated: None,
+                detail: None,
                 range: lsp_types::Range {
                     start: LspPosition {
                         line: 0,
@@ -479,8 +482,10 @@ mod tests {
             },
             DocumentSymbol {
                 name: "func2".to_string(),
+                kind: LspSymbolKind::FUNCTION,
                 tags: None,
                 deprecated: None,
+                detail: None,
                 range: lsp_types::Range {
                     start: LspPosition {
                         line: 7,
@@ -521,8 +526,10 @@ mod tests {
         #[allow(deprecated)]
         let symbols = vec![DocumentSymbol {
             name: "MyStruct".to_string(),
+            kind: LspSymbolKind::STRUCT,
             tags: None,
             deprecated: None,
+            detail: None,
             range: lsp_types::Range {
                 start: LspPosition {
                     line: 0,
@@ -546,8 +553,10 @@ mod tests {
             children: Some(vec![
                 DocumentSymbol {
                     name: "field1".to_string(),
+                    kind: LspSymbolKind::FIELD,
                     tags: None,
                     deprecated: None,
+                    detail: None,
                     range: lsp_types::Range {
                         start: LspPosition {
                             line: 1,
@@ -572,8 +581,10 @@ mod tests {
                 },
                 DocumentSymbol {
                     name: "method1".to_string(),
+                    kind: LspSymbolKind::METHOD,
                     tags: None,
                     deprecated: None,
+                    detail: None,
                     range: lsp_types::Range {
                         start: LspPosition {
                             line: 3,
@@ -784,6 +795,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         };
 
         indexer
@@ -829,6 +841,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         };
 
         indexer.graph.add_symbol(symbol);
@@ -858,6 +871,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         };
 
         indexer.graph.add_symbol(symbol);

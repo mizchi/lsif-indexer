@@ -180,6 +180,8 @@ pub fn create_test_graph_optimized(num_symbols: usize) -> OptimizedCodeGraph {
                 end: Position { line: (i * 10 + 5) as u32, character: 0 },
             },
             documentation: if i % 3 == 0 { Some(format!("Doc for {}", i)) } else { None },
+            detail: None,
+        })
         .collect();
     
     graph.add_symbols_batch(symbols);
@@ -214,6 +216,7 @@ mod tests {
                 end: Position { line: 1, character: 0 },
             },
             documentation: None,
+            detail: None,
         };
         
         let id = graph.add_symbol(symbol.clone());
@@ -240,6 +243,7 @@ mod tests {
                     end: Position { line: i + 1, character: 0 },
                 },
                 documentation: None,
+                detail: None,
             })
             .collect();
         
@@ -266,6 +270,7 @@ mod tests {
                     end: Position { line: 1, character: 0 },
                 },
                 documentation: None,
+                detail: None,
             };
             graph.add_symbol(symbol);
         }
@@ -299,6 +304,7 @@ mod tests {
                     end: Position { line: 1, character: 0 },
                 },
                 documentation: None,
+                detail: None,
             })
             .collect();
         
@@ -330,6 +336,7 @@ mod tests {
                     end: Position { line: i + 1, character: 0 },
                 },
                 documentation: None,
+                detail: None,
             };
             opt_graph.add_symbol(symbol);
         }

@@ -518,6 +518,7 @@ mod tests {
                 end: Position { line: 1, character: 0 },
             },
             documentation: None,
+            detail: None,
         }
     }
 

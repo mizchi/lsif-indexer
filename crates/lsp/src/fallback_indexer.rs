@@ -331,8 +331,10 @@ impl FallbackIndexer {
         #[allow(deprecated)]
         DocumentSymbol {
             name,
+            kind,
             tags: None,
             deprecated: None,
+            detail: None,
             range: Range {
                 start: Position {
                     line: start_line,

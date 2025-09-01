@@ -153,6 +153,8 @@ pub struct InternedSymbol {
     pub file_path: InternedString,
     pub range: crate::Range,
     pub documentation: Option<InternedString>,
+    pub detail: Option<InternedString>,
+}
 
 impl InternedSymbol {
     /// 通常のSymbolから作成
@@ -164,6 +166,8 @@ impl InternedSymbol {
             file_path: intern(&symbol.file_path),
             range: symbol.range,
             documentation: symbol.documentation.as_deref().map(intern),
+            detail: symbol.detail.as_deref().map(intern),
+        }
     }
 
     /// 通常のSymbolに変換
@@ -175,6 +179,8 @@ impl InternedSymbol {
             file_path: self.file_path.as_str().to_string(),
             range: self.range,
             documentation: self.documentation.map(|d| d.as_str().to_string()),
+            detail: self.detail.map(|d| d.as_str().to_string()),
+        }
     }
 
     /// メモリ使用量の推定値
@@ -183,7 +189,7 @@ impl InternedSymbol {
         4 * 3 + // id, name, file_path
         std::mem::size_of::<crate::SymbolKind>() +
         std::mem::size_of::<crate::Range>() +
-        4 // Option<InternedString>
+        8 // 2 * Option<InternedString> (documentation, detail)
     }
 }
 
@@ -235,6 +241,7 @@ mod tests {
                 end: crate::Position { line: 1, character: 0 },
             },
             documentation: Some("Test doc".to_string()),
+            detail: None,
         };
         
         let interned = InternedSymbol::from_symbol(symbol.clone());

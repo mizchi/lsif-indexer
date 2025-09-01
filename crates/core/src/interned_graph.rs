@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::{
     graph::{CodeGraph, EdgeKind, Symbol, SymbolKind, Position, Range},
-    string_interner::{InternedString, InternedSymbol, StringInterner, intern},
+    string_interner::{InternedString, InternedSymbol, intern},
 };
 
 /// String interningを使用した最適化グラフ
@@ -34,6 +34,8 @@ impl InternedGraph {
             file_path: intern(&symbol.file_path),
             range: symbol.range,
             documentation: symbol.documentation.as_deref().map(|d| intern(d)),
+            detail: symbol.detail.as_deref().map(|d| intern(d)),
+        };
         
         self.symbols.insert(interned_id, interned_symbol);
         interned_id
@@ -185,6 +187,8 @@ pub fn create_test_graph_interned(num_symbols: usize) -> InternedGraph {
                 end: Position { line: (i * 10 + 5) as u32, character: 0 },
             },
             documentation: if i % 3 == 0 { Some(format!("Doc for {}", i)) } else { None },
+            detail: None,
+        })
         .collect();
     
     graph.add_symbols_batch(symbols);
@@ -219,6 +223,7 @@ mod tests {
                 end: Position { line: 1, character: 0 },
             },
             documentation: None,
+            detail: None,
         };
         
         let id = graph.add_symbol(symbol.clone());
@@ -246,6 +251,8 @@ mod tests {
                     end: Position { line: i + 1, character: 0 },
                 },
                 documentation: Some("Shared documentation".to_string()), // 同じドキュメント
+                detail: None,
+            };
             graph.add_symbol(symbol);
         }
         
@@ -279,6 +286,7 @@ mod tests {
                     end: Position { line: 1, character: 0 },
                 },
                 documentation: None,
+                detail: None,
             };
             graph.add_symbol(symbol);
         }
@@ -311,6 +319,7 @@ mod tests {
                     end: Position { line: i + 1, character: 0 },
                 },
                 documentation: None,
+                detail: None,
             };
             interned_graph.add_symbol(symbol);
         }
@@ -340,6 +349,8 @@ mod tests {
                     end: Position { line: (i % 100 + 1) as u32, character: 0 },
                 },
                 documentation: Some(format!("Doc type {}", i % 10)), // 10個のユニークなドキュメント
+                detail: None,
+            };
             graph.add_symbol(symbol);
         }
         

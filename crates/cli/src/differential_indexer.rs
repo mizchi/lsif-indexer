@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
-use tracing::{debug, info, warn};
+use tracing::{debug, info, warn, error};
 
 use crate::adaptive_parallel::{AdaptiveParallelConfig, AdaptiveIncrementalProcessor};
 use crate::git_diff::{FileChange, FileChangeStatus, GitDiffDetector};
@@ -108,12 +108,12 @@ impl DifferentialIndexer {
         let parallel_config = AdaptiveParallelConfig::default();
         let parallel_processor = AdaptiveIncrementalProcessor::new(parallel_config)?;
 
-        // LSPプールの設定
+        // LSPプールの設定（短いタイムアウトでフォールバックを早期実行）
         let pool_config = PoolConfig {
             max_idle_time: std::time::Duration::from_secs(300),
-            init_timeout: std::time::Duration::from_secs(30),
-            request_timeout: std::time::Duration::from_secs(5),
-            max_retries: 3,
+            init_timeout: std::time::Duration::from_secs(3),  // 3秒に短縮
+            request_timeout: std::time::Duration::from_secs(2), // 2秒に短縮
+            max_retries: 1,  // リトライを1回に削減
         };
         let lsp_pool = LspClientPool::new(pool_config);
 
@@ -152,7 +152,7 @@ impl DifferentialIndexer {
         use std::fs::canonicalize;
         use std::time::Instant;
         
-        debug!("Using LSP to extract symbols from: {}", path.display());
+        info!("Attempting LSP extraction for: {}", path.display());
         
         let start = Instant::now();
         
@@ -160,28 +160,38 @@ impl DifferentialIndexer {
         let absolute_path = if path.is_absolute() {
             path.to_path_buf()
         } else {
-            canonicalize(path)?
+            match canonicalize(path) {
+                Ok(p) => p,
+                Err(e) => {
+                    warn!("Failed to canonicalize path {}: {}, using fallback", path.display(), e);
+                    return self.extract_symbols_with_fallback(path);
+                }
+            }
         };
         
         let file_uri = format!("file://{}", absolute_path.display());
+        debug!("File URI: {}", file_uri);
         
-        // LSPプールからクライアントを取得
+        // LSPプールからクライアントを取得（短いタイムアウト）
         match self.lsp_pool.get_or_create_client(path, &self.project_root) {
             Ok(client_arc) => {
+                debug!("Successfully got LSP client from pool");
                 // クライアントをロックして使用
                 match client_arc.lock() {
                     Ok(mut client) => {
+                        debug!("Successfully locked LSP client, requesting symbols");
                         // ドキュメントシンボルを取得
                         match client.get_document_symbols(&file_uri) {
                             Ok(lsp_symbols) => {
-                                debug!("LSP extracted {} symbols from {} in {:?}", 
+                                info!("LSP extracted {} symbols from {} in {:?}", 
                                        lsp_symbols.len(), path.display(), start.elapsed());
                                 // LSPシンボルをコアのSymbol型に変換
                                 let symbols = self.convert_lsp_symbols_to_core(&lsp_symbols, path);
+                                debug!("Converted {} LSP symbols to core symbols", symbols.len());
                                 Ok(symbols)
                             }
                             Err(e) => {
-                                warn!("LSP extraction failed for {}: {}. Using fallback.", path.display(), e);
+                                warn!("LSP symbol extraction failed for {}: {}. Using fallback.", path.display(), e);
                                 self.extract_symbols_with_fallback(path)
                             }
                         }
@@ -203,15 +213,38 @@ impl DifferentialIndexer {
     fn extract_symbols_with_fallback(&self, path: &Path) -> Result<Vec<Symbol>> {
         use lsp::fallback_indexer::FallbackIndexer;
         
-        debug!("Using fallback indexer for: {}", path.display());
+        info!("Using fallback indexer for: {}", path.display());
+        
         if let Some(fallback) = FallbackIndexer::from_extension(path) {
-            let lsp_symbols = fallback.extract_symbols(path)?;
-            // LSPシンボルをコアのSymbol型に変換
-            let symbols = self.convert_lsp_symbols_to_core(&lsp_symbols, path);
-            Ok(symbols)
+            debug!("Fallback indexer found for extension: {:?}", path.extension());
+            
+            match fallback.extract_symbols(path) {
+                Ok(lsp_symbols) => {
+                    info!("Fallback indexer extracted {} symbols from {}", 
+                           lsp_symbols.len(), path.display());
+                    
+                    // LSPシンボルをコアのSymbol型に変換
+                    let symbols = self.convert_lsp_symbols_to_core(&lsp_symbols, path);
+                    debug!("Converted {} fallback symbols to core symbols", symbols.len());
+                    
+                    // 各シンボルをログ出力
+                    for symbol in &symbols {
+                        debug!("  - {} ({:?}) at {}:{}", 
+                               symbol.name, symbol.kind, 
+                               symbol.range.start.line + 1, symbol.range.start.character + 1);
+                    }
+                    
+                    Ok(symbols)
+                }
+                Err(e) => {
+                    warn!("Fallback indexer failed for {}: {}", path.display(), e);
+                    Ok(Vec::new())
+                }
+            }
         } else {
             // フォールバックも使えない場合は空のリストを返す
-            debug!("No indexer available for file: {}", path.display());
+            warn!("No indexer available for file: {} (extension: {:?})", 
+                  path.display(), path.extension());
             Ok(Vec::new())
         }
     }
@@ -238,6 +271,7 @@ impl DifferentialIndexer {
                     },
                 },
                 documentation: lsp_symbol.detail.clone(),
+            detail: None,
             };
             symbols.push(symbol);
             
@@ -289,7 +323,9 @@ impl DifferentialIndexer {
         // 変更ファイルを検出（初回の場合は全ファイル）
         let changes = if self.metadata.is_none() {
             info!("Initial indexing - scanning all files");
-            self.scan_all_files()?
+            let files = self.scan_all_files()?;
+            info!("scan_all_files returned {} files", files.len());
+            files
         } else {
             self.git_detector.detect_changes_since(last_commit)?
         };
@@ -361,17 +397,18 @@ impl DifferentialIndexer {
             match change.status {
                 FileChangeStatus::Added => {
                     result.files_added += 1;
+                    
+                    info!("Processing added file: {}", change.path.display());
                     let symbols = self.extract_symbols_from_file(&change.path)?;
-                    debug!(
-                        "Extracted {} symbols from {}",
-                        symbols.len(),
-                        change.path.display()
-                    );
+                    info!("Successfully extracted {} symbols from {}", 
+                          symbols.len(), change.path.display());
+                    
                     result.symbols_added += symbols.len();
 
                     // グラフにシンボルを追加し、サマリーを記録
                     for symbol in symbols {
-                        debug!("Adding symbol: {} ({})", symbol.name, symbol.id);
+                        info!("Adding symbol to graph: {} (id: {}, kind: {:?})", 
+                              symbol.name, symbol.id, symbol.kind);
                         
                         // サマリーを記録（最大20件まで）
                         if result.added_symbols.len() < 20 {
@@ -383,11 +420,16 @@ impl DifferentialIndexer {
                             });
                         }
                         
-                        graph.add_symbol(symbol);
+                        // グラフにシンボルを実際に追加
+                        graph.add_symbol(symbol.clone());
+                        debug!("Symbol added to graph successfully");
                     }
 
                     // 参照を検出してエッジを追加
-                    self.add_references_to_graph(&mut graph, &change.path)?;
+                    debug!("Adding references to graph for: {}", change.path.display());
+                    if let Err(e) = self.add_references_to_graph(&mut graph, &change.path) {
+                        warn!("Failed to add references for {}: {}", change.path.display(), e);
+                    }
                 }
                 FileChangeStatus::Modified | FileChangeStatus::Renamed { .. } => {
                     result.files_modified += 1;
@@ -492,9 +534,24 @@ impl DifferentialIndexer {
         }
 
         // CodeGraphを保存
-        debug!("Saving CodeGraph with {} symbols", graph.symbol_count());
-        self.storage.save_data("graph", &graph)?;
-        debug!("CodeGraph saved successfully");
+        info!("Saving CodeGraph with {} symbols to database", graph.symbol_count());
+        
+        // 保存前に少しサンプルをログ出力
+        let sample_symbols: Vec<_> = graph.get_all_symbols().take(5).collect();
+        for symbol in &sample_symbols {
+            debug!("Sample symbol in graph: {} ({:?}) from {}", 
+                   symbol.name, symbol.kind, symbol.file_path);
+        }
+        
+        match self.storage.save_data("graph", &graph) {
+            Ok(()) => {
+                info!("CodeGraph with {} symbols saved successfully to database", graph.symbol_count());
+            }
+            Err(e) => {
+                error!("Failed to save CodeGraph: {}", e);
+                return Err(e);
+            }
+        }
 
         // ファイルハッシュを保存
         if let Some(ref mut metadata) = self.metadata {
@@ -536,16 +593,44 @@ impl DifferentialIndexer {
 
     /// ファイルからシンボルを抽出
     fn extract_symbols_from_file(&mut self, path: &Path) -> Result<Vec<Symbol>> {
-        // 常にLSPを使用し、失敗した場合はフォールバックを使用
-        match self.extract_symbols_with_lsp(path) {
-            Ok(symbols) => {
-                debug!("Successfully extracted {} symbols using LSP from {}", 
-                       symbols.len(), path.display());
+        // フォールバックインデクサーを優先的に使用（信頼性重視）
+        info!("Extracting symbols from: {}", path.display());
+        
+        // まずフォールバックを試行
+        match self.extract_symbols_with_fallback(path) {
+            Ok(symbols) if !symbols.is_empty() => {
+                info!("Successfully extracted {} symbols using fallback indexer from {}", 
+                      symbols.len(), path.display());
                 Ok(symbols)
             }
+            Ok(_) => {
+                // フォールバックで空の結果が返った場合はLSPを試行
+                info!("Fallback returned no symbols, trying LSP for: {}", path.display());
+                match self.extract_symbols_with_lsp(path) {
+                    Ok(symbols) => {
+                        info!("LSP extracted {} symbols from {}", symbols.len(), path.display());
+                        Ok(symbols)
+                    }
+                    Err(e) => {
+                        warn!("Both fallback and LSP failed for {}: {}", path.display(), e);
+                        Ok(Vec::new())
+                    }
+                }
+            }
             Err(e) => {
-                debug!("LSP extraction failed: {}, trying fallback", e);
-                self.extract_symbols_with_fallback(path)
+                warn!("Fallback indexer failed for {}: {}, trying LSP", path.display(), e);
+                match self.extract_symbols_with_lsp(path) {
+                    Ok(symbols) => {
+                        info!("LSP extracted {} symbols after fallback failed from {}", 
+                              symbols.len(), path.display());
+                        Ok(symbols)
+                    }
+                    Err(lsp_error) => {
+                        warn!("Both fallback and LSP failed for {}: fallback={}, lsp={}", 
+                              path.display(), e, lsp_error);
+                        Ok(Vec::new())
+                    }
+                }
             }
         }
     }
@@ -682,46 +767,112 @@ impl DifferentialIndexer {
     /// プロジェクト内の全ファイルをスキャン
     fn scan_all_files(&self) -> Result<Vec<FileChange>> {
         let mut changes = Vec::new();
+        info!("Scanning all files in: {}", self.project_root.display());
+        
+        // プロジェクトルートの存在確認
+        if !self.project_root.exists() {
+            error!("Project root does not exist: {}", self.project_root.display());
+            return Err(anyhow::anyhow!("Project root does not exist: {}", self.project_root.display()));
+        }
+        
+        if !self.project_root.is_dir() {
+            error!("Project root is not a directory: {}", self.project_root.display());
+            return Err(anyhow::anyhow!("Project root is not a directory: {}", self.project_root.display()));
+        }
+        
+        debug!("Project root exists and is directory: {}", self.project_root.display());
+        debug!("Project root canonical path: {:?}", std::fs::canonicalize(&self.project_root));
 
-        for entry in walkdir::WalkDir::new(&self.project_root)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_file())
-        {
+        // walkdirの動作を詳細にログ
+        let walkdir = walkdir::WalkDir::new(&self.project_root);
+        info!("Created walkdir for path: {}", self.project_root.display());
+        
+        let mut entry_count = 0;
+        let mut file_count = 0;
+        let mut error_count = 0;
+
+        for entry_result in walkdir.into_iter() {
+            entry_count += 1;
+            
+            let entry = match entry_result {
+                Ok(e) => e,
+                Err(err) => {
+                    error_count += 1;
+                    warn!("Walkdir error #{}: {}", error_count, err);
+                    continue;
+                }
+            };
+            
+            debug!("Walkdir entry #{}: {} (is_file: {}, is_dir: {})", 
+                   entry_count, entry.path().display(), 
+                   entry.file_type().is_file(), entry.file_type().is_dir());
+            
+            if !entry.file_type().is_file() {
+                debug!("  -> Skipping directory: {}", entry.path().display());
+                continue;
+            }
+            
+            file_count += 1;
             let path = entry.path();
 
             // .gitディレクトリ、targetディレクトリなどを除外
             if self.should_exclude(path) {
+                debug!("  -> Excluding file: {}", path.display());
                 continue;
             }
 
             // 対象ファイルのみ処理
             let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+            debug!("  -> File extension: '{}' for {}", ext, path.display());
+            
             if matches!(ext, "rs" | "ts" | "tsx" | "js" | "jsx") {
+                info!("  -> Found source file: {}", path.display());
                 let content_hash = self.git_detector.calculate_file_hash(path).ok();
                 changes.push(FileChange {
                     path: path.to_path_buf(),
                     status: FileChangeStatus::Added,
                     content_hash,
                 });
+            } else {
+                debug!("  -> Skipping non-source file: {} (ext: '{}')", path.display(), ext);
             }
         }
 
+        info!("Walkdir scan complete: {} entries processed, {} files found, {} errors, {} source files selected", 
+              entry_count, file_count, error_count, changes.len());
+        info!("scan_all_files found {} files", changes.len());
         Ok(changes)
     }
 
     /// 除外すべきパスかどうかを判定
     fn should_exclude(&self, path: &Path) -> bool {
-        for component in path.components() {
+        debug!("Checking if path should be excluded: {}", path.display());
+        
+        // プロジェクトルートからの相対パスを取得
+        let relative_path = if let Ok(rel_path) = path.strip_prefix(&self.project_root) {
+            rel_path
+        } else {
+            // プロジェクトルート外のパスは除外
+            debug!("  -> Path outside project root, excluded: {}", path.display());
+            return true;
+        };
+
+        debug!("  -> Relative path: {}", relative_path.display());
+
+        // 相対パスの各コンポーネントをチェック
+        for component in relative_path.components() {
             if let Some(name) = component.as_os_str().to_str() {
+                debug!("  -> Checking relative path component: '{}'", name);
                 if matches!(
                     name,
                     ".git" | "target" | "node_modules" | ".idea" | ".vscode" | "tmp"
                 ) {
+                    debug!("  -> Path excluded due to relative component: '{}'", name);
                     return true;
                 }
             }
         }
+        debug!("  -> Path not excluded: {}", path.display());
         false
     }
 
@@ -904,6 +1055,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         };
 
         graph.add_symbol(symbol.clone());
@@ -949,6 +1101,46 @@ mod tests {
             indexer.convert_lsp_symbol_kind(lsp_types::SymbolKind::ENUM),
             SymbolKind::Enum
         );
+    }
+
+    #[test]
+    fn test_scan_all_files_debug() {
+        // プロジェクトルートディレクトリを取得
+        let cwd = std::env::current_dir().unwrap();
+        let project_root = cwd.parent().unwrap().parent().unwrap().join("tmp/sample-project");
+        let temp_dir = TempDir::new().unwrap();
+        let storage_path = temp_dir.path().join("test.db");
+
+        // プロジェクトディレクトリが存在することを確認
+        if !project_root.exists() {
+            eprintln!("Test project directory does not exist: {}", project_root.display());
+            eprintln!("Current working directory: {}", cwd.display());
+            return;
+        }
+
+
+        // Git初期化
+        if !project_root.join(".git").exists() {
+            fs::create_dir_all(project_root.join(".git")).unwrap();
+        }
+
+        let indexer = DifferentialIndexer::new(&storage_path, &project_root).unwrap();
+        
+        // scan_all_files を実行
+        match indexer.scan_all_files() {
+            Ok(changes) => {
+                eprintln!("scan_all_files succeeded: found {} files", changes.len());
+                for change in &changes {
+                    eprintln!("  -> {}", change.path.display());
+                }
+                // 5つのRustファイルが見つかることを期待（追加したdataも含む）
+                assert!(changes.len() >= 4, "Expected at least 4 .rs files, found {}", changes.len());
+            }
+            Err(e) => {
+                eprintln!("scan_all_files failed: {}", e);
+                panic!("scan_all_files should not fail");
+            }
+        }
     }
 
 }

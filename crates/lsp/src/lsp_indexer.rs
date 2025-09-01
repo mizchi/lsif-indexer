@@ -47,6 +47,7 @@ impl LspIndexer {
                 },
             },
             documentation: symbol.detail.clone(),
+            detail: None,
         };
 
         let _node_index = self.graph.add_symbol(our_symbol);

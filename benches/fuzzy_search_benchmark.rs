@@ -40,6 +40,7 @@ fn create_test_symbols(count: usize) -> Vec<Symbol> {
                     } else {
                         None
                     },
+                    detail: None,
                 });
                 index += 1;
             }
@@ -59,6 +60,7 @@ fn create_test_symbols(count: usize) -> Vec<Symbol> {
                 end: Position { line: 1, character: 0 },
             },
             documentation: None,
+            detail: None,
         });
     }
     
@@ -218,6 +220,7 @@ fn benchmark_trigram_generation(c: &mut Criterion) {
                             end: Position { line: 1, character: 0 },
                         },
                         documentation: None,
+                        detail: None,
                     };
                     index.add_symbol(symbol);
                     black_box(index.stats())

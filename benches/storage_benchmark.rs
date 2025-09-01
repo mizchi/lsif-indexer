@@ -31,6 +31,7 @@ fn generate_test_symbols(count: usize) -> Vec<Symbol> {
             } else {
                 None
             },
+            detail: None,
         })
         .collect()
 }

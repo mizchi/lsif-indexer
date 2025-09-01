@@ -310,6 +310,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         };
 
         let calc_sym = Symbol {
@@ -328,6 +329,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         };
 
         let add_sym = Symbol {
@@ -346,6 +348,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         };
 
         // Add symbols to graph

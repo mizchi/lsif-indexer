@@ -29,6 +29,7 @@ fn create_small_graph() -> CodeGraph {
                 },
             },
             documentation: Some(format!("Documentation for function_{i}")),
+            detail: None,
         };
         graph.add_symbol(symbol);
     }
@@ -76,6 +77,7 @@ fn create_medium_graph() -> CodeGraph {
                 },
             },
             documentation: Some(format!("Documentation for symbol_{i}")),
+            detail: None,
         };
         graph.add_symbol(symbol);
     }
@@ -137,6 +139,7 @@ fn create_large_graph() -> CodeGraph {
             } else {
                 None
             },
+            detail: None,
         };
         let idx = graph.add_symbol(symbol);
         indices.insert(format!("symbol_{i}"), idx);
@@ -325,6 +328,7 @@ fn benchmark_edge_operations(c: &mut Criterion) {
                         },
                     },
                     documentation: None,
+                    detail: None,
                 };
                 indices.push(graph.add_symbol(symbol));
             }
@@ -361,6 +365,7 @@ fn benchmark_edge_operations(c: &mut Criterion) {
                         },
                     },
                     documentation: None,
+                    detail: None,
                 };
                 indices.push(graph.add_symbol(symbol));
             }
@@ -409,6 +414,7 @@ fn benchmark_incremental_updates(c: &mut Criterion) {
                     },
                 },
                 documentation: Some(format!("Doc for function_{file_idx}_{sym_idx}")),
+                detail: None,
             };
             file_symbols.push(symbol.clone());
             all_symbols.push(symbol);
@@ -446,6 +452,7 @@ fn benchmark_incremental_updates(c: &mut Criterion) {
                         },
                     },
                     documentation: Some(format!("Updated doc {i}")),
+                    detail: None,
                 });
             }
 
@@ -482,6 +489,7 @@ fn benchmark_incremental_updates(c: &mut Criterion) {
                             },
                         },
                         documentation: Some(format!("Updated doc {file_idx}_{sym_idx}")),
+                        detail: None,
                     });
                 }
                 updates.push(FileUpdate::Modified {
@@ -529,6 +537,7 @@ fn benchmark_incremental_updates(c: &mut Criterion) {
                         },
                     },
                     documentation: None,
+                    detail: None,
                 })
                 .unwrap();
         }
@@ -568,6 +577,7 @@ fn benchmark_storage_operations(c: &mut Criterion) {
                 },
             },
             documentation: Some(format!("Doc {i}")),
+            detail: None,
         });
     }
 

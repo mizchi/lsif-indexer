@@ -103,6 +103,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         }
     }
 
@@ -148,7 +149,7 @@ mod tests {
         assert_eq!(deserialized.symbol_count(), 2);
 
         // Check that the reference relationship is preserved
-        let references = deserialized.find_references("func1");
+        let references = deserialized.find_references("func1").unwrap();
         assert_eq!(references.len(), 1);
         assert_eq!(references[0].id, "ref1");
     }
@@ -174,6 +175,8 @@ mod tests {
                 },
             },
             documentation: Some("Interface documentation".to_string()),
+            detail: None,
+        };
 
         let class = Symbol {
             id: "class1".to_string(),
@@ -191,6 +194,8 @@ mod tests {
                 },
             },
             documentation: Some("Class documentation".to_string()),
+            detail: None,
+        };
 
         let method = Symbol {
             id: "method1".to_string(),
@@ -208,6 +213,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         };
 
         let interface_idx = graph.add_symbol(interface);

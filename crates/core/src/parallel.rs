@@ -504,6 +504,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         }
     }
 
@@ -683,7 +684,7 @@ mod tests {
 
         assert_eq!(inner.symbol_count(), 2);
         let refs = inner.find_references("sym2");
-        assert_eq!(refs.len(), 1);
+        assert_eq!(refs.unwrap().len(), 1);
     }
 
     #[test]
@@ -704,6 +705,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         };
 
         assert!(ParallelIncrementalIndex::is_entry_point(&main_symbol));
@@ -724,6 +726,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         };
 
         assert!(ParallelIncrementalIndex::is_entry_point(&test_symbol));
@@ -744,6 +747,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         };
 
         assert!(!ParallelIncrementalIndex::is_entry_point(&private_symbol));

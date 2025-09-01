@@ -107,6 +107,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         };
 
         let helper_fn = Symbol {
@@ -125,6 +126,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         };
 
         let util_fn = Symbol {
@@ -143,6 +145,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         };
 
         // Add symbols to graph

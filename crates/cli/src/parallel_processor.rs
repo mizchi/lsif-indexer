@@ -192,6 +192,7 @@ mod tests {
                     end: core::Position { line: 0, character: 0 },
                 },
                 documentation: None,
+            detail: None,
             }])
         });
 

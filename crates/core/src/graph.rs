@@ -11,6 +11,7 @@ pub struct Symbol {
     pub file_path: String,
     pub range: Range,
     pub documentation: Option<String>,
+    pub detail: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -315,6 +316,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         }
     }
 

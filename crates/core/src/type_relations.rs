@@ -494,6 +494,7 @@ mod tests {
                 },
             },
             documentation: None,
+            detail: None,
         }
     }
 

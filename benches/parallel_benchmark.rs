@@ -39,6 +39,7 @@ fn create_symbols(count: usize) -> Vec<Symbol> {
             } else {
                 None
             },
+            detail: None,
         })
         .collect()
 }
@@ -174,6 +175,7 @@ fn benchmark_file_updates(c: &mut Criterion) {
                             },
                         },
                         documentation: None,
+                        detail: None,
                     },
                     Symbol {
                         id: format!("file{i}_sym2"),
@@ -191,6 +193,7 @@ fn benchmark_file_updates(c: &mut Criterion) {
                             },
                         },
                         documentation: None,
+                        detail: None,
                     },
                 ];
                 let hash = format!("hash_{i}");
@@ -263,6 +266,7 @@ fn benchmark_dead_code_detection(c: &mut Criterion) {
                     },
                 },
                 documentation: None,
+                detail: None,
             })
             .unwrap();
 
@@ -286,6 +290,7 @@ fn benchmark_dead_code_detection(c: &mut Criterion) {
                     },
                 },
                 documentation: None,
+                detail: None,
             };
             let idx = index.graph.add_symbol(symbol.clone());
             index.symbol_to_file.insert(
@@ -323,6 +328,7 @@ fn benchmark_dead_code_detection(c: &mut Criterion) {
                     },
                 },
                 documentation: None,
+                detail: None,
             };
             index.add_symbol(symbol).unwrap();
         }

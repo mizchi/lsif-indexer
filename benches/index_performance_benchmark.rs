@@ -73,6 +73,7 @@ fn extract_symbols_from_file(file_path: &Path) -> Vec<Symbol> {
                             },
                         },
                         documentation: Some(format!("Function {name}")),
+                        detail: None,
                     });
                 }
             }
@@ -96,6 +97,7 @@ fn extract_symbols_from_file(file_path: &Path) -> Vec<Symbol> {
                             },
                         },
                         documentation: Some(format!("Struct {name}")),
+                        detail: None,
                     });
                 }
             }
@@ -119,6 +121,7 @@ fn extract_symbols_from_file(file_path: &Path) -> Vec<Symbol> {
                             },
                         },
                         documentation: Some(format!("Constant {name}")),
+                        detail: None,
                     });
                 }
             }

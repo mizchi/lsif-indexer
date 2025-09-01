@@ -131,6 +131,7 @@ impl LspIntegration {
                 },
             },
             documentation: symbol.detail.clone(),
+            detail: None,
         };
 
         graph.add_symbol(lsif_symbol);

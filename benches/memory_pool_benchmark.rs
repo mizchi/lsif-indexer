@@ -31,6 +31,7 @@ fn create_test_symbol(id: usize) -> Symbol {
         } else {
             None
         },
+        detail: None,
     }
 }
 

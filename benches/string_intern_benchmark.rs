@@ -28,6 +28,7 @@ fn create_test_symbol_with_duplicates(id: usize) -> Symbol {
             },
         },
         documentation: Some(format!("Documentation type {}", id % 20)), // 20個のユニークなドキュメント
+        detail: None,
     }
 }
 

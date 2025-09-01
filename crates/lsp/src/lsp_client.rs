@@ -133,8 +133,10 @@ impl LspClient {
                         #[allow(deprecated)]
                         DocumentSymbol {
                             name: s.name,
+                            kind: s.kind,
                             tags: None,
                             deprecated: None,
+                            detail: s.container_name,
                             range: s.location.range,
                             selection_range: s.location.range,
                             children: None,
