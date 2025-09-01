@@ -20,7 +20,7 @@ fn main() -> Result<()> {
 
     // CLIパース＆実行
     let cli = Cli::parse();
-    cli.execute()?;
+    cli.run()?;
 
     Ok(())
 }

@@ -10,7 +10,6 @@ pub mod indexer;
 pub mod parallel_processor;
 pub mod reference_finder;
 pub mod cli;
-// pub mod improved_cli; // TODO: Fix implementation
 pub mod lsp_unified_cli;
 pub mod symbol_extraction_strategy;
 pub mod workspace_symbol_strategy;
