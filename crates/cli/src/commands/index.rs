@@ -7,7 +7,7 @@ use super::utils::*;
 pub fn handle_index(db_path: &str, project_root: &str, force: bool, _show_progress: bool, fallback_only: bool, workspace_symbol: bool) -> Result<()> {
     let start = Instant::now();
     
-    // workspace/symbolモードの場合
+    // workspace/symbolモードが明示的に指定された場合
     if workspace_symbol {
         print_info("Using workspace/symbol for fast indexing...", "🚀");
         
@@ -36,7 +36,7 @@ pub fn handle_index(db_path: &str, project_root: &str, force: bool, _show_progre
     if force {
         print_info("Force reindexing project...", "🔄");
         if Path::new(db_path).exists() {
-            std::fs::remove_file(db_path)?;
+            std::fs::remove_dir_all(db_path).ok();  // DBディレクトリを削除
         }
     } else {
         print_info("Indexing project...", "📇");
@@ -49,20 +49,32 @@ pub fn handle_index(db_path: &str, project_root: &str, force: bool, _show_progre
         indexer.set_fallback_only(true);
     }
     
+    // full_reindexは内部でworkspace/symbolを試みる
     let result = if force || !Path::new(db_path).exists() {
-        indexer.full_reindex()?
+        indexer.full_reindex()?  // 内部でworkspace/symbolを優先的に使用
     } else {
-        indexer.index_differential()?
+        indexer.index_differential()?  // 差分時はdocument symbolを使用
     };
     
-    print_success(&format!(
-        "Indexed {} symbols in {:.2}s (+{} ~{} -{} files)",
-        result.symbols_added,
-        start.elapsed().as_secs_f64(),
-        result.files_added,
-        result.files_modified,
-        result.files_deleted
-    ));
+    // 結果の表示を改善
+    if result.full_reindex && result.files_added == 0 {
+        // workspace/symbolを使った場合
+        print_success(&format!(
+            "Indexed {} symbols in {:.2}s (using workspace/symbol)",
+            result.symbols_added,
+            start.elapsed().as_secs_f64(),
+        ));
+    } else {
+        // 通常のファイル単位インデックスの場合
+        print_success(&format!(
+            "Indexed {} symbols in {:.2}s (+{} ~{} -{} files)",
+            result.symbols_added,
+            start.elapsed().as_secs_f64(),
+            result.files_added,
+            result.files_modified,
+            result.files_deleted
+        ));
+    }
     
     Ok(())
 }

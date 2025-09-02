@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tracing::{debug, info};
+use walkdir;
 
 use super::symbol_extraction_strategy::SymbolExtractionStrategy;
 
@@ -47,8 +48,20 @@ impl WorkspaceSymbolExtractionStrategy {
         let pool = self.lsp_pool.lock()
             .map_err(|e| anyhow::anyhow!("Failed to lock LSP pool: {}", e))?;
         
+        // プロジェクト内のサンプルファイルを見つける（LSPクライアント初期化用）
+        let sample_file = walkdir::WalkDir::new(&self.project_root)
+            .max_depth(3)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+            .find(|e| {
+                let ext = e.path().extension().and_then(|s| s.to_str()).unwrap_or("");
+                matches!(ext, "rs" | "ts" | "tsx" | "js" | "jsx" | "py" | "go")
+            })
+            .ok_or_else(|| anyhow::anyhow!("No source files found in project"))?;
+        
         // プロジェクトルートに対応するクライアントを取得
-        let client_arc = pool.get_or_create_client(&self.project_root, &self.project_root)?;
+        let client_arc = pool.get_or_create_client(sample_file.path(), &self.project_root)?;
         let mut client = client_arc.lock()
             .map_err(|e| anyhow::anyhow!("Failed to lock LSP client: {}", e))?;
         

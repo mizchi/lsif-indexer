@@ -913,10 +913,10 @@ impl DifferentialIndexer {
         
         // フォールバックオンリーモードの場合は直接フォールバックを使用
         if self.fallback_only {
-            let fallback_start = Instant::now();
+            let _fallback_start = Instant::now();
             match self.extract_symbols_with_fallback(path) {
                 Ok(symbols) => {
-                    let elapsed = fallback_start.elapsed();
+                    let elapsed = start_time.elapsed();
                     info!("Fallback extracted {} symbols from {} in {:.3}s", 
                           symbols.len(), path.display(), elapsed.as_secs_f64());
                     if elapsed.as_secs() >= 2 {
@@ -1114,12 +1114,119 @@ impl DifferentialIndexer {
     /// 完全再インデックス
     pub fn full_reindex(&mut self) -> Result<DifferentialIndexResult> {
         info!("Performing full reindex...");
+        let start = Instant::now();
 
         // メタデータをクリア
         self.metadata = None;
 
-        // 全ファイルを変更として扱う
+        // workspace/symbolがサポートされているかチェック
+        if self.try_workspace_symbol_index()? {
+            // workspace/symbolで成功した場合は結果を返す
+            info!("Full reindex completed using workspace/symbol");
+            let total_symbols = self.count_total_symbols()?;
+            return Ok(DifferentialIndexResult {
+                files_added: 0,  // workspace/symbolではファイル単位の情報はない
+                files_modified: 0,
+                files_deleted: 0,
+                symbols_added: total_symbols,
+                symbols_updated: 0,
+                symbols_deleted: 0,
+                duration: start.elapsed(),
+                added_symbols: Vec::new(),
+                deleted_symbols: Vec::new(),
+                full_reindex: true,
+                change_ratio: 1.0,
+            });
+        }
+
+        // workspace/symbolが使えない場合は通常の処理
+        info!("workspace/symbol not available, falling back to file-by-file indexing");
         self.index_differential()
+    }
+
+    /// workspace/symbolを使用してインデックスを試みる
+    fn try_workspace_symbol_index(&mut self) -> Result<bool> {
+        info!("Attempting to use workspace/symbol for fast indexing...");
+        
+        // プロジェクトの主要言語を検出
+        let language = detect_project_language(&self.project_root);
+        
+        // 言語IDを文字列に変換
+        let language_id = match language {
+            lsp::Language::Rust => "rust",
+            lsp::Language::TypeScript => "typescript",
+            lsp::Language::JavaScript => "javascript",
+            lsp::Language::Python => "python",
+            lsp::Language::Go => "go",
+            lsp::Language::Unknown => {
+                info!("Could not detect project language, skipping workspace/symbol");
+                return Ok(false);
+            }
+        };
+        
+        info!("Detected project language: {}", language_id);
+        
+        // LSPクライアントを事前に初期化（キャパビリティを取得するため）
+        // サンプルファイルを見つける
+        let sample_file = walkdir::WalkDir::new(&self.project_root)
+            .max_depth(3)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+            .find(|e| {
+                let ext = e.path().extension().and_then(|s| s.to_str()).unwrap_or("");
+                match language_id {
+                    "rust" => ext == "rs",
+                    "typescript" => ext == "ts" || ext == "tsx",
+                    "javascript" => ext == "js" || ext == "jsx",
+                    "python" => ext == "py",
+                    "go" => ext == "go",
+                    _ => false,
+                }
+            });
+        
+        if let Some(sample) = sample_file {
+            // クライアントを初期化
+            match self.lsp_pool.get_or_create_client(sample.path(), &self.project_root) {
+                Ok(_) => {
+                    info!("LSP client initialized for capability check");
+                }
+                Err(e) => {
+                    warn!("Failed to initialize LSP client: {}", e);
+                    return Ok(false);
+                }
+            }
+        }
+        
+        // workspace/symbolがサポートされているかチェック
+        if !self.lsp_pool.has_capability_for_language(language_id, "workspace/symbol") {
+            info!("Language {} does not support workspace/symbol", language_id);
+            return Ok(false);
+        }
+        
+        // WorkspaceSymbolStrategyを使用（スタンドアロン版）
+        use crate::workspace_symbol_strategy::WorkspaceSymbolStrategy;
+        
+        let strategy = WorkspaceSymbolStrategy::new(self.project_root.clone());
+        
+        match strategy.index() {
+            Ok(graph) => {
+                info!("workspace/symbol extracted {} symbols", graph.symbol_count());
+                
+                // ストレージに保存
+                self.storage.save_data("graph", &graph)?;
+                info!("Saved {} symbols to storage", graph.symbol_count());
+                
+                // メタデータを更新
+                self.update_metadata()?;
+                
+                Ok(true)
+            }
+            Err(e) => {
+                warn!("workspace/symbol failed: {}", e);
+                Ok(false)
+            }
+        }
     }
 
     /// プロジェクト内の全ファイルをスキャン
