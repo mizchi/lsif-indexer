@@ -30,6 +30,14 @@ impl WorkspaceSymbolExtractionStrategy {
             processed_files: Arc::new(Mutex::new(HashSet::new())),
         }
     }
+    
+    /// シンプルなインデックス作成用のコンストラクタ
+    pub fn new_standalone(project_root: PathBuf) -> Self {
+        use lsp::lsp_pool::{LspClientPool, PoolConfig};
+        let config = PoolConfig::default();
+        let lsp_pool = Arc::new(Mutex::new(LspClientPool::new(config)));
+        Self::new(lsp_pool, project_root)
+    }
 
     /// workspace/symbolを使用してプロジェクト全体のシンボルを取得
     pub fn extract_workspace_symbols(&self) -> Result<Vec<Symbol>> {
@@ -347,6 +355,30 @@ impl SymbolExtractionStrategy for HybridSymbolExtractionStrategy {
     
     fn priority(&self) -> u32 {
         95 // 高優先度（workspaceとdocumentの中間）
+    }
+}
+
+/// スタンドアロン版のWorkspaceSymbolStrategy（CLI用）
+pub struct WorkspaceSymbolStrategy {
+    project_root: PathBuf,
+}
+
+impl WorkspaceSymbolStrategy {
+    pub fn new(project_root: PathBuf) -> Self {
+        Self { project_root }
+    }
+    
+    /// プロジェクト全体をworkspace/symbolでインデックス
+    pub fn index(&self) -> Result<lsif_core::CodeGraph> {
+        let strategy = WorkspaceSymbolExtractionStrategy::new_standalone(self.project_root.clone());
+        let symbols = strategy.extract_workspace_symbols()?;
+        
+        let mut graph = lsif_core::CodeGraph::new();
+        for symbol in symbols {
+            graph.add_symbol(symbol);
+        }
+        
+        Ok(graph)
     }
 }
 

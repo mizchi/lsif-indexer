@@ -150,6 +150,10 @@ pub enum Commands {
         /// Use fallback indexer only (faster but less accurate)
         #[arg(long = "fallback-only")]
         fallback_only: bool,
+        
+        /// Use workspace/symbol API for fast indexing (if supported)
+        #[arg(long = "workspace-symbol")]
+        workspace_symbol: bool,
     },
 
     /// Find unused code [aliases: unused, u]
@@ -232,8 +236,8 @@ impl Cli {
             Commands::WorkspaceSymbols { query, fuzzy, symbol_type, path_pattern, max_results, returns, takes, implements, has_field } => {
                 handle_search(&db_path, &query, fuzzy, symbol_type, path_pattern, max_results, format, returns, takes, implements, has_field)?;
             }
-            Commands::Index { force, show_progress, fallback_only } => {
-                handle_index(&db_path, &project_root, force, show_progress, fallback_only)?;
+            Commands::Index { force, show_progress, fallback_only, workspace_symbol } => {
+                handle_index(&db_path, &project_root, force, show_progress, fallback_only, workspace_symbol)?;
             }
             Commands::Unused { public_only, file_filter, json_output } => {
                 handle_unused(&db_path, public_only, file_filter, json_output)?;
