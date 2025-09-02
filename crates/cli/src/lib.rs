@@ -14,6 +14,8 @@ pub mod lsp_unified_cli;
 pub mod commands;
 pub mod symbol_extraction_strategy;
 pub mod workspace_symbol_strategy;
+pub mod output_format;
+pub mod type_search;
 
 // Storage layer
 pub mod storage;

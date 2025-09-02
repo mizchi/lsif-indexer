@@ -12,6 +12,7 @@ use lsif_core::{CodeGraph, Symbol, SymbolKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use walkdir;
+use indicatif::{ProgressBar, ProgressStyle, MultiProgress, ProgressDrawTarget};
 
 // LSP統合のためのインポート
 use lsp::lsp_indexer::LspIndexer;
@@ -113,8 +114,8 @@ impl DifferentialIndexer {
         // LSPプールの設定（短いタイムアウトでフォールバックを早期実行）
         let pool_config = PoolConfig {
             max_idle_time: std::time::Duration::from_secs(300),
-            init_timeout: std::time::Duration::from_secs(3),  // 3秒に短縮
-            request_timeout: std::time::Duration::from_secs(2), // 2秒に短縮
+            init_timeout: std::time::Duration::from_secs(2),  // 2秒に短縮（さらに高速化）
+            request_timeout: std::time::Duration::from_secs(1), // 1秒に短縮（さらに高速化）
             max_retries: 1,  // リトライを1回に削減
         };
         let lsp_pool = LspClientPool::new(pool_config);
@@ -362,6 +363,11 @@ impl DifferentialIndexer {
         let start = Instant::now();
         info!("Starting differential indexing...");
         debug!("Project root: {}", self.project_root.display());
+        
+        // LSPモードの場合、使用される言語を検出してLSPを事前起動
+        if !self.fallback_only {
+            self.warm_up_lsp_clients()?;
+        }
 
         // 前回のメタデータからハッシュキャッシュを復元
         if let Some(ref metadata) = self.metadata {
@@ -419,10 +425,20 @@ impl DifferentialIndexer {
         
         let total_files = changes.len();
         
-        // プログレス表示の準備
-        if total_files > 10 {
-            eprintln!("🚀 Processing {} files...", total_files);
-        }
+        // プログレスバーの設定
+        let progress_bar = if total_files > 0 {
+            let pb = ProgressBar::new(total_files as u64);
+            pb.set_style(
+                ProgressStyle::default_bar()
+                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({percent}%) {msg}")
+                    .unwrap()
+                    .progress_chars("#>-")
+            );
+            pb.set_message("Indexing files...");
+            Some(pb)
+        } else {
+            None
+        };
 
         let mut result = DifferentialIndexResult {
             files_added: 0,
@@ -648,12 +664,14 @@ impl DifferentialIndexer {
                     new_file_hashes.insert(change.path.clone(), hash.clone());
                 }
                 
-                // プログレス表示
+                // プログレスバー更新
                 processed_count += 1;
-                if total_files > 10 && processed_count % 10 == 0 {
-                    eprintln!("  ⚡ Processed {}/{} files ({:.0}%)", 
-                             processed_count, total_files, 
-                             (processed_count as f64 / total_files as f64) * 100.0);
+                if let Some(ref pb) = progress_bar {
+                    let file_name = change.path.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("unknown");
+                    pb.set_position(processed_count as u64);
+                    pb.set_message(format!("Processing: {}", file_name));
                 }
 
                 match change.status {
@@ -661,9 +679,31 @@ impl DifferentialIndexer {
                     result.files_added += 1;
                     
                     info!("Processing added file: {}", change.path.display());
+                    
+                    // プログレスバーに抽出方法を表示
+                    if let Some(ref pb) = progress_bar {
+                        let file_name = change.path.file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("unknown");
+                        let extraction_mode = if self.fallback_only { "[Fallback]" } else { "[LSP/Fallback]" };
+                        pb.set_message(format!("{} Extracting: {} ...", extraction_mode, file_name));
+                    }
+                    
+                    let extraction_start = Instant::now();
                     let symbols = self.extract_symbols_from_file(&change.path)?;
-                    info!("Successfully extracted {} symbols from {}", 
-                          symbols.len(), change.path.display());
+                    let extraction_time = extraction_start.elapsed();
+                    
+                    info!("Successfully extracted {} symbols from {} in {:.2}s", 
+                          symbols.len(), change.path.display(), extraction_time.as_secs_f64());
+                    
+                    // 遅い処理の警告
+                    if extraction_time.as_secs() > 2 {
+                        if let Some(ref pb) = progress_bar {
+                            pb.set_message(format!("⚠️  Slow: {} took {:.1}s", 
+                                change.path.file_name().and_then(|n| n.to_str()).unwrap_or("file"),
+                                extraction_time.as_secs_f64()));
+                        }
+                    }
                     
                     result.symbols_added += symbols.len();
 
@@ -795,6 +835,18 @@ impl DifferentialIndexer {
             }
         }
         }
+        
+        // プログレスバー完了
+        if let Some(pb) = progress_bar {
+            pb.finish_with_message(format!(
+                "Completed: {} files, {} symbols (added: {}, updated: {}, deleted: {})",
+                total_files,
+                result.symbols_added + result.symbols_updated,
+                result.symbols_added,
+                result.symbols_updated,
+                result.symbols_deleted
+            ));
+        }
 
         // CodeGraphを保存
         info!("Saving CodeGraph with {} symbols to database", graph.symbol_count());
@@ -854,15 +906,23 @@ impl DifferentialIndexer {
         Ok(true)
     }
 
-    /// ファイルからシンボルを抽出
+    /// ファイルからシンボルを抽出（処理時間を計測）
     fn extract_symbols_from_file(&mut self, path: &Path) -> Result<Vec<Symbol>> {
         info!("Extracting symbols from: {}", path.display());
+        let start_time = Instant::now();
         
         // フォールバックオンリーモードの場合は直接フォールバックを使用
         if self.fallback_only {
+            let fallback_start = Instant::now();
             match self.extract_symbols_with_fallback(path) {
                 Ok(symbols) => {
-                    info!("Fallback extracted {} symbols from {}", symbols.len(), path.display());
+                    let elapsed = fallback_start.elapsed();
+                    info!("Fallback extracted {} symbols from {} in {:.3}s", 
+                          symbols.len(), path.display(), elapsed.as_secs_f64());
+                    if elapsed.as_secs() >= 2 {
+                        warn!("⚠️  Slow extraction: {} took {:.1}s (fallback)", 
+                              path.display(), elapsed.as_secs_f64());
+                    }
                     Ok(symbols)
                 }
                 Err(e) => {
@@ -873,28 +933,45 @@ impl DifferentialIndexer {
         } else {
             // LSPインデクサーを優先的に使用（より正確なシンボル情報を取得）
             // まずLSPを試行
+            let lsp_start = Instant::now();
             match self.extract_symbols_with_lsp(path) {
                 Ok(symbols) if !symbols.is_empty() => {
-                    info!("Successfully extracted {} symbols using LSP from {}", 
-                          symbols.len(), path.display());
+                    let elapsed = lsp_start.elapsed();
+                    info!("Successfully extracted {} symbols using LSP from {} in {:.3}s", 
+                          symbols.len(), path.display(), elapsed.as_secs_f64());
+                    if elapsed.as_secs() >= 3 {
+                        warn!("⚠️  Slow LSP extraction: {} took {:.1}s", 
+                              path.display(), elapsed.as_secs_f64());
+                    }
                     Ok(symbols)
                 }
                 Ok(_) => {
+                    let lsp_elapsed = lsp_start.elapsed();
                     // LSPで空の結果が返った場合はフォールバックを試行
-                    info!("LSP returned no symbols, trying fallback for: {}", path.display());
+                    info!("LSP returned no symbols after {:.3}s, trying fallback for: {}", 
+                          lsp_elapsed.as_secs_f64(), path.display());
+                    let fallback_start = Instant::now();
                     match self.extract_symbols_with_fallback(path) {
                         Ok(symbols) => {
-                            info!("Fallback extracted {} symbols from {}", symbols.len(), path.display());
+                            let fallback_elapsed = fallback_start.elapsed();
+                            info!("Fallback extracted {} symbols from {} in {:.3}s (total: {:.3}s)", 
+                                  symbols.len(), path.display(), 
+                                  fallback_elapsed.as_secs_f64(),
+                                  start_time.elapsed().as_secs_f64());
                             Ok(symbols)
                         }
                         Err(e) => {
-                            warn!("Both LSP and fallback failed for {}: {}", path.display(), e);
+                            warn!("Both LSP and fallback failed for {} (total time: {:.3}s): {}", 
+                                  path.display(), start_time.elapsed().as_secs_f64(), e);
                             Ok(Vec::new())
                         }
                     }
                 }
                 Err(e) => {
-                    warn!("LSP indexer failed for {}: {}, trying fallback", path.display(), e);
+                    let lsp_elapsed = lsp_start.elapsed();
+                    warn!("LSP indexer failed for {} after {:.3}s: {}, trying fallback", 
+                          path.display(), lsp_elapsed.as_secs_f64(), e);
+                    let fallback_start = Instant::now();
                     match self.extract_symbols_with_fallback(path) {
                         Ok(symbols) => {
                             info!("Fallback extracted {} symbols after LSP failed from {}", 
@@ -1125,6 +1202,65 @@ impl DifferentialIndexer {
         Ok(changes)
     }
 
+    /// 使用される言語を検出してLSPクライアントを事前起動
+    fn warm_up_lsp_clients(&mut self) -> Result<()> {
+        info!("Detecting languages in project...");
+        
+        // プロジェクト内の言語を検出
+        let mut languages = HashSet::new();
+        let mut sample_count = 0;
+        const MAX_SAMPLES: usize = 20; // 最初の20ファイルで判断
+        
+        for entry in walkdir::WalkDir::new(&self.project_root)
+            .max_depth(3) // 深さを制限して高速化
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+        {
+            let path = entry.path();
+            
+            if self.should_exclude(path) {
+                continue;
+            }
+            
+            if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                let lang = match ext {
+                    "rs" => Some("rust"),
+                    "ts" | "tsx" => Some("typescript"),
+                    "js" | "jsx" => Some("javascript"),
+                    "py" => Some("python"),
+                    "go" => Some("go"),
+                    "java" => Some("java"),
+                    _ => None,
+                };
+                
+                if let Some(l) = lang {
+                    languages.insert(l);
+                    sample_count += 1;
+                    
+                    if sample_count >= MAX_SAMPLES {
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if languages.is_empty() {
+            info!("No supported languages detected, skipping LSP warm-up");
+            return Ok(());
+        }
+        
+        // 検出された言語のLSPクライアントを事前起動
+        let langs: Vec<&str> = languages.into_iter().collect();
+        info!("Warming up LSP clients for languages: {:?}", langs);
+        
+        let warm_up_start = Instant::now();
+        self.lsp_pool.warm_up(&self.project_root, &langs)?;
+        info!("LSP warm-up completed in {:.2}s", warm_up_start.elapsed().as_secs_f64());
+        
+        Ok(())
+    }
+    
     /// 除外すべきパスかどうかを判定
     fn should_exclude(&self, path: &Path) -> bool {
         debug!("Checking if path should be excluded: {}", path.display());

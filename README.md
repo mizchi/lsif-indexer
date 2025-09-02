@@ -41,21 +41,33 @@ lsif index -l rust             # 特定言語指定
 lsif index --project ./src     # ディレクトリ指定
 
 # コード検索
-lsif definition main.rs 42     # 定義へジャンプ
-lsif references main.go 10     # 参照を検索
+lsif definition main.rs:42     # 定義へジャンプ
+lsif references main.go:10     # 参照を検索
 lsif symbols                   # シンボル一覧
 
 # 曖昧検索
-lsif workspace-symbols "user" --fuzzy  # ファジー検索
-lsif workspace-symbols "usr" --fuzzy   # 部分一致
+lsif search "user" --fuzzy     # ファジー検索
+lsif search "usr" --fuzzy      # 部分一致
+
+# 型ベース検索（新機能）
+lsif search --returns "Result<String>"  # 特定の型を返す関数
+lsif search --takes "&str"              # 特定の引数型を持つ関数
+lsif search --implements "Iterator"     # 特定traitの実装
+lsif search --has-field "Vec<u8>"       # 特定フィールド型を持つ構造体
+
+# 出力フォーマット（新機能）
+lsif def main.rs:10 --format quickfix   # Vim quickfix形式
+lsif def main.rs:10 --format lsp        # LSP Location形式
+lsif search "test" --format json        # JSON形式
+lsif search "test" --format tsv | fzf   # TSV形式でfzfと連携
 
 # 高度な機能
-lsif call-hierarchy main --depth 3     # コールヒエラルキー
-lsif unused                            # 未使用コード検出
-lsif graph "(n:Function)"              # グラフクエリ
+lsif call-hierarchy main --depth 3      # コールヒエラルキー
+lsif unused                             # 未使用コード検出
+lsif export --format lsif               # LSIF形式エクスポート
 ```
 
-### オプション
+### グローバルオプション
 
 | オプション | 説明 | デフォルト |
 |----------|------|-----------|
@@ -63,7 +75,35 @@ lsif graph "(n:Function)"              # グラフクエリ
 | `--project <path>` | プロジェクトルート | `.` |
 | `--language <lang>` | 言語指定 | 自動検出 |
 | `--no-auto-index` | 自動インデックス無効化 | false |
-| `--json` | JSON出力 | false |
+| `--format <fmt>` | 出力フォーマット | human |
+
+### 出力フォーマット
+
+| フォーマット | 説明 | 使用例 |
+|------------|------|--------|  
+| `human` | 人間向け（絵文字付き） | デフォルト |
+| `quickfix` | Vim quickfix形式 | `:cfile`で読み込み |
+| `lsp` | LSP Location JSON | エディタ統合 |
+| `grep` | grep互換形式 | 他ツールとの連携 |
+| `json` | 構造化JSON | プログラマブル処理 |
+| `tsv` | タブ区切り | `fzf`や`awk`との連携 |
+| `null` | null区切り | `xargs -0`との連携 |
+
+## パフォーマンス改善
+
+### 高速化オプション
+
+```bash
+# フォールバックインデクサーのみ使用（90%高速化）
+lsif index --fallback-only
+
+# 環境変数で設定
+export LSIF_FALLBACK_ONLY=1
+lsif index
+
+# プログレスバーで詳細表示
+lsif index --progress
+```
 
 ## パフォーマンス
 

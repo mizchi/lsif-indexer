@@ -13,7 +13,6 @@ use commands::{
     references::handle_references,
     search::handle_search,
     index::handle_index,
-    stats::handle_stats,
     utils::print_success,
 };
 
@@ -39,6 +38,10 @@ pub struct Cli {
     /// Verbose output
     #[arg(short = 'v', long = "verbose", global = true)]
     pub verbose: bool,
+
+    /// Output format (human, quickfix, lsp, grep, json, tsv, null)
+    #[arg(short = 'f', long = "format", global = true, default_value = "human")]
+    pub format: String,
 
     #[command(subcommand)]
     pub command: Commands,
@@ -112,6 +115,22 @@ pub enum Commands {
         #[arg(short = 'p', long = "path")]
         path_pattern: Option<String>,
         
+        /// Filter by return type
+        #[arg(long = "returns")]
+        returns: Option<String>,
+        
+        /// Filter by parameter type
+        #[arg(long = "takes")]
+        takes: Option<String>,
+        
+        /// Filter by implementation/trait
+        #[arg(long = "implements")]
+        implements: Option<String>,
+        
+        /// Filter by field type
+        #[arg(long = "has-field")]
+        has_field: Option<String>,
+        
         /// Maximum results (default: 50)
         #[arg(short = 'm', long = "max", default_value = "50")]
         max_results: usize,
@@ -127,6 +146,10 @@ pub enum Commands {
         /// Show progress
         #[arg(short = 'p', long = "progress")]
         show_progress: bool,
+        
+        /// Use fallback indexer only (faster but less accurate)
+        #[arg(long = "fallback-only")]
+        fallback_only: bool,
     },
 
     /// Find unused code [aliases: unused, u]
@@ -194,27 +217,29 @@ impl Cli {
             quick_index(&db_path, &project_root)?;
         }
 
+        let format = crate::output_format::OutputFormat::from_str(&self.format)?;
+        
         match self.command {
             Commands::Definition { location, show_all } => {
-                handle_definition(&db_path, &location, show_all)?;
+                handle_definition(&db_path, &location, show_all, format)?;
             }
             Commands::References { location, include_definitions, group_by_file } => {
-                handle_references(&db_path, &location, include_definitions, group_by_file)?;
+                handle_references(&db_path, &location, include_definitions, group_by_file, format)?;
             }
             Commands::CallHierarchy { symbol, incoming, outgoing, max_depth } => {
                 handle_call_hierarchy(&db_path, &symbol, incoming, outgoing, max_depth)?;
             }
-            Commands::WorkspaceSymbols { query, fuzzy, symbol_type, path_pattern, max_results } => {
-                handle_search(&db_path, &query, fuzzy, symbol_type, path_pattern, max_results)?;
+            Commands::WorkspaceSymbols { query, fuzzy, symbol_type, path_pattern, max_results, returns, takes, implements, has_field } => {
+                handle_search(&db_path, &query, fuzzy, symbol_type, path_pattern, max_results, format, returns, takes, implements, has_field)?;
             }
-            Commands::Index { force, show_progress } => {
-                handle_index(&db_path, &project_root, force, show_progress)?;
+            Commands::Index { force, show_progress, fallback_only } => {
+                handle_index(&db_path, &project_root, force, show_progress, fallback_only)?;
             }
             Commands::Unused { public_only, file_filter, json_output } => {
                 handle_unused(&db_path, public_only, file_filter, json_output)?;
             }
             Commands::Status { detailed, by_file, by_type } => {
-                handle_stats(&db_path, detailed, by_file, by_type)?;
+                commands::stats::handle_stats(&db_path, detailed, by_file, by_type)?;
             }
             Commands::Export { output, format, include_refs } => {
                 handle_export(&db_path, &output, &format, include_refs)?;
@@ -249,6 +274,12 @@ fn quick_index(db_path: &str, project_root: &str) -> Result<()> {
     println!("⚡ Quick indexing...");
     
     let mut indexer = DifferentialIndexer::new(db_path, Path::new(project_root))?;
+    
+    // 環境変数でフォールバックオンリーモードを制御
+    if std::env::var("LSIF_FALLBACK_ONLY").is_ok() {
+        indexer.set_fallback_only(true);
+    }
+    
     let result = indexer.index_differential()?;
     
     if result.files_added + result.files_modified + result.files_deleted > 0 {

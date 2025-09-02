@@ -4,7 +4,7 @@ use std::time::Instant;
 use crate::differential_indexer::DifferentialIndexer;
 use super::utils::*;
 
-pub fn handle_index(db_path: &str, project_root: &str, force: bool, _show_progress: bool) -> Result<()> {
+pub fn handle_index(db_path: &str, project_root: &str, force: bool, _show_progress: bool, fallback_only: bool) -> Result<()> {
     let start = Instant::now();
     
     if force {
@@ -17,6 +17,11 @@ pub fn handle_index(db_path: &str, project_root: &str, force: bool, _show_progre
     }
     
     let mut indexer = DifferentialIndexer::new(db_path, Path::new(project_root))?;
+    
+    // フォールバックオンリーモードを設定
+    if fallback_only {
+        indexer.set_fallback_only(true);
+    }
     
     let result = if force || !Path::new(db_path).exists() {
         indexer.full_reindex()?

@@ -1,6 +1,8 @@
 use anyhow::Result;
 use lsif_core::SymbolKind;
 use super::utils::*;
+use crate::output_format::{OutputFormat, OutputFormatter};
+use crate::type_search::{TypeFilter, AdvancedSearch};
 
 pub fn handle_search(
     db_path: &str,
@@ -9,23 +11,61 @@ pub fn handle_search(
     symbol_type: Option<String>,
     path_pattern: Option<String>,
     max_results: usize,
+    format: OutputFormat,
+    returns: Option<String>,
+    takes: Option<String>,
+    implements: Option<String>,
+    has_field: Option<String>,
 ) -> Result<()> {
-    let mode = if fuzzy { "fuzzy" } else { "exact" };
-    print_info(&format!("Searching for '{}' ({})", query, mode), "🔍");
+    let formatter = OutputFormatter::new(format);
     
-    let graph = load_graph(db_path)?;
-    let mut results = Vec::new();
-    
-    for symbol in graph.get_all_symbols() {
-        if should_include_symbol(symbol, &symbol_type, &path_pattern, query, fuzzy) {
-            results.push(symbol.clone());
-            if results.len() >= max_results {
-                break;
-            }
-        }
+    if format == OutputFormat::Human {
+        let mode = if fuzzy { "fuzzy" } else { "exact" };
+        print_info(&format!("Searching for '{}' ({})", query, mode), "🔍");
     }
     
-    display_search_results(&results, max_results);
+    let graph = load_graph(db_path)?;
+    
+    // Build type filters
+    let mut type_filters = Vec::new();
+    if let Some(ret) = returns {
+        type_filters.push(TypeFilter::Returns(ret));
+    }
+    if let Some(param) = takes {
+        type_filters.push(TypeFilter::Takes(param));
+    }
+    if let Some(impl_type) = implements {
+        type_filters.push(TypeFilter::Implements(impl_type));
+    }
+    if let Some(field) = has_field {
+        type_filters.push(TypeFilter::HasField(field));
+    }
+    
+    let results = if !type_filters.is_empty() {
+        // Use advanced search with type filters
+        let search = AdvancedSearch::new(&graph);
+        let name_pattern = if query.is_empty() { None } else { Some(query) };
+        search.search(name_pattern, &type_filters, fuzzy, max_results)
+    } else {
+        // Use simple search
+        let mut results = Vec::new();
+        for symbol in graph.get_all_symbols() {
+            if should_include_symbol(symbol, &symbol_type, &path_pattern, query, fuzzy) {
+                results.push(symbol.clone());
+                if results.len() >= max_results {
+                    break;
+                }
+            }
+        }
+        results
+    };
+    
+    if format == OutputFormat::Human {
+        display_search_results(&results, max_results);
+    } else {
+        let output = formatter.format_symbols(&results, None);
+        println!("{}", output);
+    }
     Ok(())
 }
 

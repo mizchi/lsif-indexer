@@ -69,9 +69,9 @@ impl Default for PoolConfig {
     fn default() -> Self {
         Self {
             max_idle_time: Duration::from_secs(300),    // 5分
-            init_timeout: Duration::from_secs(60),      // 60秒（初回インデックス対応）
-            request_timeout: Duration::from_secs(10),   // 10秒（大規模ファイル対応）
-            max_retries: 3,
+            init_timeout: Duration::from_secs(5),       // 5秒に短縮（高速化）
+            request_timeout: Duration::from_secs(2),    // 2秒に短縮（高速化）
+            max_retries: 1,                             // リトライ1回のみ（高速化）
         }
     }
 }
@@ -203,8 +203,8 @@ impl LspClientPool {
                     last_error = Some(e);
                     
                     if attempt < self.config.max_retries {
-                        // 指数バックオフ
-                        std::thread::sleep(Duration::from_millis(100 * (2_u64.pow(attempt as u32))));
+                        // 短縮された指数バックオフ（50ms, 100ms, 200ms...）
+                        std::thread::sleep(Duration::from_millis(50 * (2_u64.pow(attempt as u32))));
                     }
                 }
             }
@@ -295,6 +295,89 @@ impl LspClientPool {
             active_clients: clients.values().filter(|p| p.ref_count > 0).count(),
             languages: clients.keys().cloned().collect(),
         }
+    }
+    
+    /// プロジェクト内の全言語のLSPクライアントを事前起動（ウォームアップ）
+    pub fn warm_up(&self, project_root: &Path, languages: &[&str]) -> Result<()> {
+        info!("Warming up LSP clients for {} languages", languages.len());
+        let start = Instant::now();
+        
+        for language_id in languages {
+            match self.get_or_create_client_for_language(language_id, project_root) {
+                Ok(_) => {
+                    info!("✓ Warmed up LSP client for {}", language_id);
+                }
+                Err(e) => {
+                    // エラーは警告として記録するが、処理は続行
+                    warn!("Failed to warm up LSP client for {}: {}", language_id, e);
+                }
+            }
+        }
+        
+        info!("LSP warm-up completed in {:.2}s", start.elapsed().as_secs_f64());
+        Ok(())
+    }
+    
+    /// 特定言語のクライアントを取得または作成（ファイルパスなし）
+    pub fn get_or_create_client_for_language(
+        &self,
+        language_id: &str,
+        project_root: &Path,
+    ) -> Result<Arc<Mutex<GenericLspClient>>> {
+        // 既存のクライアントをチェック
+        {
+            let mut clients = self.clients.lock().unwrap();
+            
+            if let Some(pooled) = clients.get_mut(language_id) {
+                // プロジェクトルートが同じ場合は再利用
+                if pooled.project_root == project_root {
+                    pooled.last_used = Instant::now();
+                    pooled.ref_count += 1;
+                    debug!(
+                        "Reusing LSP client for {} (ref_count: {})",
+                        language_id, pooled.ref_count
+                    );
+                    return Ok(Arc::clone(&pooled.client));
+                }
+            }
+        }
+
+        // 新しいクライアントを作成
+        info!("Creating new LSP client for {}", language_id);
+        let new_client = self.create_client_with_retry(language_id, project_root)?;
+        
+        // Capabilitiesのサマリーを作成
+        let capabilities_summary = CapabilitiesSummary {
+            supports_document_symbol: new_client.has_capability("textDocument/documentSymbol"),
+            supports_definition: new_client.has_capability("textDocument/definition"),
+            supports_references: new_client.has_capability("textDocument/references"),
+            supports_type_definition: new_client.has_capability("textDocument/typeDefinition"),
+            supports_implementation: new_client.has_capability("textDocument/implementation"),
+            supports_workspace_symbol: new_client.has_capability("workspace/symbol"),
+            supports_call_hierarchy: new_client.has_capability("textDocument/prepareCallHierarchy"),
+            supports_semantic_tokens: new_client.has_capability("textDocument/semanticTokens"),
+        };
+        
+        debug!("LSP client capabilities for {}: {:?}", language_id, capabilities_summary);
+        
+        // プールに追加
+        let client_arc = Arc::new(Mutex::new(new_client));
+        {
+            let mut clients = self.clients.lock().unwrap();
+            clients.insert(
+                language_id.to_string(),
+                PooledClient {
+                    client: Arc::clone(&client_arc),
+                    last_used: Instant::now(),
+                    project_root: project_root.to_path_buf(),
+                    ref_count: 1,
+                    capabilities_summary,
+                },
+            );
+        }
+
+        // 作成したクライアントを返す
+        Ok(client_arc)
     }
 }
 
