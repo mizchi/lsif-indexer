@@ -3,7 +3,7 @@ use lsp_types::{
     ClientCapabilities, ClientInfo, DidOpenTextDocumentParams, DocumentSymbol, DocumentSymbolParams, 
     GotoDefinitionParams, GotoDefinitionResponse, InitializeParams, InitializeResult, 
     InitializedParams, Location, PartialResultParams, ReferenceParams, SymbolInformation,
-    TextDocumentIdentifier, TextDocumentItem, Url, WorkDoneProgressParams,
+    TextDocumentIdentifier, TextDocumentItem, Url, WorkDoneProgressParams, WorkspaceFolder,
 };
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -29,6 +29,7 @@ pub trait LspAdapter {
 
     /// Get initialization parameters specific to this language
     fn get_init_params(&self) -> InitializeParams {
+        #[allow(deprecated)]
         InitializeParams {
             process_id: Some(std::process::id()),
             root_uri: None,  // 後で設定
@@ -201,8 +202,8 @@ impl GenericLspClient {
         // 言語固有の最適化を適用
         self.optimize_for_language();
         
-        // initialized通知を送信する前に少し待つ
-        std::thread::sleep(Duration::from_millis(100));
+        // initialized通知を送信する前に少し待つ（大幅に削減）
+        std::thread::sleep(Duration::from_millis(10));  // 100ms -> 10ms
         
         debug!("Sending initialized notification for {}", self.language_id);
         self.send_notification("initialized", InitializedParams {})?;
@@ -220,9 +221,10 @@ impl GenericLspClient {
         // 言語固有のクライアントCapabilitiesを構築
         let client_capabilities = self.build_client_capabilities();
         
+        #[allow(deprecated)]
         let params = InitializeParams {
             process_id: Some(std::process::id()),
-            root_uri: Some(root_uri),
+            root_uri: None,
             capabilities: client_capabilities,
             initialization_options: None,
             client_info: Some(ClientInfo {
@@ -232,7 +234,10 @@ impl GenericLspClient {
             locale: None,
             root_path: None,
             trace: None,
-            workspace_folders: None,
+            workspace_folders: Some(vec![WorkspaceFolder {
+                uri: root_uri,
+                name: "workspace".to_string(),
+            }]),
             work_done_progress_params: WorkDoneProgressParams::default(),
         };
         
@@ -501,8 +506,8 @@ impl GenericLspClient {
         
         // 操作種別に応じたタイムアウトを取得
         let timeout = self.health_checker.get_timeout_for_operation(LspOperationType::DocumentSymbol);
-        eprintln!("📊 Processing {} ({}KB, {} lines) with timeout: {:?}", 
-                  file_path, file_size / 1024, line_count, timeout);
+        debug!("Processing {} ({}KB, {} lines) with timeout: {:?}", 
+                  file_path, file_size / 1024, line_count, timeout);  // eprintln -> debug
 
         self.send_notification(
             "textDocument/didOpen",
@@ -665,8 +670,8 @@ impl GenericLspClient {
                 return Err(anyhow!("LSP request '{}' timed out after {:?}", method, timeout));
             }
             
-            // ノンブロッキング読み取りを試みる
-            match self.try_read_message(std::time::Duration::from_millis(100)) {
+            // ノンブロッキング読み取りを試みる（100ms -> 10ms）
+            match self.try_read_message(std::time::Duration::from_millis(10)) {
                 Ok(Some(response)) => {
                     if response["id"] == self.request_id {
                         // レスポンス時間を記録
@@ -683,8 +688,8 @@ impl GenericLspClient {
                     }
                 }
                 Ok(None) => {
-                    // タイムアウトまで待機
-                    std::thread::sleep(std::time::Duration::from_millis(10));
+                    // タイムアウトまで待機（10ms -> 1ms）
+                    std::thread::sleep(std::time::Duration::from_millis(1));
                 }
                 Err(e) => {
                     return Err(anyhow!("Failed to read response: {}", e));

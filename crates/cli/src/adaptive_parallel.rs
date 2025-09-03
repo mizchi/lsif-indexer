@@ -16,9 +16,9 @@ pub struct AdaptiveParallelConfig {
 impl Default for AdaptiveParallelConfig {
     fn default() -> Self {
         Self {
-            parallel_threshold: 50,  // パフォーマンス分析に基づく最適値
+            parallel_threshold: 30,  // 30ファイル以上で並列処理
             max_threads: 0,          // 自動（CPU数に基づく）
-            chunk_size: 100,         // 効率的なチャンクサイズ
+            chunk_size: 10,          // より小さなチャンクで並列度を向上
         }
     }
 }

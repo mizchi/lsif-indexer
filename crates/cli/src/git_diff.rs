@@ -232,6 +232,7 @@ impl GitDiffDetector {
 
         // プロジェクトルート以下の全ファイルを走査
         for entry in WalkDir::new(&self.project_root)
+            .follow_links(false)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file())

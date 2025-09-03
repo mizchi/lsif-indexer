@@ -12,7 +12,7 @@ use lsif_core::{CodeGraph, Symbol, SymbolKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use walkdir;
-use indicatif::{ProgressBar, ProgressStyle, MultiProgress, ProgressDrawTarget};
+use indicatif::{ProgressBar, ProgressStyle};
 
 // LSP統合のためのインポート
 use lsp::lsp_indexer::LspIndexer;
@@ -464,11 +464,11 @@ impl DifferentialIndexer {
         let mut new_file_hashes = HashMap::new();
         let mut processed_count = 0;
         
-        // 並列処理の閾値を確認（デフォルトは50ファイル以上で並列化）
+        // 並列処理の閾値を確認（デフォルトは30ファイル以上で並列化）
         let should_parallel = total_files >= self.parallel_processor.config.parallel_threshold;
         
-        // 並列処理は現在パフォーマンス問題があるため、明示的に有効化された場合のみ使用
-        if should_parallel && self.parallel_processor.config.parallel_threshold == 1 {
+        // 並列処理を使用（フォールバックモードの場合のみ）
+        if should_parallel && self.fallback_only {
             // 並列処理モード
             use rayon::prelude::*;
             
@@ -577,10 +577,8 @@ impl DifferentialIndexer {
                                 graph.add_symbol(symbol);
                             }
                             
-                            // 参照の追加
-                            if let Err(e) = self.add_references_to_graph(&mut graph, &path) {
-                                warn!("Failed to add references for {}: {}", path.display(), e);
-                            }
+                            // 参照の追加は並列処理モードではスキップ（非常に重いため）
+                            // 必要に応じて後で別途実行可能
                         }
                     }
                     FileChangeStatus::Modified | FileChangeStatus::Renamed { .. } => {
@@ -624,9 +622,10 @@ impl DifferentialIndexer {
                                 graph.add_symbol(symbol);
                             }
                             
-                            if let Err(e) = self.add_references_to_graph(&mut graph, &path) {
-                                warn!("Failed to add references for {}: {}", path.display(), e);
-                            }
+                            // 参照の追加はスキップ（非常に重いため）
+                            // if let Err(e) = self.add_references_to_graph(&mut graph, &path) {
+                            //     warn!("Failed to add references for {}: {}", path.display(), e);
+                            // }
                         }
                     }
                     FileChangeStatus::Deleted => {
@@ -729,9 +728,10 @@ impl DifferentialIndexer {
 
                     // 参照を検出してエッジを追加
                     debug!("Adding references to graph for: {}", change.path.display());
-                    if let Err(e) = self.add_references_to_graph(&mut graph, &change.path) {
-                        warn!("Failed to add references for {}: {}", change.path.display(), e);
-                    }
+                    // 参照の追加はスキップ（非常に重いため）
+                    // if let Err(e) = self.add_references_to_graph(&mut graph, &change.path) {
+                    //     warn!("Failed to add references for {}: {}", change.path.display(), e);
+                    // }
                 }
                 FileChangeStatus::Modified | FileChangeStatus::Renamed { .. } => {
                     result.files_modified += 1;
@@ -776,7 +776,8 @@ impl DifferentialIndexer {
                     }
 
                     // 参照を検出してエッジを追加
-                    self.add_references_to_graph(&mut graph, &change.path)?;
+                    // 参照の追加はスキップ（非常に重いため）
+                    // self.add_references_to_graph(&mut graph, &change.path)?;
                 }
                 FileChangeStatus::Deleted => {
                     result.files_deleted += 1;
@@ -1010,6 +1011,7 @@ impl DifferentialIndexer {
 
         // 各ファイルの最新ハッシュを計算
         for entry in walkdir::WalkDir::new(&self.project_root)
+            .follow_links(false)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file())
@@ -1067,6 +1069,7 @@ impl DifferentialIndexer {
     fn count_total_files(&self) -> Result<usize> {
         let mut count = 0;
         for entry in walkdir::WalkDir::new(&self.project_root)
+            .follow_links(false)
             .into_iter()
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().is_file())
@@ -1169,6 +1172,7 @@ impl DifferentialIndexer {
         // LSPクライアントを事前に初期化（キャパビリティを取得するため）
         // サンプルファイルを見つける
         let sample_file = walkdir::WalkDir::new(&self.project_root)
+            .follow_links(false)
             .max_depth(3)
             .into_iter()
             .filter_map(|e| e.ok())
@@ -1249,7 +1253,9 @@ impl DifferentialIndexer {
         debug!("Project root canonical path: {:?}", std::fs::canonicalize(&self.project_root));
 
         // walkdirの動作を詳細にログ
-        let walkdir = walkdir::WalkDir::new(&self.project_root);
+        let walkdir = walkdir::WalkDir::new(&self.project_root)
+            .follow_links(false)
+            .max_depth(100);
         info!("Created walkdir for path: {}", self.project_root.display());
         
         let mut entry_count = 0;
@@ -1319,6 +1325,7 @@ impl DifferentialIndexer {
         const MAX_SAMPLES: usize = 20; // 最初の20ファイルで判断
         
         for entry in walkdir::WalkDir::new(&self.project_root)
+            .follow_links(false)
             .max_depth(3) // 深さを制限して高速化
             .into_iter()
             .filter_map(|e| e.ok())

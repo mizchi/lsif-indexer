@@ -254,23 +254,28 @@ impl LspHealthChecker {
         // 操作種別ごとの履歴がある場合はそれを使用
         if let Some(avg) = self.average_response_time_for_operation(op_type) {
             let multiplier = match op_type {
-                LspOperationType::Initialize => 5,
-                LspOperationType::WorkspaceSymbol => 4,  // 全体検索は時間がかかる
-                LspOperationType::References => 4,       // 参照検索も時間がかかる
-                LspOperationType::CallHierarchy => 3,    
-                LspOperationType::DocumentSymbol => 3,
-                LspOperationType::TypeDefinition => 3,
-                LspOperationType::Implementation => 3,
-                LspOperationType::Definition => 2,
-                LspOperationType::Hover => 2,
-                LspOperationType::Completion => 2,
-                LspOperationType::SignatureHelp => 2,
-                LspOperationType::Rename => 3,
-                LspOperationType::Format => 3,
-                LspOperationType::Other => 3,
+                LspOperationType::Initialize => 3,      // 5 -> 3
+                LspOperationType::WorkspaceSymbol => 2,  // 4 -> 2 全体検索は時間がかかる
+                LspOperationType::References => 2,       // 4 -> 2 参照検索も時間がかかる
+                LspOperationType::CallHierarchy => 2,    // 3 -> 2
+                LspOperationType::DocumentSymbol => 2,   // 3 -> 2
+                LspOperationType::TypeDefinition => 2,   // 3 -> 2
+                LspOperationType::Implementation => 2,   // 3 -> 2
+                LspOperationType::Definition => 1,       // 2 -> 1.5 (後で調整)
+                LspOperationType::Hover => 1,           // 2 -> 1.5 (後で調整)
+                LspOperationType::Completion => 1,       // 2 -> 1.5 (後で調整)
+                LspOperationType::SignatureHelp => 1,    // 2 -> 1.5 (後で調整)
+                LspOperationType::Rename => 2,          // 3 -> 2
+                LspOperationType::Format => 2,          // 3 -> 2
+                LspOperationType::Other => 2,           // 3 -> 2
             };
             
-            let timeout = avg * multiplier;
+            // multiplierが1の場合は1.5倍にする
+            let timeout = if multiplier == 1 {
+                avg * 3 / 2  // 1.5倍
+            } else {
+                avg * multiplier
+            };
             
             // 操作種別ごとの最小・最大値
             let (min, max) = match op_type {
@@ -327,7 +332,7 @@ impl LspHealthChecker {
         if self.request_count <= self.warmup_requests {
             // ウォームアップ期間は少し長めに
             let base = self.calculate_timeout_for_operation(op_type);
-            return base * 3 / 2;  // 1.5倍
+            return base * 5 / 4;  // 1.5倍 -> 1.25倍
         }
         
         self.calculate_timeout_for_operation(op_type)
@@ -419,13 +424,13 @@ impl LspStartupValidator {
 
     /// 起動待機（特定の言語サーバー用の調整）
     pub fn wait_for_startup(&self, language: &str) -> Duration {
-        // 言語別の起動待機時間
+        // 言語別の起動待機時間（大幅に削減）
         let wait_time = match language {
-            "rust" => Duration::from_millis(500),  // rust-analyzerは起動が遅い
-            "typescript" | "javascript" => Duration::from_millis(300),
-            "python" => Duration::from_millis(200),
-            "go" => Duration::from_millis(200),
-            _ => Duration::from_millis(100),
+            "rust" => Duration::from_millis(50),  // 500ms -> 50ms
+            "typescript" | "javascript" => Duration::from_millis(30),  // 300ms -> 30ms
+            "python" => Duration::from_millis(20),  // 200ms -> 20ms
+            "go" => Duration::from_millis(20),  // 200ms -> 20ms
+            _ => Duration::from_millis(10),  // 100ms -> 10ms
         };
         
         debug!("Waiting {:?} for {} LSP startup", wait_time, language);

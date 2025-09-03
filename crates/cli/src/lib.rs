@@ -4,8 +4,10 @@
 
 // CLI components
 pub mod adaptive_parallel;
+pub mod batch_graph_updater;
 pub mod call_hierarchy_cmd;
 pub mod differential_indexer;
+pub mod definition_crawler;
 pub mod indexer;
 pub mod parallel_processor;
 pub mod reference_finder;
@@ -30,3 +32,4 @@ pub use differential_indexer::{DifferentialIndexer, DifferentialIndexResult, Sym
 pub use indexer::Indexer;
 pub use cli::Cli;
 pub use storage::IndexStorage;
+// test comment

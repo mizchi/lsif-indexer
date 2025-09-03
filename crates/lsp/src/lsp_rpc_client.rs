@@ -106,8 +106,8 @@ impl LspRpcClient {
         let params = InitializeParams {
             process_id: Some(std::process::id()),
             work_done_progress_params: WorkDoneProgressParams { work_done_token: None },
-            root_path: None,  // deprecated but required
-            root_uri: Some(root_uri.clone()),  // deprecated but required
+            root_path: None,
+            root_uri: None,
             initialization_options,
             workspace_folders: Some(vec![WorkspaceFolder {
                 uri: root_uri.clone(),

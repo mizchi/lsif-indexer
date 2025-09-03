@@ -3,8 +3,62 @@
 /// 正規表現ベースのシンプルな解析を行い、基本的なシンボル情報を抽出する
 use anyhow::Result;
 use lsp_types::{DocumentSymbol, Position, Range, SymbolKind};
+use once_cell::sync::Lazy;
 use regex::Regex;
 use std::path::Path;
+
+// Rust用の正規表現を静的に初期化
+static RUST_FN_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\s*(pub\s+)?(async\s+)?fn\s+(\w+)").unwrap()
+});
+static RUST_STRUCT_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\s*(pub\s+)?struct\s+(\w+)").unwrap()
+});
+static RUST_ENUM_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\s*(pub\s+)?enum\s+(\w+)").unwrap()
+});
+static RUST_IMPL_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\s*impl(?:\s+<[^>]+>)?\s+(\w+)").unwrap()
+});
+static RUST_TRAIT_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\s*(pub\s+)?trait\s+(\w+)").unwrap()
+});
+
+// TypeScript/JavaScript用の正規表現を静的に初期化
+static TS_FN_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\s*(export\s+)?(async\s+)?function\s+(\w+)").unwrap()
+});
+static TS_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\s*(export\s+)?class\s+(\w+)").unwrap()
+});
+static TS_INTERFACE_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\s*(export\s+)?interface\s+(\w+)").unwrap()
+});
+static TS_VAR_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\s*(export\s+)?(const|let|var)\s+(\w+)").unwrap()
+});
+static TS_ARROW_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\s*(export\s+)?const\s+(\w+)\s*=\s*(?:async\s+)?[(\[]").unwrap()
+});
+
+// Python用の正規表現を静的に初期化
+static PY_FN_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\s*(?:async\s+)?def\s+(\w+)").unwrap()
+});
+static PY_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\s*class\s+(\w+)").unwrap()
+});
+
+// Go用の正規表現を静的に初期化
+static GO_FN_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\s*func\s+(?:\(\s*\w+\s+[^)]+\)\s+)?(\w+)").unwrap()
+});
+static GO_TYPE_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\s*type\s+(\w+)\s+(struct|interface)").unwrap()
+});
+static GO_VAR_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\s*(var|const)\s+(\w+)").unwrap()
+});
 
 /// サポートされる言語
 pub enum FallbackLanguage {
@@ -57,19 +111,8 @@ impl FallbackIndexer {
     fn extract_rust_symbols(&self, lines: &[&str]) -> Result<Vec<DocumentSymbol>> {
         let mut symbols = Vec::new();
 
-        // 関数定義
-        let fn_regex = Regex::new(r"^\s*(pub\s+)?(async\s+)?fn\s+(\w+)")?;
-        // 構造体定義
-        let struct_regex = Regex::new(r"^\s*(pub\s+)?struct\s+(\w+)")?;
-        // enum定義
-        let enum_regex = Regex::new(r"^\s*(pub\s+)?enum\s+(\w+)")?;
-        // impl定義
-        let impl_regex = Regex::new(r"^\s*impl(?:\s+<[^>]+>)?\s+(\w+)")?;
-        // trait定義
-        let trait_regex = Regex::new(r"^\s*(pub\s+)?trait\s+(\w+)")?;
-
         for (line_no, line) in lines.iter().enumerate() {
-            if let Some(caps) = fn_regex.captures(line) {
+            if let Some(caps) = RUST_FN_REGEX.captures(line) {
                 let name = caps.get(3).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,
@@ -79,7 +122,7 @@ impl FallbackIndexer {
                     line_no as u32,
                     line.len() as u32,
                 ));
-            } else if let Some(caps) = struct_regex.captures(line) {
+            } else if let Some(caps) = RUST_STRUCT_REGEX.captures(line) {
                 let name = caps.get(2).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,
@@ -89,7 +132,7 @@ impl FallbackIndexer {
                     line_no as u32,
                     line.len() as u32,
                 ));
-            } else if let Some(caps) = enum_regex.captures(line) {
+            } else if let Some(caps) = RUST_ENUM_REGEX.captures(line) {
                 let name = caps.get(2).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,
@@ -99,7 +142,7 @@ impl FallbackIndexer {
                     line_no as u32,
                     line.len() as u32,
                 ));
-            } else if let Some(caps) = impl_regex.captures(line) {
+            } else if let Some(caps) = RUST_IMPL_REGEX.captures(line) {
                 let name = caps.get(1).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     format!("impl {}", name),
@@ -109,7 +152,7 @@ impl FallbackIndexer {
                     line_no as u32,
                     line.len() as u32,
                 ));
-            } else if let Some(caps) = trait_regex.captures(line) {
+            } else if let Some(caps) = RUST_TRAIT_REGEX.captures(line) {
                 let name = caps.get(2).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,
@@ -129,19 +172,8 @@ impl FallbackIndexer {
     fn extract_typescript_symbols(&self, lines: &[&str]) -> Result<Vec<DocumentSymbol>> {
         let mut symbols = Vec::new();
 
-        // 関数定義
-        let fn_regex = Regex::new(r"^\s*(export\s+)?(async\s+)?function\s+(\w+)")?;
-        // クラス定義
-        let class_regex = Regex::new(r"^\s*(export\s+)?class\s+(\w+)")?;
-        // インターフェース定義
-        let interface_regex = Regex::new(r"^\s*(export\s+)?interface\s+(\w+)")?;
-        // const/let/var定義
-        let var_regex = Regex::new(r"^\s*(export\s+)?(const|let|var)\s+(\w+)")?;
-        // アロー関数
-        let arrow_regex = Regex::new(r"^\s*(export\s+)?const\s+(\w+)\s*=\s*(?:async\s+)?[(\[]")?;
-
         for (line_no, line) in lines.iter().enumerate() {
-            if let Some(caps) = fn_regex.captures(line) {
+            if let Some(caps) = TS_FN_REGEX.captures(line) {
                 let name = caps.get(3).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,
@@ -151,7 +183,7 @@ impl FallbackIndexer {
                     line_no as u32,
                     line.len() as u32,
                 ));
-            } else if let Some(caps) = class_regex.captures(line) {
+            } else if let Some(caps) = TS_CLASS_REGEX.captures(line) {
                 let name = caps.get(2).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,
@@ -161,7 +193,7 @@ impl FallbackIndexer {
                     line_no as u32,
                     line.len() as u32,
                 ));
-            } else if let Some(caps) = interface_regex.captures(line) {
+            } else if let Some(caps) = TS_INTERFACE_REGEX.captures(line) {
                 let name = caps.get(2).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,
@@ -171,7 +203,7 @@ impl FallbackIndexer {
                     line_no as u32,
                     line.len() as u32,
                 ));
-            } else if let Some(caps) = arrow_regex.captures(line) {
+            } else if let Some(caps) = TS_ARROW_REGEX.captures(line) {
                 let name = caps.get(2).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,
@@ -181,7 +213,7 @@ impl FallbackIndexer {
                     line_no as u32,
                     line.len() as u32,
                 ));
-            } else if let Some(caps) = var_regex.captures(line) {
+            } else if let Some(caps) = TS_VAR_REGEX.captures(line) {
                 let name = caps.get(3).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,
@@ -201,15 +233,8 @@ impl FallbackIndexer {
     fn extract_python_symbols(&self, lines: &[&str]) -> Result<Vec<DocumentSymbol>> {
         let mut symbols = Vec::new();
 
-        // クラス定義
-        let class_regex = Regex::new(r"^class\s+(\w+)")?;
-        // 関数定義
-        let fn_regex = Regex::new(r"^(?:async\s+)?def\s+(\w+)")?;
-        // メソッド定義（インデントあり）
-        let method_regex = Regex::new(r"^\s+(?:async\s+)?def\s+(\w+)")?;
-
         for (line_no, line) in lines.iter().enumerate() {
-            if let Some(caps) = class_regex.captures(line) {
+            if let Some(caps) = PY_CLASS_REGEX.captures(line) {
                 let name = caps.get(1).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,
@@ -219,7 +244,7 @@ impl FallbackIndexer {
                     line_no as u32,
                     line.len() as u32,
                 ));
-            } else if let Some(caps) = fn_regex.captures(line) {
+            } else if let Some(caps) = PY_FN_REGEX.captures(line) {
                 let name = caps.get(1).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,
@@ -229,7 +254,8 @@ impl FallbackIndexer {
                     line_no as u32,
                     line.len() as u32,
                 ));
-            } else if let Some(caps) = method_regex.captures(line) {
+            } else if line.trim_start() != *line {
+                if let Some(caps) = PY_FN_REGEX.captures(line) {
                 let name = caps.get(1).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,
@@ -239,6 +265,7 @@ impl FallbackIndexer {
                     line_no as u32,
                     line.len() as u32,
                 ));
+                }
             }
         }
 
@@ -249,19 +276,8 @@ impl FallbackIndexer {
     fn extract_go_symbols(&self, lines: &[&str]) -> Result<Vec<DocumentSymbol>> {
         let mut symbols = Vec::new();
 
-        // 関数定義
-        let fn_regex = Regex::new(r"^func\s+(?:\([^)]+\)\s+)?(\w+)")?;
-        // 構造体定義
-        let struct_regex = Regex::new(r"^type\s+(\w+)\s+struct")?;
-        // インターフェース定義
-        let interface_regex = Regex::new(r"^type\s+(\w+)\s+interface")?;
-        // type定義
-        let type_regex = Regex::new(r"^type\s+(\w+)\s+")?;
-        // var/const定義
-        let var_regex = Regex::new(r"^(?:var|const)\s+(\w+)")?;
-
         for (line_no, line) in lines.iter().enumerate() {
-            if let Some(caps) = fn_regex.captures(line) {
+            if let Some(caps) = GO_FN_REGEX.captures(line) {
                 let name = caps.get(1).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,
@@ -271,7 +287,7 @@ impl FallbackIndexer {
                     line_no as u32,
                     line.len() as u32,
                 ));
-            } else if let Some(caps) = struct_regex.captures(line) {
+            } else if let Some(caps) = RUST_STRUCT_REGEX.captures(line) {
                 let name = caps.get(1).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,
@@ -281,7 +297,7 @@ impl FallbackIndexer {
                     line_no as u32,
                     line.len() as u32,
                 ));
-            } else if let Some(caps) = interface_regex.captures(line) {
+            } else if let Some(caps) = TS_INTERFACE_REGEX.captures(line) {
                 let name = caps.get(1).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,
@@ -291,7 +307,7 @@ impl FallbackIndexer {
                     line_no as u32,
                     line.len() as u32,
                 ));
-            } else if let Some(caps) = type_regex.captures(line) {
+            } else if let Some(caps) = GO_TYPE_REGEX.captures(line) {
                 let name = caps.get(1).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,
@@ -301,7 +317,7 @@ impl FallbackIndexer {
                     line_no as u32,
                     line.len() as u32,
                 ));
-            } else if let Some(caps) = var_regex.captures(line) {
+            } else if let Some(caps) = TS_VAR_REGEX.captures(line) {
                 let name = caps.get(1).unwrap().as_str().to_string();
                 symbols.push(self.create_symbol(
                     name,

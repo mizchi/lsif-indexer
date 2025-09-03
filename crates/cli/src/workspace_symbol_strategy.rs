@@ -50,6 +50,7 @@ impl WorkspaceSymbolExtractionStrategy {
         
         // プロジェクト内のサンプルファイルを見つける（LSPクライアント初期化用）
         let sample_file = walkdir::WalkDir::new(&self.project_root)
+            .follow_links(false)
             .max_depth(3)
             .into_iter()
             .filter_map(|e| e.ok())

@@ -13,7 +13,7 @@ pub fn handle_index(db_path: &str, project_root: &str, force: bool, _show_progre
         
         use crate::workspace_symbol_strategy::WorkspaceSymbolStrategy;
         use crate::storage::IndexStorage;
-        use lsif_core::CodeGraph;
+        
         use std::path::PathBuf;
         
         let strategy = WorkspaceSymbolStrategy::new(PathBuf::from(project_root));

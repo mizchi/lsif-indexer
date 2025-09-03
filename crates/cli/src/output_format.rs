@@ -1,5 +1,5 @@
 use anyhow::Result;
-use lsif_core::{Symbol, Range, Position};
+use lsif_core::Symbol;
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 

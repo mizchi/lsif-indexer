@@ -86,6 +86,11 @@ name = "fuzzy_search_benchmark"
 harness = false
 path = "../../benches/fuzzy_search_benchmark.rs"
 
+[[bench]]
+name = "realistic_indexer_benchmark"
+harness = false
+path = "../../benches/realistic_indexer_benchmark.rs"
+
 [[example]]
 name = "test_tsgo_lsp"
 path = "../../examples/test_tsgo_lsp.rs"

@@ -203,8 +203,8 @@ impl LspClientPool {
                     last_error = Some(e);
                     
                     if attempt < self.config.max_retries {
-                        // 短縮された指数バックオフ（50ms, 100ms, 200ms...）
-                        std::thread::sleep(Duration::from_millis(50 * (2_u64.pow(attempt as u32))));
+                        // さらに短縮された指数バックオフ（5ms, 10ms, 20ms...）
+                        std::thread::sleep(Duration::from_millis(5 * (2_u64.pow(attempt as u32))));  // 50ms -> 5ms
                     }
                 }
             }

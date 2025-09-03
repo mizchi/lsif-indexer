@@ -30,6 +30,7 @@ pub fn find_all_references(
 
     // 対象ファイルを走査
     for entry in WalkDir::new(project_root)
+        .follow_links(false)
         .into_iter()
         .filter_entry(|e| {
             // 除外ディレクトリをスキップ

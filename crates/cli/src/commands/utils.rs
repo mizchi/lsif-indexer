@@ -67,3 +67,8 @@ pub fn print_success(message: &str) {
 pub fn print_info(message: &str, emoji: &str) {
     println!("{} {}", emoji, message);
 }
+
+/// Print warning message with emoji
+pub fn print_warning(message: &str) {
+    println!("⚠️  {}", message);
+}

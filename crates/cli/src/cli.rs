@@ -13,6 +13,7 @@ use commands::{
     references::handle_references,
     search::handle_search,
     index::handle_index,
+    crawl::handle_crawl,
     utils::print_success,
 };
 
@@ -155,6 +156,25 @@ pub enum Commands {
         #[arg(long = "workspace-symbol")]
         workspace_symbol: bool,
     },
+    
+    /// Smart crawl from current file using definitions
+    Crawl {
+        /// Start file(s) to crawl from (defaults to current file)
+        #[arg(value_name = "FILE")]
+        files: Vec<String>,
+        
+        /// Maximum depth to crawl (default: 3)
+        #[arg(short = 'd', long = "depth", default_value = "3")]
+        max_depth: u32,
+        
+        /// Maximum number of files to index (default: 100)
+        #[arg(short = 'm', long = "max-files", default_value = "100")]
+        max_files: usize,
+        
+        /// Show progress
+        #[arg(short = 'p', long = "progress")]
+        show_progress: bool,
+    },
 
     /// Find unused code [aliases: unused, u]
     #[command(visible_alias = "unused", visible_alias = "u")]
@@ -217,7 +237,9 @@ impl Cli {
         let project_root = self.project_root.unwrap_or_else(|| ".".to_string());
 
         // Smart auto-indexing: only if DB doesn't exist or is stale
-        if !self.no_auto_index && should_auto_index(&db_path, &project_root)? {
+        // Skip auto-index for Index command (it handles indexing itself)
+        let is_index_command = matches!(self.command, Commands::Index { .. });
+        if !self.no_auto_index && !is_index_command && should_auto_index(&db_path, &project_root)? {
             quick_index(&db_path, &project_root)?;
         }
 
@@ -238,6 +260,9 @@ impl Cli {
             }
             Commands::Index { force, show_progress, fallback_only, workspace_symbol } => {
                 handle_index(&db_path, &project_root, force, show_progress, fallback_only, workspace_symbol)?;
+            }
+            Commands::Crawl { files, max_depth, max_files, show_progress } => {
+                handle_crawl(&db_path, &project_root, files, max_depth, max_files, show_progress)?;
             }
             Commands::Unused { public_only, file_filter, json_output } => {
                 handle_unused(&db_path, public_only, file_filter, json_output)?;
