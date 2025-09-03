@@ -15,7 +15,7 @@ jobs:
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Create Release
         id: create_release
@@ -51,7 +51,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             suffix: '.exe'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -105,7 +105,7 @@ jobs:
     needs: build-and-upload
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
