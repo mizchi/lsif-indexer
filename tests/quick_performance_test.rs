@@ -1,5 +1,5 @@
-use cli::go_adapter::GoAdapter;
-use cli::lsp_minimal_client::MinimalLspClient;
+use lsp::adapter::go::GoAdapter;
+use lsp::lsp_minimal_client::MinimalLspClient;
 use cli::python_adapter::PythonAdapter;
 use cli::typescript_adapter::TypeScriptAdapter;
 use std::path::PathBuf;

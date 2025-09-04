@@ -1,5 +1,5 @@
 // TODO: このテストは新しいモジュール構造に合わせて更新が必要です
-// use cli::go_adapter::GoAdapter;
+// use lsp::adapter::go::GoAdapter;
 // use cli::minimal_language_adapter::MinimalLanguageAdapter;
 // use std::path::PathBuf;
 

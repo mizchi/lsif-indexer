@@ -1,5 +1,5 @@
-use cli::go_adapter::GoAdapter;
-use cli::lsp_minimal_client::MinimalLspClient;
+use lsp::adapter::go::GoAdapter;
+use lsp::lsp_minimal_client::MinimalLspClient;
 use lsp_types::Position;
 use std::path::PathBuf;
 

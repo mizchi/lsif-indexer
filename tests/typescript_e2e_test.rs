@@ -1,5 +1,5 @@
-use cli::lsp_adapter::{GenericLspClient, TypeScriptAdapter};
-use cli::lsp_indexer::LspIndexer;
+use lsp::adapter::lsp::{GenericLspClient, TypeScriptAdapter};
+use lsp::lsp_indexer::LspIndexer;
 use IndexStorage;
 use std::path::PathBuf;
 use std::process::Command;

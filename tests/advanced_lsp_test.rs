@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use cli::lsp_adapter::*;
+    use lsp::adapter::lsp::*;
 
-    use cli::lsp_features::*;
+    use lsp::lsp_features::*;
     use lsp_types::*;
     use std::fs;
     use std::sync::Arc;
