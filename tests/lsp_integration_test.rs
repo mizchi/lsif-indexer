@@ -94,7 +94,7 @@ impl MyStruct {
 #[tokio::test]
 #[ignore] // Requires language servers to be installed
 async fn test_enhanced_indexing() -> Result<()> {
-    // use core::enhanced_graph::EnhancedIndex;
+    // use lsif_core::enhanced_graph::EnhancedIndex;
 
     let temp_dir = TempDir::new()?;
     let test_file = temp_dir.path().join("lib.rs");
@@ -139,7 +139,7 @@ mod tests {
     // let function_symbols: Vec<_> = index
     //     .symbols
     //     .values()
-    //     .filter(|s| matches!(s.kind, lsif_indexer::core::graph::SymbolKind::Function))
+    //     .filter(|s| matches!(s.kind, lsif_core::SymbolKind::Function))
     //     .collect();
     // assert!(function_symbols.len() >= 2); // add and multiply
 

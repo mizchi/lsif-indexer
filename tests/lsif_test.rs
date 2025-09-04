@@ -1,5 +1,5 @@
-use core::graph::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
-use core::lsif::{generate_lsif, parse_lsif, write_lsif, LsifParser};
+use lsif_core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
+use lsif_lsif_core::{generate_lsif, parse_lsif, write_lsif, LsifParser};
 use std::io::Cursor;
 
 fn create_test_symbol(id: &str, name: &str, kind: SymbolKind, file_path: &str) -> Symbol {

@@ -1,4 +1,4 @@
-use core::{
+use lsif_core::{
     format_type_relations, CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind,
     TypeRelationsAnalyzer,
 };

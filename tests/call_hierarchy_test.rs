@@ -1,4 +1,4 @@
-use core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
+use lsif_core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
 use std::path::PathBuf;
 
 #[test]
@@ -7,7 +7,7 @@ fn test_call_hierarchy_with_sample_code() {
     let graph = create_sample_graph();
 
     // Import the call hierarchy analyzer
-    use core::{format_hierarchy, CallHierarchyAnalyzer};
+    use lsif_core::{format_hierarchy, CallHierarchyAnalyzer};
 
     let analyzer = CallHierarchyAnalyzer::new(&graph);
 

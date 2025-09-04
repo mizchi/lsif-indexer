@@ -2,7 +2,7 @@ use anyhow::Result;
 use cli::differential_indexer::DifferentialIndexer;
 use cli::git_diff::GitDiffDetector;
 use cli::storage::IndexStorage;
-use core::CodeGraph;
+use lsif_core::CodeGraph;
 use std::fs;
 use std::process::Command;
 use tempfile::TempDir;

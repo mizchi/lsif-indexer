@@ -1,4 +1,4 @@
-use core::{
+use lsif_core::{
     calculate_file_hash, EdgeKind, FileUpdate, IncrementalIndex, Position, Range, Symbol,
     SymbolKind,
 };
@@ -575,7 +575,7 @@ fn test_dead_code_detection_consistency() {
         .add_edge(util2_idx, internal_idx, EdgeKind::Reference);
 
     // デッドコード検出
-    let mut result = lsif_indexer::core::incremental::UpdateResult::default();
+    let mut result = lsif_core::UpdateResult::default();
     index.detect_dead_code(&mut result);
 
     // orphanのみがデッドコード
@@ -614,7 +614,7 @@ fn test_dead_code_detection_consistency() {
         .add_edge(util1_idx, internal_idx, EdgeKind::Reference);
 
     // 再度デッドコード検出
-    let mut result2 = lsif_indexer::core::incremental::UpdateResult::default();
+    let mut result2 = lsif_core::UpdateResult::default();
     index.detect_dead_code(&mut result2);
 
     // orphanのみがデッドコード（util1が残っており、internalへの参照も残っている）
@@ -739,7 +739,7 @@ fn unused_internal() {
         .add_edge(main_idx, helper_idx, EdgeKind::Reference);
 
     // デッドコード検出
-    let mut result = lsif_indexer::core::incremental::UpdateResult::default();
+    let mut result = lsif_core::UpdateResult::default();
     index.detect_dead_code(&mut result);
 
     // unused_internalのみがデッドコード
@@ -845,7 +845,7 @@ fn unused_internal() {
         .add_edge(helper_idx, internal_helper_idx, EdgeKind::Reference);
 
     // 再度デッドコード検出
-    let mut result2 = lsif_indexer::core::incremental::UpdateResult::default();
+    let mut result2 = lsif_core::UpdateResult::default();
     index.detect_dead_code(&mut result2);
 
     // unused_internalのみがデッドコード

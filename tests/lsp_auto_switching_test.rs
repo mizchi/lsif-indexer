@@ -1,6 +1,6 @@
 /// LSP自動切り替え機能の統合テスト
 use anyhow::Result;
-use core::CodeGraph;
+use lsif_core::CodeGraph;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;

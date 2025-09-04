@@ -1,4 +1,4 @@
-use core::{
+use lsif_core::{
     format_definition_chain, CodeGraph, DefinitionChainAnalyzer, EdgeKind, Position, Range, Symbol,
     SymbolKind,
 };

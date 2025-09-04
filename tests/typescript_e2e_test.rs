@@ -84,7 +84,7 @@ fn test_typescript_lsp_indexing() {
 #[test]
 #[ignore]
 fn test_typescript_incremental_update() {
-    use core::calculate_file_hash;
+    use lsif_core::calculate_file_hash;
     use tempfile::tempdir;
 
     println!("=== TypeScript Incremental Update Test ===");

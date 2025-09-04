@@ -1,5 +1,5 @@
 use cli::reference_finder::find_all_references;
-use core::SymbolKind;
+use lsif_core::SymbolKind;
 use std::fs;
 use tempfile::TempDir;
 

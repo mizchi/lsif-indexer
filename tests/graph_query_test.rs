@@ -1,4 +1,4 @@
-use core::{
+use lsif_core::{
     format_query_results, CodeGraph, EdgeKind, Position, QueryEngine, QueryParser, Range, Symbol,
     SymbolKind,
 };

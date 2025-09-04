@@ -1,7 +1,7 @@
 mod common;
 
 use common::typescript_test_helpers::{SymbolTest, TypeScriptReferenceTest};
-use core::SymbolKind;
+use lsif_core::SymbolKind;
 use std::process::Command;
 
 /// TypeScript LSPが利用可能かチェック

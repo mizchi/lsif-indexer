@@ -1,4 +1,4 @@
-use core::graph::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
+use lsif_core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
 
 fn create_test_symbol(id: &str, name: &str, kind: SymbolKind, file_path: &str) -> Symbol {
     Symbol {
