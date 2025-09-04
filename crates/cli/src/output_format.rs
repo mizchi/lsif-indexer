@@ -241,9 +241,9 @@ mod tests {
             name: "test_function".to_string(),
             kind: lsif_core::SymbolKind::Function,
             file_path: "src/main.rs".to_string(),
-            range: Range {
-                start: Position { line: 10, character: 5 },
-                end: Position { line: 10, character: 18 },
+            range: lsif_core::Range {
+                start: lsif_core::Position { line: 10, character: 5 },
+                end: lsif_core::Position { line: 10, character: 18 },
             },
             documentation: None,
             detail: None,
