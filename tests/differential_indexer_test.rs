@@ -1,7 +1,7 @@
 use anyhow::Result;
 use git2::{Repository, Signature};
-use lsif_indexer::cli::differential_indexer::DifferentialIndexer;
-use lsif_indexer::cli::storage::IndexStorage;
+use cli::differential_indexer::DifferentialIndexer;
+use cli::storage::IndexStorage;
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;

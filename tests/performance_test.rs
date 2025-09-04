@@ -1,10 +1,10 @@
 // TODO: このテストは新しいモジュール構造に合わせて更新が必要です
 /*
-use lsif_indexer::cli::go_adapter::GoAdapter;
-use lsif_indexer::cli::lsp_minimal_client::MinimalLspClient;
-use lsif_indexer::cli::minimal_language_adapter::MinimalLanguageAdapter;
-use lsif_indexer::cli::python_adapter::PythonAdapter;
-use lsif_indexer::cli::typescript_adapter::TypeScriptAdapter;
+use cli::go_adapter::GoAdapter;
+use cli::lsp_minimal_client::MinimalLspClient;
+use cli::minimal_language_adapter::MinimalLanguageAdapter;
+use cli::python_adapter::PythonAdapter;
+use cli::typescript_adapter::TypeScriptAdapter;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;

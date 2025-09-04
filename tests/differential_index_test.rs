@@ -1,6 +1,6 @@
 use anyhow::Result;
-use lsif_indexer::cli::differential_indexer::DifferentialIndexer;
-use lsif_indexer::cli::git_diff::{FileChangeStatus, GitDiffDetector};
+use cli::differential_indexer::DifferentialIndexer;
+use cli::git_diff::{FileChangeStatus, GitDiffDetector};
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;

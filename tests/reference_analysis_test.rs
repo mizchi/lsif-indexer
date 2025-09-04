@@ -1,5 +1,5 @@
 use anyhow::Result;
-use lsif_indexer::core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
+use core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
 use tempfile::TempDir;
 
 #[cfg(test)]

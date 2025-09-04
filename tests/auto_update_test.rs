@@ -1,8 +1,8 @@
 use anyhow::Result;
-use lsif_indexer::cli::differential_indexer::DifferentialIndexer;
-use lsif_indexer::cli::git_diff::GitDiffDetector;
-use lsif_indexer::cli::storage::IndexStorage;
-use lsif_indexer::core::CodeGraph;
+use cli::differential_indexer::DifferentialIndexer;
+use cli::git_diff::GitDiffDetector;
+use cli::storage::IndexStorage;
+use core::CodeGraph;
 use std::fs;
 use std::process::Command;
 use tempfile::TempDir;

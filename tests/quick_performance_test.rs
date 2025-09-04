@@ -1,7 +1,7 @@
-use lsif_indexer::cli::go_adapter::GoAdapter;
-use lsif_indexer::cli::lsp_minimal_client::MinimalLspClient;
-use lsif_indexer::cli::python_adapter::PythonAdapter;
-use lsif_indexer::cli::typescript_adapter::TypeScriptAdapter;
+use cli::go_adapter::GoAdapter;
+use cli::lsp_minimal_client::MinimalLspClient;
+use cli::python_adapter::PythonAdapter;
+use cli::typescript_adapter::TypeScriptAdapter;
 use std::path::PathBuf;
 use std::time::Instant;
 

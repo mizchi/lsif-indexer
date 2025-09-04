@@ -1,4 +1,4 @@
-use lsif_indexer::core::{
+use core::{
     format_query_results, CodeGraph, EdgeKind, Position, QueryEngine, QueryParser, Range, Symbol,
     SymbolKind,
 };

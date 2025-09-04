@@ -1,4 +1,4 @@
-use lsif_indexer::core::{
+use core::{
     format_definition_chain, CodeGraph, DefinitionChainAnalyzer, EdgeKind, Position, Range, Symbol,
     SymbolKind,
 };

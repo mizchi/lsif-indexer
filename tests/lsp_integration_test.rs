@@ -1,5 +1,5 @@
 use anyhow::Result;
-use lsif_indexer::cli::{
+use cli::{
     lsp_adapter::{detect_language, LspAdapter, RustAnalyzerAdapter, TypeScriptAdapter},
     lsp_client::LspClient,
     lsp_features::{DependencyGraph, LspClient as FeatureClient, LspCodeAnalyzer},
@@ -94,7 +94,7 @@ impl MyStruct {
 #[tokio::test]
 #[ignore] // Requires language servers to be installed
 async fn test_enhanced_indexing() -> Result<()> {
-    // use lsif_indexer::core::enhanced_graph::EnhancedIndex;
+    // use core::enhanced_graph::EnhancedIndex;
 
     let temp_dir = TempDir::new()?;
     let test_file = temp_dir.path().join("lib.rs");

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use git2::{Oid, Repository, Signature};
-use lsif_indexer::cli::git_diff::{FileChange, FileChangeStatus, GitDiffDetector};
+use cli::git_diff::{FileChange, FileChangeStatus, GitDiffDetector};
 use std::fs;
 use std::path::Path;
 use tempfile::TempDir;

@@ -1,5 +1,5 @@
-use lsif_indexer::core::graph::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
-use lsif_indexer::core::incremental::{
+use core::graph::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
+use core::incremental::{
     calculate_file_hash, FileUpdate, IncrementalIndex, UpdateResult,
 };
 use std::path::{Path, PathBuf};

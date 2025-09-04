@@ -1,6 +1,6 @@
-use lsif_indexer::cli::lsp_adapter::{GenericLspClient, TypeScriptAdapter};
-use lsif_indexer::cli::lsp_indexer::LspIndexer;
-use lsif_indexer::IndexStorage;
+use cli::lsp_adapter::{GenericLspClient, TypeScriptAdapter};
+use cli::lsp_indexer::LspIndexer;
+use IndexStorage;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -84,7 +84,7 @@ fn test_typescript_lsp_indexing() {
 #[test]
 #[ignore]
 fn test_typescript_incremental_update() {
-    use lsif_indexer::core::calculate_file_hash;
+    use core::calculate_file_hash;
     use tempfile::tempdir;
 
     println!("=== TypeScript Incremental Update Test ===");

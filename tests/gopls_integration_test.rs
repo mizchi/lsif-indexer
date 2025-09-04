@@ -1,6 +1,6 @@
 // TODO: このテストは新しいモジュール構造に合わせて更新が必要です
-// use lsif_indexer::cli::go_adapter::GoAdapter;
-// use lsif_indexer::cli::minimal_language_adapter::MinimalLanguageAdapter;
+// use cli::go_adapter::GoAdapter;
+// use cli::minimal_language_adapter::MinimalLanguageAdapter;
 // use std::path::PathBuf;
 
 // #[test]

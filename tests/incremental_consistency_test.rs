@@ -1,4 +1,4 @@
-use lsif_indexer::core::{
+use core::{
     calculate_file_hash, EdgeKind, FileUpdate, IncrementalIndex, Position, Range, Symbol,
     SymbolKind,
 };

@@ -10,6 +10,14 @@ path = "examples/simple_usage.rs"
 [dependencies]
 core = { path = "crates/core" }
 
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true }
+cli = { path = "crates/cli" }
+lsp = { path = "crates/lsp" }
+anyhow = { workspace = true }
+lsp-types = { workspace = true }
+
 [workspace]
 members = ["crates/core", "crates/lsp", "crates/cli", "crates/engine"]
 resolver = "2"
@@ -69,5 +77,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 
 # Dev dependencies
+tempfile = "3.8"
+criterion = "0.5"
+
+[workspace.dev-dependencies]
+tokio = { version = "1.35", features = ["full", "test-util"] }
 tempfile = "3.8"
 criterion = "0.5"

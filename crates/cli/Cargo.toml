@@ -45,6 +45,7 @@ lsif-core = { path = "../core", package = "core", features = ["experimental-opti
 tempfile = { workspace = true }
 criterion = { workspace = true }
 rayon = { workspace = true }
+tokio = { workspace = true }
 
 [[bench]]
 name = "index_benchmark"

@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use lsif_indexer::cli::lsp_adapter::*;
+    use cli::lsp_adapter::*;
 
-    use lsif_indexer::cli::lsp_features::*;
+    use cli::lsp_features::*;
     use lsp_types::*;
     use std::fs;
     use std::sync::Arc;
@@ -317,7 +317,7 @@ fn main() {
 
 #[cfg(test)]
 mod command_tests {
-    use lsif_indexer::cli::lsp_commands::{LspCommand, LspSubcommand};
+    use cli::lsp_commands::{LspCommand, LspSubcommand};
     use std::fs;
     use tempfile::TempDir;
 

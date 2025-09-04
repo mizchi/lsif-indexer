@@ -1,4 +1,4 @@
-use lsif_indexer::core::{
+use core::{
     format_type_relations, CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind,
     TypeRelationsAnalyzer,
 };

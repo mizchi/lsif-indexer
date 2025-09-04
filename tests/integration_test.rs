@@ -1,5 +1,5 @@
-use lsif_indexer::cli::storage::IndexStorage;
-use lsif_indexer::core::graph::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
+use cli::storage::IndexStorage;
+use core::graph::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
 use tempfile::TempDir;
 
 #[test]
@@ -72,7 +72,7 @@ fn test_symbol_storage_and_retrieval() {
 
 #[test]
 fn test_incremental_update() {
-    use lsif_indexer::core::incremental::IncrementalIndex;
+    use core::incremental::IncrementalIndex;
     use std::path::Path;
 
     let mut index = IncrementalIndex::new();

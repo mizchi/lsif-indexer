@@ -1,5 +1,5 @@
 use anyhow::Result;
-use lsif_indexer::cli::{
+use cli::{
     go_adapter::GoAdapter, lsp_minimal_client::MinimalLspClient, python_adapter::PythonAdapter,
     typescript_adapter::TypeScriptAdapter,
 };
