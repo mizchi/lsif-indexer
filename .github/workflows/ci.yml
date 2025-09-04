@@ -113,10 +113,10 @@ jobs:
       run: cargo build --verbose --all-features
     
     - name: Run unit tests
-      run: cargo test --lib --verbose
+      run: cargo test --workspace --lib --verbose
     
     - name: Run doc tests
-      run: cargo test --doc --verbose
+      run: cargo test --workspace --doc --verbose
     
     - name: Run integration tests (with LSP servers)
       run: |
