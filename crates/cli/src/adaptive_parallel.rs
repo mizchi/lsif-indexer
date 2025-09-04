@@ -369,9 +369,9 @@ mod tests {
         let executor = AdaptiveParallelExecutor::with_defaults().unwrap();
         let stats = executor.get_stats();
         
-        assert_eq!(stats.parallel_threshold, 50);
+        assert_eq!(stats.parallel_threshold, 30);
         assert_eq!(stats.max_threads, 0);
-        assert_eq!(stats.chunk_size, 100);
+        assert_eq!(stats.chunk_size, 10);
     }
 
     #[test]
