@@ -1,8 +1,8 @@
 use lsp::adapter::lsp::{GenericLspClient, TypeScriptAdapter};
 use lsp::lsp_indexer::LspIndexer;
-use IndexStorage;
 use std::path::PathBuf;
 use std::process::Command;
+use IndexStorage;
 
 #[test]
 #[ignore] // Run with: cargo test typescript_e2e -- --ignored --nocapture

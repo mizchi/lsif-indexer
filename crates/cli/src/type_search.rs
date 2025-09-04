@@ -45,7 +45,7 @@ impl<'a> TypeSearchEngine<'a> {
     /// Search symbols by type filters
     pub fn search(&self, filters: &[TypeFilter], max_results: usize) -> Vec<Symbol> {
         let mut results = Vec::new();
-        
+
         for symbol in self.graph.get_all_symbols() {
             if self.matches_all_filters(symbol, filters) {
                 results.push(symbol.clone());
@@ -54,13 +54,15 @@ impl<'a> TypeSearchEngine<'a> {
                 }
             }
         }
-        
+
         results
     }
 
     /// Check if symbol matches all filters
     fn matches_all_filters(&self, symbol: &Symbol, filters: &[TypeFilter]) -> bool {
-        filters.iter().all(|filter| self.matches_filter(symbol, filter))
+        filters
+            .iter()
+            .all(|filter| self.matches_filter(symbol, filter))
     }
 
     /// Check if symbol matches a single filter
@@ -80,7 +82,7 @@ impl<'a> TypeSearchEngine<'a> {
         if !matches!(symbol.kind, SymbolKind::Function | SymbolKind::Method) {
             return false;
         }
-        
+
         // Check detail field for type information
         if let Some(detail) = &symbol.detail {
             // Look for return type patterns
@@ -90,7 +92,7 @@ impl<'a> TypeSearchEngine<'a> {
                 return self.type_matches(return_part, type_name);
             }
         }
-        
+
         false
     }
 
@@ -99,24 +101,27 @@ impl<'a> TypeSearchEngine<'a> {
         if !matches!(symbol.kind, SymbolKind::Function | SymbolKind::Method) {
             return false;
         }
-        
+
         if let Some(detail) = &symbol.detail {
             // Extract parameter list from signature
             if let Some(params) = self.extract_parameters(detail) {
                 return self.type_matches(&params, type_name);
             }
         }
-        
+
         false
     }
 
     /// Check if type implements/extends specified interface/trait
     fn matches_implements(&self, symbol: &Symbol, type_name: &str) -> bool {
         // Check classes, structs, and enums
-        if !matches!(symbol.kind, SymbolKind::Class | SymbolKind::Struct | SymbolKind::Enum) {
+        if !matches!(
+            symbol.kind,
+            SymbolKind::Class | SymbolKind::Struct | SymbolKind::Enum
+        ) {
             return false;
         }
-        
+
         // Check detail field for implementation info
         if let Some(detail) = &symbol.detail {
             // Look for patterns like "impl Iterator", "extends Base", ": Trait"
@@ -127,10 +132,10 @@ impl<'a> TypeSearchEngine<'a> {
                 format!(": {}", type_name),
                 format!(": dyn {}", type_name),
             ];
-            
+
             return patterns.iter().any(|pattern| detail.contains(pattern));
         }
-        
+
         // Also check relationships in graph
         self.check_implementation_edges(symbol, type_name)
     }
@@ -140,7 +145,7 @@ impl<'a> TypeSearchEngine<'a> {
         if !matches!(symbol.kind, SymbolKind::Class | SymbolKind::Struct) {
             return false;
         }
-        
+
         // Find all fields/properties of this symbol
         if let Some(node_idx) = self.graph.get_node_index(&symbol.id) {
             for edge in self.graph.graph.edges(node_idx) {
@@ -157,7 +162,7 @@ impl<'a> TypeSearchEngine<'a> {
                 }
             }
         }
-        
+
         false
     }
 
@@ -180,21 +185,23 @@ impl<'a> TypeSearchEngine<'a> {
     fn type_matches(&self, type_str: &str, search_type: &str) -> bool {
         // Normalize and compare
         let normalized = type_str.trim();
-        
+
         // Exact match
         if normalized.contains(search_type) {
             return true;
         }
-        
+
         // Handle generic types
         if search_type.contains('<') {
             // For now, simple contains check
             return normalized.contains(search_type);
         }
-        
+
         // Handle short names vs full paths
         let search_base = search_type.split("::").last().unwrap_or(search_type);
-        normalized.split("::").any(|part| part.contains(search_base))
+        normalized
+            .split("::")
+            .any(|part| part.contains(search_base))
     }
 
     /// Extract parameter list from function signature
@@ -202,7 +209,7 @@ impl<'a> TypeSearchEngine<'a> {
         // Find content between parentheses
         if let Some(start) = signature.find('(') {
             if let Some(end) = signature.find(')') {
-                return Some(signature[start+1..end].to_string());
+                return Some(signature[start + 1..end].to_string());
             }
         }
         None
@@ -249,7 +256,7 @@ impl<'a> AdvancedSearch<'a> {
         max_results: usize,
     ) -> Vec<Symbol> {
         let mut results = Vec::new();
-        
+
         for symbol in self.graph.get_all_symbols() {
             // Check name pattern
             if let Some(pattern) = name_pattern {
@@ -261,18 +268,20 @@ impl<'a> AdvancedSearch<'a> {
                     continue;
                 }
             }
-            
+
             // Check type filters
-            if !type_filters.is_empty() && !self.type_engine.matches_all_filters(symbol, type_filters) {
+            if !type_filters.is_empty()
+                && !self.type_engine.matches_all_filters(symbol, type_filters)
+            {
                 continue;
             }
-            
+
             results.push(symbol.clone());
             if results.len() >= max_results {
                 break;
             }
         }
-        
+
         results
     }
 }
@@ -285,7 +294,7 @@ mod tests {
     fn test_type_filter_parsing() {
         let filter = TypeFilter::from_arg("returns", "Result<String>").unwrap();
         assert!(matches!(filter, TypeFilter::Returns(s) if s == "Result<String>"));
-        
+
         let filter = TypeFilter::from_arg("implements", "Iterator").unwrap();
         assert!(matches!(filter, TypeFilter::Implements(s) if s == "Iterator"));
     }

@@ -1,12 +1,9 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use cli::storage::IndexStorage;
-use lsif_core::{
-    CodeGraph, EdgeKind,
-    IncrementalIndex, Position, Range, Symbol, SymbolKind,
-};
-use lsif_core::incremental::{FileUpdate, UpdateResult};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lsif_core::call_hierarchy::CallHierarchyAnalyzer;
+use lsif_core::incremental::{FileUpdate, UpdateResult};
 use lsif_core::lsif::{generate_lsif, parse_lsif};
+use lsif_core::{CodeGraph, EdgeKind, IncrementalIndex, Position, Range, Symbol, SymbolKind};
 use std::collections::HashMap;
 
 fn create_small_graph() -> CodeGraph {

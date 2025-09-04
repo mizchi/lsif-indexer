@@ -82,9 +82,7 @@ impl SymbolPool {
                 stats.reuses += 1;
                 stats.pool_hits += 1;
 
-                return PooledSymbol {
-                    inner: symbol_arc,
-                };
+                return PooledSymbol { inner: symbol_arc };
             }
         }
 
@@ -120,7 +118,7 @@ impl SymbolPool {
     /// バッチでSymbolを作成
     pub fn acquire_batch(&self, count: usize) -> Vec<PooledSymbol> {
         let mut symbols = Vec::with_capacity(count);
-        
+
         for i in 0..count {
             symbols.push(self.acquire(
                 format!("temp_{}", i),
@@ -128,13 +126,19 @@ impl SymbolPool {
                 SymbolKind::Function,
                 String::new(),
                 Range {
-                    start: Position { line: 0, character: 0 },
-                    end: Position { line: 0, character: 0 },
+                    start: Position {
+                        line: 0,
+                        character: 0,
+                    },
+                    end: Position {
+                        line: 0,
+                        character: 0,
+                    },
                 },
                 None,
             ));
         }
-        
+
         symbols
     }
 
@@ -155,7 +159,7 @@ impl SymbolPool {
 }
 
 /// グローバルなSymbolプール
-static GLOBAL_POOL: once_cell::sync::Lazy<SymbolPool> = 
+static GLOBAL_POOL: once_cell::sync::Lazy<SymbolPool> =
     once_cell::sync::Lazy::new(|| SymbolPool::new(10000));
 
 /// グローバルプールからSymbolを取得
@@ -187,7 +191,7 @@ mod tests {
     #[test]
     fn test_symbol_pool_basic() {
         let pool = SymbolPool::new(10);
-        
+
         // 新規作成
         let symbol1 = pool.acquire(
             "id1".to_string(),
@@ -195,20 +199,26 @@ mod tests {
             SymbolKind::Function,
             "file1.rs".to_string(),
             Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 1, character: 0 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 1,
+                    character: 0,
+                },
             },
             None,
         );
-        
+
         assert_eq!(symbol1.as_ref().id, "id1");
         assert_eq!(pool.stats().allocations, 1);
-        
+
         // プールに返却
         pool.release(symbol1);
         assert_eq!(pool.pool_size(), 1);
         assert_eq!(pool.stats().returns, 1);
-        
+
         // 再利用
         let symbol2 = pool.acquire(
             "id2".to_string(),
@@ -216,12 +226,18 @@ mod tests {
             SymbolKind::Class,
             "file2.rs".to_string(),
             Range {
-                start: Position { line: 2, character: 0 },
-                end: Position { line: 3, character: 0 },
+                start: Position {
+                    line: 2,
+                    character: 0,
+                },
+                end: Position {
+                    line: 3,
+                    character: 0,
+                },
             },
             Some("doc".to_string()),
         );
-        
+
         assert_eq!(symbol2.as_ref().id, "id2");
         assert_eq!(symbol2.as_ref().name, "name2");
         assert_eq!(pool.stats().reuses, 1);
@@ -231,26 +247,34 @@ mod tests {
     #[test]
     fn test_pool_max_size() {
         let pool = SymbolPool::new(2);
-        
+
         let symbols: Vec<_> = (0..3)
-            .map(|i| pool.acquire(
-                format!("id{}", i),
-                format!("name{}", i),
-                SymbolKind::Function,
-                "file.rs".to_string(),
-                Range {
-                    start: Position { line: 0, character: 0 },
-                    end: Position { line: 1, character: 0 },
-                },
-                None,
-            ))
+            .map(|i| {
+                pool.acquire(
+                    format!("id{}", i),
+                    format!("name{}", i),
+                    SymbolKind::Function,
+                    "file.rs".to_string(),
+                    Range {
+                        start: Position {
+                            line: 0,
+                            character: 0,
+                        },
+                        end: Position {
+                            line: 1,
+                            character: 0,
+                        },
+                    },
+                    None,
+                )
+            })
             .collect();
-        
+
         // 3つ全て返却するが、プールには2つまでしか保持されない
         for symbol in symbols {
             pool.release(symbol);
         }
-        
+
         assert_eq!(pool.pool_size(), 2);
         assert_eq!(pool.stats().returns, 2);
     }
@@ -258,18 +282,18 @@ mod tests {
     #[test]
     fn test_batch_acquire() {
         let pool = SymbolPool::new(100);
-        
+
         let batch = pool.acquire_batch(50);
         assert_eq!(batch.len(), 50);
         assert_eq!(pool.stats().allocations, 50);
-        
+
         // バッチを返却
         for symbol in batch {
             pool.release(symbol);
         }
-        
+
         assert_eq!(pool.pool_size(), 50);
-        
+
         // 次のバッチは再利用される
         let batch2 = pool.acquire_batch(30);
         assert_eq!(batch2.len(), 30);
@@ -284,16 +308,22 @@ mod tests {
             SymbolKind::Variable,
             "global.rs".to_string(),
             Range {
-                start: Position { line: 0, character: 0 },
-                end: Position { line: 1, character: 0 },
+                start: Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: Position {
+                    line: 1,
+                    character: 0,
+                },
             },
             None,
         );
-        
+
         assert_eq!(symbol.as_ref().id, "global_id");
-        
+
         release_symbol(symbol);
-        
+
         let stats = pool_stats();
         assert!(stats.allocations > 0 || stats.reuses > 0);
     }

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use lsif_core::Symbol;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Supported output formats for editor integration
@@ -32,7 +32,10 @@ impl OutputFormat {
             "json" => Ok(Self::Json),
             "tsv" | "tab" => Ok(Self::Tsv),
             "null" | "0" => Ok(Self::Null),
-            _ => anyhow::bail!("Unknown format: {}. Valid formats: human, quickfix, lsp, grep, json, tsv, null", s),
+            _ => anyhow::bail!(
+                "Unknown format: {}. Valid formats: human, quickfix, lsp, grep, json, tsv, null",
+                s
+            ),
         }
     }
 }
@@ -75,7 +78,11 @@ impl OutputFormatter {
             }
             _ => {
                 // For other formats, join with newline (or null for Null format)
-                let separator = if self.format == OutputFormat::Null { "\0" } else { "\n" };
+                let separator = if self.format == OutputFormat::Null {
+                    "\0"
+                } else {
+                    "\n"
+                };
                 symbols
                     .iter()
                     .map(|s| self.format_symbol(s, context))
@@ -97,14 +104,12 @@ impl OutputFormatter {
             lsif_core::SymbolKind::Module | lsif_core::SymbolKind::Namespace => "📁",
             _ => "📍",
         };
-        
+
         let location = format!(
             "{}:{}:{}",
-            symbol.file_path,
-            symbol.range.start.line,
-            symbol.range.start.character
+            symbol.file_path, symbol.range.start.line, symbol.range.start.character
         );
-        
+
         if let Some(ctx) = context {
             format!("{} {} at {} - {}", emoji, symbol.name, location, ctx)
         } else {
@@ -117,10 +122,7 @@ impl OutputFormatter {
         let text = context.unwrap_or(&symbol.name);
         format!(
             "{}:{}:{}: {}",
-            symbol.file_path,
-            symbol.range.start.line,
-            symbol.range.start.character,
-            text
+            symbol.file_path, symbol.range.start.line, symbol.range.start.character, text
         )
     }
 
@@ -129,10 +131,7 @@ impl OutputFormatter {
         let text = context.unwrap_or(&symbol.name);
         format!(
             "{}:{}:{}:{}",
-            symbol.file_path,
-            symbol.range.start.line,
-            symbol.range.start.character,
-            text
+            symbol.file_path, symbol.range.start.line, symbol.range.start.character, text
         )
     }
 
@@ -185,18 +184,27 @@ impl OutputFormatter {
         let mut obj = HashMap::new();
         obj.insert("name".to_string(), serde_json::json!(symbol.name));
         obj.insert("file".to_string(), serde_json::json!(symbol.file_path));
-        obj.insert("line".to_string(), serde_json::json!(symbol.range.start.line));
-        obj.insert("column".to_string(), serde_json::json!(symbol.range.start.character));
-        obj.insert("kind".to_string(), serde_json::json!(format!("{:?}", symbol.kind)));
-        
+        obj.insert(
+            "line".to_string(),
+            serde_json::json!(symbol.range.start.line),
+        );
+        obj.insert(
+            "column".to_string(),
+            serde_json::json!(symbol.range.start.character),
+        );
+        obj.insert(
+            "kind".to_string(),
+            serde_json::json!(format!("{:?}", symbol.kind)),
+        );
+
         if let Some(detail) = &symbol.detail {
             obj.insert("type".to_string(), serde_json::json!(detail));
         }
-        
+
         if let Some(doc) = &symbol.documentation {
             obj.insert("doc".to_string(), serde_json::json!(doc));
         }
-        
+
         obj
     }
 }
@@ -227,9 +235,18 @@ mod tests {
 
     #[test]
     fn test_format_parsing() {
-        assert_eq!(OutputFormat::from_str("quickfix").unwrap(), OutputFormat::Quickfix);
-        assert_eq!(OutputFormat::from_str("QF").unwrap(), OutputFormat::Quickfix);
-        assert_eq!(OutputFormat::from_str("vim").unwrap(), OutputFormat::Quickfix);
+        assert_eq!(
+            OutputFormat::from_str("quickfix").unwrap(),
+            OutputFormat::Quickfix
+        );
+        assert_eq!(
+            OutputFormat::from_str("QF").unwrap(),
+            OutputFormat::Quickfix
+        );
+        assert_eq!(
+            OutputFormat::from_str("vim").unwrap(),
+            OutputFormat::Quickfix
+        );
         assert_eq!(OutputFormat::from_str("json").unwrap(), OutputFormat::Json);
         assert!(OutputFormat::from_str("invalid").is_err());
     }
@@ -242,8 +259,14 @@ mod tests {
             kind: lsif_core::SymbolKind::Function,
             file_path: "src/main.rs".to_string(),
             range: lsif_core::Range {
-                start: lsif_core::Position { line: 10, character: 5 },
-                end: lsif_core::Position { line: 10, character: 18 },
+                start: lsif_core::Position {
+                    line: 10,
+                    character: 5,
+                },
+                end: lsif_core::Position {
+                    line: 10,
+                    character: 18,
+                },
             },
             documentation: None,
             detail: None,

@@ -1,8 +1,8 @@
 use anyhow::Result;
+use lsif_core::Symbol;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use lsif_core::Symbol;
 
 /// 並列処理用のバッチプロセッサ
 pub struct ParallelProcessor {
@@ -43,11 +43,11 @@ impl ParallelProcessor {
 
         let total_files = files.len();
         let chunk_size = total_files.div_ceil(self.thread_count);
-        
+
         // プログレストラッカー
         let progress = Arc::new(Mutex::new(ProgressTracker::new(total_files)));
         let processor = Arc::new(processor);
-        
+
         // ファイルをチャンクに分割
         let chunks: Vec<Vec<T>> = files
             .into_iter()
@@ -63,15 +63,15 @@ impl ParallelProcessor {
             .map(|(thread_id, chunk)| {
                 let processor = Arc::clone(&processor);
                 let progress = Arc::clone(&progress);
-                
+
                 thread::spawn(move || {
                     let mut results = Vec::new();
-                    
+
                     for item in chunk {
                         match processor(item) {
                             Ok(symbols) => {
                                 results.push(symbols);
-                                
+
                                 // プログレス更新
                                 let mut tracker = progress.lock().unwrap();
                                 tracker.increment();
@@ -86,12 +86,16 @@ impl ParallelProcessor {
                                 }
                             }
                             Err(e) => {
-                                eprintln!("  ⚠️  Thread {}: Error processing file: {}", thread_id + 1, e);
+                                eprintln!(
+                                    "  ⚠️  Thread {}: Error processing file: {}",
+                                    thread_id + 1,
+                                    e
+                                );
                                 results.push(Vec::new());
                             }
                         }
                     }
-                    
+
                     results
                 })
             })
@@ -113,8 +117,7 @@ impl ParallelProcessor {
         if tracker.total > 10 {
             eprintln!(
                 "  ✅ Completed: {}/{} files (100%)",
-                tracker.processed,
-                tracker.total
+                tracker.processed, tracker.total
             );
         }
 
@@ -176,9 +179,9 @@ mod tests {
     #[test]
     fn test_parallel_processor() {
         let processor = ParallelProcessor::new(4, 5);
-        
+
         let files: Vec<usize> = (0..20).collect();
-        
+
         let results = processor.process_files_parallel(files, |n| {
             // シンプルな処理をシミュレート
             thread::sleep(Duration::from_millis(10));
@@ -188,11 +191,17 @@ mod tests {
                 kind: lsif_core::SymbolKind::Function,
                 file_path: format!("file_{}.rs", n),
                 range: lsif_core::Range {
-                    start: lsif_core::Position { line: 0, character: 0 },
-                    end: lsif_core::Position { line: 0, character: 0 },
+                    start: lsif_core::Position {
+                        line: 0,
+                        character: 0,
+                    },
+                    end: lsif_core::Position {
+                        line: 0,
+                        character: 0,
+                    },
                 },
                 documentation: None,
-            detail: None,
+                detail: None,
             }])
         });
 
@@ -204,13 +213,13 @@ mod tests {
     #[test]
     fn test_batch_size_adjustment() {
         let mut processor = ParallelProcessor::default();
-        
+
         processor.adjust_batch_size(30);
         assert_eq!(processor.batch_size, 5);
-        
+
         processor.adjust_batch_size(100);
         assert_eq!(processor.batch_size, 10);
-        
+
         processor.adjust_batch_size(500);
         assert_eq!(processor.batch_size, 20);
     }

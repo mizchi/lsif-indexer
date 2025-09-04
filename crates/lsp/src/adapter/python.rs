@@ -1,5 +1,5 @@
 use super::common::{is_command_available, spawn_lsp_server};
-use super::language::{LanguageAdapter, DefinitionPattern, PatternType};
+use super::language::{DefinitionPattern, LanguageAdapter, PatternType};
 use anyhow::Result;
 
 /// Python言語のアダプタ実装
@@ -106,17 +106,16 @@ impl LanguageAdapter for PythonAdapter {
 
     fn is_definition_context(&self, line: &str, position: usize) -> bool {
         let before = &line[..position.min(line.len())];
-        before.contains("def ") || before.contains("class ") || 
-        before.contains("async def ")
+        before.contains("def ") || before.contains("class ") || before.contains("async def ")
     }
 
     fn is_in_string_or_comment(&self, line: &str, position: usize) -> bool {
         let before = &line[..position.min(line.len())];
         // 簡易的な判定
-        before.contains("#") || 
-        before.chars().filter(|&c| c == '"').count() % 2 == 1 ||
-        before.chars().filter(|&c| c == '\'').count() % 2 == 1 ||
-        before.contains("\"\"\"")
+        before.contains("#")
+            || before.chars().filter(|&c| c == '"').count() % 2 == 1
+            || before.chars().filter(|&c| c == '\'').count() % 2 == 1
+            || before.contains("\"\"\"")
     }
 }
 
@@ -161,11 +160,11 @@ mod tests {
         let adapter = PythonAdapter::new();
         let patterns = adapter.definition_patterns();
         assert!(!patterns.is_empty());
-        
+
         // def関数の定義パターンをチェック
         let has_def = patterns.iter().any(|p| p.keywords == vec!["def"]);
         assert!(has_def);
-        
+
         // class定義パターンをチェック
         let has_class = patterns.iter().any(|p| p.keywords == vec!["class"]);
         assert!(has_class);

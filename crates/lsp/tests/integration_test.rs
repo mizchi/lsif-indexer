@@ -1,15 +1,15 @@
 use lsp::{
-    hierarchical_cache::{HierarchicalCache, CacheConfig},
-    lsp_metrics::{LspMetricsCollector, CacheLevel},
+    hierarchical_cache::{CacheConfig, HierarchicalCache},
+    language_optimization::{LanguageOptimization, OptimizationStrategy},
+    lsp_metrics::{CacheLevel, LspMetricsCollector},
     lsp_pool::{LspClientPool, PoolConfig},
-    timeout_predictor::{TimeoutPredictor, LspOperation},
-    language_optimization::{OptimizationStrategy, LanguageOptimization},
+    timeout_predictor::{LspOperation, TimeoutPredictor},
     Language,
 };
+use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
 use tempfile::TempDir;
-use std::fs;
 
 /// テスト用のサンプルコードを生成
 struct TestProjects;
@@ -303,15 +303,17 @@ mod tests {
     fn test_hierarchical_cache() {
         let config = CacheConfig::default();
         let cache = HierarchicalCache::new(config).unwrap();
-        
+
         // L1キャッシュテスト
         let file_path = PathBuf::from("test.rs");
         let symbols = lsp_types::DocumentSymbolResponse::Nested(vec![]);
-        
-        cache.cache_document_symbols(&file_path, symbols.clone()).unwrap();
+
+        cache
+            .cache_document_symbols(&file_path, symbols.clone())
+            .unwrap();
         let cached = cache.get_document_symbols(&file_path);
         assert!(cached.is_some());
-        
+
         // メトリクス確認
         let metrics = cache.get_metrics();
         assert_eq!(metrics.l1_hits, 1);
@@ -326,10 +328,10 @@ mod tests {
             request_timeout: Duration::from_secs(2),
             max_retries: 1,
         };
-        
+
         let pool = LspClientPool::new(config);
         let stats = pool.get_stats();
-        
+
         assert_eq!(stats.total_clients, 0);
         assert_eq!(stats.active_clients, 0);
     }
@@ -337,11 +339,11 @@ mod tests {
     #[test]
     fn test_timeout_predictor() {
         let mut predictor = TimeoutPredictor::new();
-        
+
         // 初期タイムアウト取得
         let timeout = predictor.get_timeout(LspOperation::Initialize);
         assert_eq!(timeout, Duration::from_secs(5));
-        
+
         // 成功を記録
         for _ in 0..15 {
             predictor.record_operation(
@@ -352,7 +354,7 @@ mod tests {
                 true,
             );
         }
-        
+
         // タイムアウトが短縮されることを確認
         let new_timeout = predictor.get_timeout(LspOperation::Initialize);
         assert!(new_timeout <= Duration::from_secs(2));
@@ -361,22 +363,22 @@ mod tests {
     #[test]
     fn test_language_optimization() {
         let strategy = OptimizationStrategy::new();
-        
+
         // TypeScript最適化戦略を確認
         let ts_opt = strategy.get_optimization(&Language::TypeScript);
         assert!(ts_opt.is_some());
-        
+
         if let Some(opt) = ts_opt {
             assert!(opt.should_parallelize());
             assert_eq!(opt.optimal_chunk_size(), 15);
             assert!(opt.prefer_lsp());
             assert_eq!(opt.preferred_lsp_server(), Some("tsgo"));
         }
-        
+
         // Rust最適化戦略を確認
         let rust_opt = strategy.get_optimization(&Language::Rust);
         assert!(rust_opt.is_some());
-        
+
         if let Some(opt) = rust_opt {
             assert!(opt.should_parallelize());
             assert_eq!(opt.optimal_chunk_size(), 20);
@@ -387,24 +389,16 @@ mod tests {
     #[test]
     fn test_metrics_collection() {
         let collector = LspMetricsCollector::new();
-        
+
         // 操作を記録
-        collector.record_operation_complete(
-            "initialize",
-            Duration::from_millis(100),
-            true,
-        );
-        
-        collector.record_operation_complete(
-            "workspace/symbol",
-            Duration::from_millis(50),
-            true,
-        );
-        
+        collector.record_operation_complete("initialize", Duration::from_millis(100), true);
+
+        collector.record_operation_complete("workspace/symbol", Duration::from_millis(50), true);
+
         // キャッシュ統計を記録
         collector.record_cache_hit(CacheLevel::L1);
         collector.record_cache_miss(CacheLevel::L2);
-        
+
         let summary = collector.get_summary();
         assert_eq!(summary.total_requests, 2);
         assert!(summary.cache_hit_rate > 0.0);
@@ -413,25 +407,25 @@ mod tests {
     #[test]
     fn test_project_creation() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         // TypeScriptプロジェクト作成
         let ts_dir = TestProjects::create_typescript_project(&temp_dir);
         assert!(ts_dir.join("test.ts").exists());
         assert!(ts_dir.join("lib.ts").exists());
         assert!(ts_dir.join("tsconfig.json").exists());
-        
+
         // Goプロジェクト作成
         let go_dir = TestProjects::create_go_project(&temp_dir);
         assert!(go_dir.join("main.go").exists());
         assert!(go_dir.join("lib.go").exists());
         assert!(go_dir.join("go.mod").exists());
-        
+
         // Rustプロジェクト作成
         let rust_dir = TestProjects::create_rust_project(&temp_dir);
         assert!(rust_dir.join("Cargo.toml").exists());
         assert!(rust_dir.join("src/main.rs").exists());
         assert!(rust_dir.join("src/lib.rs").exists());
-        
+
         // Pythonプロジェクト作成
         let py_dir = TestProjects::create_python_project(&temp_dir);
         assert!(py_dir.join("main.py").exists());
@@ -441,7 +435,7 @@ mod tests {
     #[test]
     fn test_adaptive_timeout() {
         let mut predictor = TimeoutPredictor::new();
-        
+
         // 各操作のデフォルトタイムアウトを確認
         let operations = [
             (LspOperation::Initialize, Duration::from_secs(5)),
@@ -449,17 +443,17 @@ mod tests {
             (LspOperation::DocumentSymbol, Duration::from_secs(1)),
             (LspOperation::Definition, Duration::from_millis(1500)),
         ];
-        
+
         for (op, expected_initial) in operations {
             let timeout = predictor.get_timeout(op);
             assert_eq!(timeout, expected_initial);
         }
-        
+
         // ファイルサイズベースの予測
         let file_timeout = predictor.predict_timeout_for_operation(
             LspOperation::DocumentSymbol,
-            50_000,  // 50KB
-            2_000,   // 2000行
+            50_000, // 50KB
+            2_000,  // 2000行
         );
         assert!(file_timeout > Duration::from_secs(1));
     }
@@ -468,19 +462,21 @@ mod tests {
     fn test_cache_invalidation() {
         let cache = HierarchicalCache::new(CacheConfig::default()).unwrap();
         let file_path = PathBuf::from("test.rs");
-        
+
         // データをキャッシュ
-        cache.cache_document_symbols(
-            &file_path,
-            lsp_types::DocumentSymbolResponse::Nested(vec![]),
-        ).unwrap();
-        
+        cache
+            .cache_document_symbols(
+                &file_path,
+                lsp_types::DocumentSymbolResponse::Nested(vec![]),
+            )
+            .unwrap();
+
         cache.cache_workspace_symbols("test", vec![]).unwrap();
         cache.cache_definitions(&file_path, 10, 5, vec![]).unwrap();
-        
+
         // ファイル無効化
         cache.invalidate_file(&file_path);
-        
+
         // キャッシュがクリアされていることを確認
         assert!(cache.get_document_symbols(&file_path).is_none());
         assert!(cache.get_definitions(&file_path, 10, 5).is_none());
@@ -491,34 +487,34 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     use super::*;
-    
+
     #[test]
     #[ignore] // LSPサーバーが必要なため、通常はスキップ
     fn test_full_lsp_workflow() {
         let temp_dir = TempDir::new().unwrap();
         let ts_dir = TestProjects::create_typescript_project(&temp_dir);
-        
+
         // LSPプールを作成
         let pool = LspClientPool::with_defaults();
-        
+
         // TypeScriptファイルでクライアントを取得
         let test_file = ts_dir.join("test.ts");
         let result = pool.get_or_create_client(&test_file, &ts_dir);
-        
+
         if result.is_ok() {
             let stats = pool.get_stats();
             assert_eq!(stats.total_clients, 1);
-            
+
             // クリーンアップ
             pool.shutdown_all();
         }
     }
-    
+
     #[test]
     fn test_performance_benchmarks() {
         let collector = LspMetricsCollector::new();
         let mut predictor = TimeoutPredictor::new();
-        
+
         // 様々な操作をシミュレート
         let operations = vec![
             ("initialize", 100, true),
@@ -527,11 +523,11 @@ mod integration_tests {
             ("definition", 25, true),
             ("references", 35, false), // 失敗ケース
         ];
-        
+
         for (op_name, duration_ms, success) in operations {
             let duration = Duration::from_millis(duration_ms);
             collector.record_operation_complete(op_name, duration, success);
-            
+
             // 適応的タイムアウトの学習
             if let Some(op) = match op_name {
                 "initialize" => Some(LspOperation::Initialize),
@@ -542,7 +538,7 @@ mod integration_tests {
                 predictor.record_operation(op, 10_000, 500, duration, success);
             }
         }
-        
+
         let summary = collector.get_summary();
         assert_eq!(summary.total_requests, 5);
         assert!(summary.error_rate > 0.0); // 1つ失敗があるため

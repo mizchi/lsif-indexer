@@ -1,12 +1,12 @@
 //! Fuzzy search functionality
 
-use lsif_core::{CodeGraph, Symbol, SymbolKind};
+use anyhow::Result;
 use dashmap::DashMap;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
+use lsif_core::{CodeGraph, Symbol, SymbolKind};
 use std::collections::HashSet;
 use std::sync::Arc;
-use anyhow::Result;
 
 /// Match type for fuzzy search results
 #[derive(Debug, Clone, PartialEq)]
@@ -60,7 +60,7 @@ impl FuzzySearcher {
             word_index: Arc::new(DashMap::new()),
             matcher: SkimMatcherV2::default(),
         };
-        
+
         searcher.build_indices();
         searcher
     }
@@ -76,17 +76,17 @@ impl FuzzySearcher {
     pub fn add_symbol(&self, symbol: Symbol) {
         let id = symbol.id.clone();
         let name = symbol.name.clone();
-        
+
         // Store symbol
         self.symbols.insert(id.clone(), symbol);
-        
+
         // Name index (case-insensitive)
         let name_lower = name.to_lowercase();
         self.name_index
             .entry(name_lower.clone())
             .or_default()
             .insert(id.clone());
-        
+
         // N-gram indices
         for bigram in Self::generate_ngrams(&name_lower, 2) {
             self.bigram_index
@@ -94,14 +94,14 @@ impl FuzzySearcher {
                 .or_default()
                 .insert(id.clone());
         }
-        
+
         for trigram in Self::generate_ngrams(&name_lower, 3) {
             self.trigram_index
                 .entry(trigram)
                 .or_default()
                 .insert(id.clone());
         }
-        
+
         // Prefix index
         for i in 1..=5.min(name_lower.len()) {
             let prefix = name_lower[..i].to_string();
@@ -110,7 +110,7 @@ impl FuzzySearcher {
                 .or_default()
                 .insert(id.clone());
         }
-        
+
         // CamelCase word index
         for word in Self::split_camel_case(&name) {
             self.word_index
@@ -124,7 +124,7 @@ impl FuzzySearcher {
     pub fn search(&self, query: &str, limit: Option<usize>) -> Result<Vec<FuzzyMatch>> {
         let mut results = Vec::new();
         let query_lower = query.to_lowercase();
-        
+
         // 1. Exact match
         if let Some(exact_matches) = self.name_index.get(&query_lower) {
             for id in exact_matches.iter() {
@@ -138,7 +138,7 @@ impl FuzzySearcher {
                 }
             }
         }
-        
+
         // 2. Prefix match
         if let Some(prefix_matches) = self.prefix_index.get(&query_lower) {
             for id in prefix_matches.iter() {
@@ -154,13 +154,13 @@ impl FuzzySearcher {
                 }
             }
         }
-        
+
         // 3. CamelCase match
         let query_words: Vec<String> = Self::split_camel_case(query)
             .into_iter()
             .map(|s| s.to_lowercase())
             .collect();
-        
+
         let mut camel_candidates = HashSet::new();
         for word in &query_words {
             if let Some(word_matches) = self.word_index.get(word) {
@@ -169,7 +169,7 @@ impl FuzzySearcher {
                 }
             }
         }
-        
+
         for id in camel_candidates {
             if let Some(symbol) = self.symbols.get(&id) {
                 if !results.iter().any(|r| r.symbol.id == id) {
@@ -177,7 +177,7 @@ impl FuzzySearcher {
                         .into_iter()
                         .map(|s| s.to_lowercase())
                         .collect();
-                    
+
                     if query_words.iter().all(|w| symbol_words.contains(w)) {
                         results.push(FuzzyMatch {
                             symbol: symbol.clone(),
@@ -189,15 +189,16 @@ impl FuzzySearcher {
                 }
             }
         }
-        
+
         // 4. Fuzzy match using fuzzy_matcher
         if results.len() < limit.unwrap_or(50) {
             for entry in self.symbols.iter() {
                 let id = entry.key();
                 let symbol = entry.value();
-                
+
                 if !results.iter().any(|r| r.symbol.id == *id) {
-                    if let Some((score, indices)) = self.matcher.fuzzy_indices(&symbol.name, query) {
+                    if let Some((score, indices)) = self.matcher.fuzzy_indices(&symbol.name, query)
+                    {
                         if score > 30 {
                             results.push(FuzzyMatch {
                                 symbol: symbol.clone(),
@@ -208,7 +209,7 @@ impl FuzzySearcher {
                         }
                     }
                 }
-                
+
                 if let Some(limit) = limit {
                     if results.len() >= limit * 2 {
                         break;
@@ -216,15 +217,15 @@ impl FuzzySearcher {
                 }
             }
         }
-        
+
         // Sort by score
         results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
-        
+
         // Apply limit
         if let Some(limit) = limit {
             results.truncate(limit);
         }
-        
+
         Ok(results)
     }
 
@@ -240,11 +241,11 @@ impl FuzzySearcher {
             .into_iter()
             .filter(|m| m.symbol.kind == kind)
             .collect();
-        
+
         if let Some(limit) = limit {
             filtered.truncate(limit);
         }
-        
+
         Ok(filtered)
     }
 
@@ -253,15 +254,15 @@ impl FuzzySearcher {
         if text.len() < n {
             return vec![];
         }
-        
+
         let chars: Vec<char> = text.chars().collect();
         let mut ngrams = Vec::new();
-        
+
         for i in 0..=chars.len() - n {
             let ngram: String = chars[i..i + n].iter().collect();
             ngrams.push(ngram);
         }
-        
+
         ngrams
     }
 
@@ -270,7 +271,7 @@ impl FuzzySearcher {
         let mut words = Vec::new();
         let mut current = String::new();
         let mut prev_upper = false;
-        
+
         for ch in text.chars() {
             if ch.is_uppercase() {
                 if !current.is_empty() && !prev_upper {
@@ -283,16 +284,16 @@ impl FuzzySearcher {
             }
             current.push(ch);
         }
-        
+
         if !current.is_empty() {
             words.push(current);
         }
-        
+
         // Also include the full text as a word
         if words.len() > 1 {
             words.push(text.to_string());
         }
-        
+
         words
     }
 
@@ -301,27 +302,24 @@ impl FuzzySearcher {
         let len1 = s1.chars().count();
         let len2 = s2.chars().count();
         let mut matrix = vec![vec![0; len2 + 1]; len1 + 1];
-        
+
         for i in 0..=len1 {
             matrix[i][0] = i;
         }
         for j in 0..=len2 {
             matrix[0][j] = j;
         }
-        
+
         for (i, c1) in s1.chars().enumerate() {
             for (j, c2) in s2.chars().enumerate() {
                 let cost = if c1 == c2 { 0 } else { 1 };
                 matrix[i + 1][j + 1] = std::cmp::min(
-                    std::cmp::min(
-                        matrix[i][j + 1] + 1,
-                        matrix[i + 1][j] + 1,
-                    ),
+                    std::cmp::min(matrix[i][j + 1] + 1, matrix[i + 1][j] + 1),
                     matrix[i][j] + cost,
                 );
             }
         }
-        
+
         matrix[len1][len2]
     }
 }

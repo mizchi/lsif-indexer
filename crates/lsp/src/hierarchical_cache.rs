@@ -36,11 +36,11 @@ pub struct CacheConfig {
 impl Default for CacheConfig {
     fn default() -> Self {
         Self {
-            l1_ttl: Duration::from_millis(100),      // パフォーマンス分析に基づく
-            l2_ttl: Duration::from_secs(1),          // パフォーマンス分析に基づく
-            l3_ttl: None,                            // 永続化
+            l1_ttl: Duration::from_millis(100), // パフォーマンス分析に基づく
+            l2_ttl: Duration::from_secs(1),     // パフォーマンス分析に基づく
+            l3_ttl: None,                       // 永続化
             l1_max_entries: 1000,
-            l2_max_size_bytes: 100 * 1024 * 1024,    // 100MB
+            l2_max_size_bytes: 100 * 1024 * 1024, // 100MB
         }
     }
 }
@@ -62,22 +62,38 @@ impl CacheMetrics {
         match level {
             CacheLevel::L1 => {
                 let total = self.l1_hits + self.l1_misses;
-                if total == 0 { 0.0 } else { self.l1_hits as f64 / total as f64 }
+                if total == 0 {
+                    0.0
+                } else {
+                    self.l1_hits as f64 / total as f64
+                }
             }
             CacheLevel::L2 => {
                 let total = self.l2_hits + self.l2_misses;
-                if total == 0 { 0.0 } else { self.l2_hits as f64 / total as f64 }
+                if total == 0 {
+                    0.0
+                } else {
+                    self.l2_hits as f64 / total as f64
+                }
             }
             CacheLevel::L3 => {
                 let total = self.l3_hits + self.l3_misses;
-                if total == 0 { 0.0 } else { self.l3_hits as f64 / total as f64 }
+                if total == 0 {
+                    0.0
+                } else {
+                    self.l3_hits as f64 / total as f64
+                }
             }
         }
     }
 
     pub fn overall_hit_rate(&self) -> f64 {
         let hits = self.l1_hits + self.l2_hits + self.l3_hits;
-        if self.total_requests == 0 { 0.0 } else { hits as f64 / self.total_requests as f64 }
+        if self.total_requests == 0 {
+            0.0
+        } else {
+            hits as f64 / self.total_requests as f64
+        }
     }
 }
 
@@ -112,9 +128,9 @@ struct L3PersistentDb {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct CachedEntry<T> {
     data: T,
-    timestamp_ms: u64,  // UNIXタイムスタンプミリ秒
+    timestamp_ms: u64, // UNIXタイムスタンプミリ秒
     #[serde(skip)]
-    instant: Option<Instant>,  // 内部用
+    instant: Option<Instant>, // 内部用
     access_count: u32,
 }
 
@@ -132,9 +148,7 @@ impl<T> CachedEntry<T> {
     }
 
     fn is_expired(&self, ttl: Duration) -> bool {
-        self.instant
-            .map(|i| i.elapsed() > ttl)
-            .unwrap_or(true)
+        self.instant.map(|i| i.elapsed() > ttl).unwrap_or(true)
     }
 
     fn touch(&mut self) {
@@ -177,25 +191,24 @@ impl HierarchicalCache {
         symbols: DocumentSymbolResponse,
     ) -> Result<()> {
         let mut l1 = self.l1_memory.write().unwrap();
-        
+
         // LRU実装: 最大エントリ数を超えたら最も古いものを削除
         if l1.document_symbols.len() >= l1.max_entries {
-            let oldest = l1.document_symbols
+            let oldest = l1
+                .document_symbols
                 .iter()
                 .min_by_key(|(_, entry)| entry.timestamp_ms)
                 .map(|(path, _)| path.clone());
-            
+
             if let Some(path) = oldest {
                 l1.document_symbols.remove(&path);
                 debug!("Evicted oldest document symbol cache for: {:?}", path);
             }
         }
 
-        l1.document_symbols.insert(
-            file_path.to_path_buf(),
-            CachedEntry::new(symbols),
-        );
-        
+        l1.document_symbols
+            .insert(file_path.to_path_buf(), CachedEntry::new(symbols));
+
         debug!("Cached document symbols for: {:?}", file_path);
         Ok(())
     }
@@ -206,7 +219,7 @@ impl HierarchicalCache {
         metrics.total_requests += 1;
 
         let mut l1 = self.l1_memory.write().unwrap();
-        
+
         if let Some(entry) = l1.document_symbols.get_mut(file_path) {
             if !entry.is_expired(self.config.l1_ttl) {
                 entry.touch();
@@ -230,17 +243,18 @@ impl HierarchicalCache {
         symbols: Vec<WorkspaceSymbol>,
     ) -> Result<()> {
         let mut l2 = self.l2_disk.write().unwrap();
-        
+
         // サイズチェック（簡易的な推定）
         let estimated_size = symbols.len() * std::mem::size_of::<WorkspaceSymbol>();
-        
+
         // サイズ制限を超える場合は最も古いエントリを削除
         while l2.current_size_bytes + estimated_size > l2.max_size_bytes {
-            let oldest = l2.workspace_symbols
+            let oldest = l2
+                .workspace_symbols
                 .iter()
                 .min_by_key(|(_, entry)| entry.timestamp_ms)
                 .map(|(query, _)| query.clone());
-            
+
             if let Some(query) = oldest {
                 l2.workspace_symbols.remove(&query);
                 l2.current_size_bytes = l2.current_size_bytes.saturating_sub(estimated_size);
@@ -250,10 +264,8 @@ impl HierarchicalCache {
             }
         }
 
-        l2.workspace_symbols.insert(
-            query.to_string(),
-            CachedEntry::new(symbols),
-        );
+        l2.workspace_symbols
+            .insert(query.to_string(), CachedEntry::new(symbols));
         l2.current_size_bytes += estimated_size;
 
         // ディスクに非同期で書き込み（実装簡略化のため省略）
@@ -264,9 +276,9 @@ impl HierarchicalCache {
     /// workspace/symbol結果を取得（L2）
     pub fn get_workspace_symbols(&self, query: &str) -> Option<Vec<WorkspaceSymbol>> {
         let mut metrics = self.metrics.write().unwrap();
-        
+
         let mut l2 = self.l2_disk.write().unwrap();
-        
+
         if let Some(entry) = l2.workspace_symbols.get_mut(query) {
             if !entry.is_expired(self.config.l2_ttl) {
                 entry.touch();
@@ -291,10 +303,8 @@ impl HierarchicalCache {
         definitions: Vec<Location>,
     ) -> Result<()> {
         let mut l3 = self.l3_db.write().unwrap();
-        l3.definitions.insert(
-            (file_path.to_path_buf(), line, column),
-            definitions,
-        );
+        l3.definitions
+            .insert((file_path.to_path_buf(), line, column), definitions);
 
         // 永続化（実装簡略化のため省略）
         debug!("Cached definitions for {:?}:{}:{}", file_path, line, column);
@@ -309,12 +319,15 @@ impl HierarchicalCache {
         column: u32,
     ) -> Option<Vec<Location>> {
         let mut metrics = self.metrics.write().unwrap();
-        
+
         let l3 = self.l3_db.read().unwrap();
-        
+
         if let Some(definitions) = l3.definitions.get(&(file_path.to_path_buf(), line, column)) {
             metrics.l3_hits += 1;
-            debug!("L3 cache hit for definitions: {:?}:{}:{}", file_path, line, column);
+            debug!(
+                "L3 cache hit for definitions: {:?}:{}:{}",
+                file_path, line, column
+            );
             return Some(definitions.clone());
         }
 
@@ -331,10 +344,8 @@ impl HierarchicalCache {
         references: Vec<Location>,
     ) -> Result<()> {
         let mut l3 = self.l3_db.write().unwrap();
-        l3.references.insert(
-            (file_path.to_path_buf(), line, column),
-            references,
-        );
+        l3.references
+            .insert((file_path.to_path_buf(), line, column), references);
 
         debug!("Cached references for {:?}:{}:{}", file_path, line, column);
         Ok(())
@@ -348,7 +359,9 @@ impl HierarchicalCache {
         column: u32,
     ) -> Option<Vec<Location>> {
         let l3 = self.l3_db.read().unwrap();
-        l3.references.get(&(file_path.to_path_buf(), line, column)).cloned()
+        l3.references
+            .get(&(file_path.to_path_buf(), line, column))
+            .cloned()
     }
 
     /// キャッシュをクリア
@@ -407,16 +420,28 @@ impl HierarchicalCache {
         let metrics = self.get_metrics();
         println!("\n=== Cache Statistics ===");
         println!("Total requests: {}", metrics.total_requests);
-        println!("Overall hit rate: {:.2}%", metrics.overall_hit_rate() * 100.0);
-        println!("L1 hit rate: {:.2}% (hits: {}, misses: {})",
-                 metrics.hit_rate(CacheLevel::L1) * 100.0,
-                 metrics.l1_hits, metrics.l1_misses);
-        println!("L2 hit rate: {:.2}% (hits: {}, misses: {})",
-                 metrics.hit_rate(CacheLevel::L2) * 100.0,
-                 metrics.l2_hits, metrics.l2_misses);
-        println!("L3 hit rate: {:.2}% (hits: {}, misses: {})",
-                 metrics.hit_rate(CacheLevel::L3) * 100.0,
-                 metrics.l3_hits, metrics.l3_misses);
+        println!(
+            "Overall hit rate: {:.2}%",
+            metrics.overall_hit_rate() * 100.0
+        );
+        println!(
+            "L1 hit rate: {:.2}% (hits: {}, misses: {})",
+            metrics.hit_rate(CacheLevel::L1) * 100.0,
+            metrics.l1_hits,
+            metrics.l1_misses
+        );
+        println!(
+            "L2 hit rate: {:.2}% (hits: {}, misses: {})",
+            metrics.hit_rate(CacheLevel::L2) * 100.0,
+            metrics.l2_hits,
+            metrics.l2_misses
+        );
+        println!(
+            "L3 hit rate: {:.2}% (hits: {}, misses: {})",
+            metrics.hit_rate(CacheLevel::L3) * 100.0,
+            metrics.l3_hits,
+            metrics.l3_misses
+        );
     }
 }
 
@@ -428,23 +453,23 @@ mod tests {
     #[test]
     fn test_l1_cache() {
         let cache = HierarchicalCache::new(CacheConfig::default()).unwrap();
-        
+
         let file_path = PathBuf::from("test.rs");
-        let symbols = DocumentSymbolResponse::Nested(vec![
-            DocumentSymbol {
-                name: "test_function".to_string(),
-                kind: SymbolKind::FUNCTION,
-                range: Default::default(),
-                selection_range: Default::default(),
-                detail: None,
-                tags: None,
-                deprecated: None,
-                children: None,
-            }
-        ]);
+        let symbols = DocumentSymbolResponse::Nested(vec![DocumentSymbol {
+            name: "test_function".to_string(),
+            kind: SymbolKind::FUNCTION,
+            range: Default::default(),
+            selection_range: Default::default(),
+            detail: None,
+            tags: None,
+            deprecated: None,
+            children: None,
+        }]);
 
         // キャッシュに保存
-        cache.cache_document_symbols(&file_path, symbols.clone()).unwrap();
+        cache
+            .cache_document_symbols(&file_path, symbols.clone())
+            .unwrap();
 
         // キャッシュから取得
         let cached = cache.get_document_symbols(&file_path);
@@ -460,13 +485,13 @@ mod tests {
     fn test_cache_expiration() {
         let mut config = CacheConfig::default();
         config.l1_ttl = Duration::from_millis(10);
-        
+
         let cache = HierarchicalCache::new(config).unwrap();
         let file_path = PathBuf::from("test.rs");
         let symbols = DocumentSymbolResponse::Nested(vec![]);
 
         cache.cache_document_symbols(&file_path, symbols).unwrap();
-        
+
         // TTL内は取得可能
         assert!(cache.get_document_symbols(&file_path).is_some());
 
@@ -479,9 +504,11 @@ mod tests {
     fn test_cache_invalidation() {
         let cache = HierarchicalCache::new(CacheConfig::default()).unwrap();
         let file_path = PathBuf::from("test.rs");
-        
+
         // 各レベルにデータを追加
-        cache.cache_document_symbols(&file_path, DocumentSymbolResponse::Nested(vec![])).unwrap();
+        cache
+            .cache_document_symbols(&file_path, DocumentSymbolResponse::Nested(vec![]))
+            .unwrap();
         cache.cache_workspace_symbols("test", vec![]).unwrap();
         cache.cache_definitions(&file_path, 10, 5, vec![]).unwrap();
 
@@ -491,7 +518,7 @@ mod tests {
         // L1とL3は削除される
         assert!(cache.get_document_symbols(&file_path).is_none());
         assert!(cache.get_definitions(&file_path, 10, 5).is_none());
-        
+
         // L2も削除される（ワークスペース全体に影響するため）
         assert!(cache.get_workspace_symbols("test").is_none());
     }

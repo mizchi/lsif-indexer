@@ -6,18 +6,18 @@
 pub mod adaptive_parallel;
 pub mod batch_graph_updater;
 pub mod call_hierarchy_cmd;
-pub mod differential_indexer;
+pub mod cli;
+pub mod commands;
 pub mod definition_crawler;
+pub mod differential_indexer;
 pub mod indexer;
+pub mod lsp_unified_cli;
+pub mod output_format;
 pub mod parallel_processor;
 pub mod reference_finder;
-pub mod cli;
-pub mod lsp_unified_cli;
-pub mod commands;
 pub mod symbol_extraction_strategy;
-pub mod workspace_symbol_strategy;
-pub mod output_format;
 pub mod type_search;
+pub mod workspace_symbol_strategy;
 
 // Storage layer
 pub mod storage;
@@ -29,8 +29,8 @@ pub mod generic_helpers;
 pub mod git_diff;
 
 // Re-exports
-pub use differential_indexer::{DifferentialIndexer, DifferentialIndexResult, SymbolSummary};
-pub use indexer::Indexer;
 pub use cli::Cli;
+pub use differential_indexer::{DifferentialIndexResult, DifferentialIndexer, SymbolSummary};
+pub use indexer::Indexer;
 pub use storage::IndexStorage;
 // test comment

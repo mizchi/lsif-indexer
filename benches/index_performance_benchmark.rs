@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 // use lsif_core::parallel_optimized::{OptimizedParallelGraph, OptimizedParallelIndex};
-use lsif_core::{CodeGraph, IncrementalIndex, Position, Range, Symbol, SymbolKind};
 use lsif_core::incremental::FileUpdate;
+use lsif_core::{CodeGraph, IncrementalIndex, Position, Range, Symbol, SymbolKind};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;

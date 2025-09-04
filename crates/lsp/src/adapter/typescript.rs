@@ -1,5 +1,5 @@
 use super::common::spawn_lsp_server;
-use super::language::{LanguageAdapter, DefinitionPattern, PatternType};
+use super::language::{DefinitionPattern, LanguageAdapter, PatternType};
 use anyhow::Result;
 
 /// TypeScript/JavaScript言語のアダプタ実装
@@ -145,19 +145,26 @@ impl LanguageAdapter for TypeScriptAdapter {
 
     fn is_definition_context(&self, line: &str, position: usize) -> bool {
         let before = &line[..position.min(line.len())];
-        before.contains("function ") || before.contains("class ") ||
-        before.contains("const ") || before.contains("let ") || before.contains("var ") ||
-        before.contains("async function ") ||
-        (!self.js_only && (before.contains("interface ") || before.contains("type ") || before.contains("enum ")))
+        before.contains("function ")
+            || before.contains("class ")
+            || before.contains("const ")
+            || before.contains("let ")
+            || before.contains("var ")
+            || before.contains("async function ")
+            || (!self.js_only
+                && (before.contains("interface ")
+                    || before.contains("type ")
+                    || before.contains("enum ")))
     }
 
     fn is_in_string_or_comment(&self, line: &str, position: usize) -> bool {
         let before = &line[..position.min(line.len())];
         // 簡易的な判定
-        before.contains("//") || before.contains("/*") ||
-        before.chars().filter(|&c| c == '"').count() % 2 == 1 ||
-        before.chars().filter(|&c| c == '\'').count() % 2 == 1 ||
-        before.chars().filter(|&c| c == '`').count() % 2 == 1
+        before.contains("//")
+            || before.contains("/*")
+            || before.chars().filter(|&c| c == '"').count() % 2 == 1
+            || before.chars().filter(|&c| c == '\'').count() % 2 == 1
+            || before.chars().filter(|&c| c == '`').count() % 2 == 1
     }
 }
 
@@ -249,11 +256,11 @@ mod tests {
         let adapter = TypeScriptAdapter::new();
         let patterns = adapter.definition_patterns();
         assert!(!patterns.is_empty());
-        
+
         // function定義パターンをチェック
         let has_function = patterns.iter().any(|p| p.keywords == vec!["function"]);
         assert!(has_function);
-        
+
         // TypeScript固有のinterfaceパターンをチェック
         let has_interface = patterns.iter().any(|p| p.keywords == vec!["interface"]);
         assert!(has_interface);
@@ -263,11 +270,11 @@ mod tests {
     fn test_js_only_patterns() {
         let adapter = TypeScriptAdapter::javascript_only();
         let patterns = adapter.definition_patterns();
-        
+
         // JavaScript用なのでinterfaceは含まれない
         let has_interface = patterns.iter().any(|p| p.keywords == vec!["interface"]);
         assert!(!has_interface);
-        
+
         // しかしfunctionは含まれる
         let has_function = patterns.iter().any(|p| p.keywords == vec!["function"]);
         assert!(has_function);

@@ -1,7 +1,7 @@
-use lsp::adapter::go::GoAdapter;
-use lsp::lsp_minimal_client::MinimalLspClient;
 use cli::python_adapter::PythonAdapter;
 use cli::typescript_adapter::TypeScriptAdapter;
+use lsp::adapter::go::GoAdapter;
+use lsp::lsp_minimal_client::MinimalLspClient;
 use std::path::PathBuf;
 use std::time::Instant;
 

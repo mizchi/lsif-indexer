@@ -1,7 +1,7 @@
+use super::language::{DefinitionPattern, LanguageAdapter, PatternType};
 use super::lsp::LspAdapter;
-use super::language::{LanguageAdapter, DefinitionPattern, PatternType};
 use anyhow::Result;
-use std::process::{Command, Child, Stdio};
+use std::process::{Child, Command, Stdio};
 
 /// Go言語のアダプタ実装
 /// goplsを使用してGo言語のコードを解析
@@ -21,9 +21,9 @@ impl LspAdapter for GoAdapter {
     fn language_id(&self) -> &str {
         "go"
     }
-    
+
     fn supports_workspace_symbol(&self) -> bool {
-        true  // goplsはworkspace/symbolをサポート
+        true // goplsはworkspace/symbolをサポート
     }
 }
 
@@ -77,15 +77,18 @@ impl LanguageAdapter for GoAdapter {
 
     fn is_definition_context(&self, line: &str, position: usize) -> bool {
         let before = &line[..position.min(line.len())];
-        before.contains("func ") || before.contains("type ") || 
-        before.contains("var ") || before.contains("const ")
+        before.contains("func ")
+            || before.contains("type ")
+            || before.contains("var ")
+            || before.contains("const ")
     }
 
     fn is_in_string_or_comment(&self, line: &str, position: usize) -> bool {
         let before = &line[..position.min(line.len())];
-        before.contains("//") || before.contains("/*") || 
-        before.chars().filter(|&c| c == '"').count() % 2 == 1 ||
-        before.chars().filter(|&c| c == '`').count() % 2 == 1
+        before.contains("//")
+            || before.contains("/*")
+            || before.chars().filter(|&c| c == '"').count() % 2 == 1
+            || before.chars().filter(|&c| c == '`').count() % 2 == 1
     }
 }
 
@@ -119,7 +122,7 @@ mod tests {
         let adapter = GoAdapter;
         assert_eq!(LspAdapter::language_id(&adapter), "go");
         assert!(adapter.supports_workspace_symbol());
-        
+
         // LanguageAdapter も確認
         assert_eq!(LanguageAdapter::language_id(&adapter), "go");
         assert_eq!(adapter.supported_extensions(), vec!["go"]);

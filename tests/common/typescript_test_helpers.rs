@@ -1,9 +1,9 @@
-use lsif_core::SymbolKind;
-use tempfile::TempDir;
-use std::path::PathBuf;
-use std::fs;
 use anyhow::Result;
 use cli::reference_finder::find_all_references;
+use lsif_core::SymbolKind;
+use std::fs;
+use std::path::PathBuf;
+use tempfile::TempDir;
 
 /// テスト用のTypeScriptプロジェクトを作成
 fn create_typescript_test_project(temp_dir: &TempDir) -> PathBuf {
@@ -215,7 +215,7 @@ impl TypeScriptReferenceTest {
             project_root,
         }
     }
-    
+
     /// シンボルの参照をテスト
     pub fn test_symbol_references(
         &self,
@@ -225,17 +225,24 @@ impl TypeScriptReferenceTest {
         min_usages: usize,
         file_expectations: Vec<(&str, usize)>,
     ) -> Result<()> {
-        println!("🔍 Testing TypeScript {} references for '{}'...", 
-                 format!("{:?}", symbol_kind).to_lowercase(), symbol_name);
-        
+        println!(
+            "🔍 Testing TypeScript {} references for '{}'...",
+            format!("{:?}", symbol_kind).to_lowercase(),
+            symbol_name
+        );
+
         // 参照を検索
         let references = find_all_references(&self.project_root, symbol_name, symbol_kind)?;
-        println!("Found {} references for '{}'", references.len(), symbol_name);
-        
+        println!(
+            "Found {} references for '{}'",
+            references.len(),
+            symbol_name
+        );
+
         // 参照を分類
         let definitions: Vec<_> = references.iter().filter(|r| r.is_definition).collect();
         let usages: Vec<_> = references.iter().filter(|r| !r.is_definition).collect();
-        
+
         // 期待される結果を検証
         assert_eq!(
             definitions.len(),
@@ -245,7 +252,7 @@ impl TypeScriptReferenceTest {
             format!("{:?}", symbol_kind).to_lowercase(),
             symbol_name
         );
-        
+
         assert!(
             usages.len() >= min_usages,
             "Expected at least {} usages of {} '{}', got {}",
@@ -254,14 +261,14 @@ impl TypeScriptReferenceTest {
             symbol_name,
             usages.len()
         );
-        
+
         // 各ファイルでの使用を確認
         for (file_suffix, expected_count) in file_expectations {
             let file_refs: Vec<_> = references
                 .iter()
                 .filter(|r| r.symbol.file_path.ends_with(file_suffix))
                 .collect();
-            
+
             assert!(
                 file_refs.len() >= expected_count,
                 "Expected at least {} references in {}, got {}",
@@ -270,12 +277,14 @@ impl TypeScriptReferenceTest {
                 file_refs.len()
             );
         }
-        
-        println!("✅ {} references test passed", 
-                 format!("{:?}", symbol_kind).to_lowercase());
+
+        println!(
+            "✅ {} references test passed",
+            format!("{:?}", symbol_kind).to_lowercase()
+        );
         Ok(())
     }
-    
+
     /// 複数のシンボルをテスト
     pub fn test_multiple_symbols(&self, tests: Vec<SymbolTest>) -> Result<()> {
         for test in tests {
@@ -315,7 +324,7 @@ impl SymbolTest {
             file_expectations: vec![],
         }
     }
-    
+
     pub fn with_file_expectation(mut self, file: &'static str, count: usize) -> Self {
         self.file_expectations.push((file, count));
         self

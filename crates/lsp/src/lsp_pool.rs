@@ -1,11 +1,14 @@
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, atomic::{AtomicUsize, Ordering}};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc, Mutex,
+};
 use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
 
-use crate::adapter::lsp::{get_language_id, GenericLspClient, detect_language};
+use crate::adapter::lsp::{detect_language, get_language_id, GenericLspClient};
 
 type LanguageId = String;
 
@@ -74,11 +77,11 @@ pub struct PoolConfig {
 impl Default for PoolConfig {
     fn default() -> Self {
         Self {
-            max_instances_per_language: 4,              // パフォーマンス分析に基づく推奨値
-            max_idle_time: Duration::from_secs(300),    // 5分
-            init_timeout: Duration::from_secs(5),       // 初回: 5秒
-            request_timeout: Duration::from_secs(2),    // 通常: 2秒
-            max_retries: 1,                             // リトライ1回のみ（高速化）
+            max_instances_per_language: 4, // パフォーマンス分析に基づく推奨値
+            max_idle_time: Duration::from_secs(300), // 5分
+            init_timeout: Duration::from_secs(5), // 初回: 5秒
+            request_timeout: Duration::from_secs(2), // 通常: 2秒
+            max_retries: 1,                // リトライ1回のみ（高速化）
         }
     }
 }
@@ -97,29 +100,40 @@ impl LspClientPool {
     pub fn with_defaults() -> Self {
         Self::new(PoolConfig::default())
     }
-    
+
     /// 言語のCapabilities情報を取得
     pub fn get_capabilities_for_language(&self, language_id: &str) -> Option<CapabilitiesSummary> {
         let clients = self.clients.lock().unwrap();
-        clients.get(language_id)
+        clients
+            .get(language_id)
             .and_then(|instances| instances.first())
             .map(|pooled| pooled.capabilities_summary.clone())
     }
-    
+
     /// Capabilityがサポートされているかチェック（プールされたクライアントから）
     pub fn has_capability_for_language(&self, language_id: &str, capability: &str) -> bool {
         let clients = self.clients.lock().unwrap();
         if let Some(instances) = clients.get(language_id) {
             if let Some(pooled) = instances.first() {
                 match capability {
-                    "textDocument/documentSymbol" => pooled.capabilities_summary.supports_document_symbol,
+                    "textDocument/documentSymbol" => {
+                        pooled.capabilities_summary.supports_document_symbol
+                    }
                     "textDocument/definition" => pooled.capabilities_summary.supports_definition,
                     "textDocument/references" => pooled.capabilities_summary.supports_references,
-                    "textDocument/typeDefinition" => pooled.capabilities_summary.supports_type_definition,
-                    "textDocument/implementation" => pooled.capabilities_summary.supports_implementation,
+                    "textDocument/typeDefinition" => {
+                        pooled.capabilities_summary.supports_type_definition
+                    }
+                    "textDocument/implementation" => {
+                        pooled.capabilities_summary.supports_implementation
+                    }
                     "workspace/symbol" => pooled.capabilities_summary.supports_workspace_symbol,
-                    "textDocument/prepareCallHierarchy" => pooled.capabilities_summary.supports_call_hierarchy,
-                    "textDocument/semanticTokens" => pooled.capabilities_summary.supports_semantic_tokens,
+                    "textDocument/prepareCallHierarchy" => {
+                        pooled.capabilities_summary.supports_call_hierarchy
+                    }
+                    "textDocument/semanticTokens" => {
+                        pooled.capabilities_summary.supports_semantic_tokens
+                    }
                     _ => false,
                 }
             } else {
@@ -143,19 +157,19 @@ impl LspClientPool {
         // 既存のクライアントをチェック（ラウンドロビン方式で負荷分散）
         {
             let mut clients = self.clients.lock().unwrap();
-            
+
             if let Some(instances) = clients.get_mut(&language_id) {
                 // 同じプロジェクトルートで最も使用されていないインスタンスを選択
                 let mut best_instance = None;
                 let mut min_ref_count = usize::MAX;
-                
+
                 for (idx, pooled) in instances.iter_mut().enumerate() {
                     if pooled.project_root == project_root && pooled.ref_count < min_ref_count {
                         min_ref_count = pooled.ref_count;
                         best_instance = Some(idx);
                     }
                 }
-                
+
                 if let Some(idx) = best_instance {
                     let pooled = &mut instances[idx];
                     pooled.last_used = Instant::now();
@@ -173,27 +187,31 @@ impl LspClientPool {
         {
             let mut clients = self.clients.lock().unwrap();
             let instances = clients.entry(language_id.clone()).or_default();
-            
+
             // 最大インスタンス数を超えている場合は最も古いアイドルインスタンスを削除
             if instances.len() >= self.config.max_instances_per_language {
                 // ref_countが0で最も古いインスタンスを探す
                 let mut oldest_idle_idx = None;
                 let mut oldest_time = Instant::now();
-                
+
                 for (idx, pooled) in instances.iter().enumerate() {
                     if pooled.ref_count == 0 && pooled.last_used < oldest_time {
                         oldest_time = pooled.last_used;
                         oldest_idle_idx = Some(idx);
                     }
                 }
-                
+
                 if let Some(idx) = oldest_idle_idx {
-                    info!("Removing idle LSP instance for {} (instance: {})", 
-                          language_id, instances[idx].instance_id);
+                    info!(
+                        "Removing idle LSP instance for {} (instance: {})",
+                        language_id, instances[idx].instance_id
+                    );
                     instances.remove(idx);
                 } else {
-                    warn!("All {} instances for {} are in use, cannot create new instance",
-                          self.config.max_instances_per_language, language_id);
+                    warn!(
+                        "All {} instances for {} are in use, cannot create new instance",
+                        self.config.max_instances_per_language, language_id
+                    );
                     // 最初のインスタンスを返す（負荷分散のため）
                     if let Some(pooled) = instances.first_mut() {
                         pooled.ref_count += 1;
@@ -202,10 +220,10 @@ impl LspClientPool {
                 }
             }
         }
-        
+
         info!("Creating new LSP client for {}", language_id);
         let new_client = self.create_client_with_retry(&language_id, project_root)?;
-        
+
         // Capabilitiesのサマリーを作成
         let capabilities_summary = CapabilitiesSummary {
             supports_document_symbol: new_client.has_capability("textDocument/documentSymbol"),
@@ -217,16 +235,19 @@ impl LspClientPool {
             supports_call_hierarchy: new_client.has_capability("textDocument/prepareCallHierarchy"),
             supports_semantic_tokens: new_client.has_capability("textDocument/semanticTokens"),
         };
-        
-        debug!("LSP client capabilities for {}: {:?}", language_id, capabilities_summary);
-        
+
+        debug!(
+            "LSP client capabilities for {}: {:?}",
+            language_id, capabilities_summary
+        );
+
         // プールに追加
         let client_arc = Arc::new(Mutex::new(new_client));
         {
             let mut clients = self.clients.lock().unwrap();
             let instances = clients.entry(language_id.clone()).or_default();
             let instance_id = instances.len();
-            
+
             instances.push(PooledClient {
                 client: Arc::clone(&client_arc),
                 last_used: Instant::now(),
@@ -235,9 +256,13 @@ impl LspClientPool {
                 capabilities_summary,
                 instance_id,
             });
-            
-            info!("Created LSP instance {} for {} (total instances: {})",
-                  instance_id, language_id, instances.len());
+
+            info!(
+                "Created LSP instance {} for {} (total instances: {})",
+                instance_id,
+                language_id,
+                instances.len()
+            );
         }
 
         // 作成したクライアントを返す
@@ -251,10 +276,13 @@ impl LspClientPool {
         project_root: &Path,
     ) -> Result<GenericLspClient> {
         let mut last_error = None;
-        
+
         for attempt in 1..=self.config.max_retries {
-            debug!("Attempting to create LSP client (attempt {}/{})", attempt, self.config.max_retries);
-            
+            debug!(
+                "Attempting to create LSP client (attempt {}/{})",
+                attempt, self.config.max_retries
+            );
+
             match self.create_client_internal(language_id, project_root) {
                 Ok(client) => {
                     info!("Successfully created LSP client on attempt {}", attempt);
@@ -263,15 +291,16 @@ impl LspClientPool {
                 Err(e) => {
                     warn!("Failed to create LSP client on attempt {}: {}", attempt, e);
                     last_error = Some(e);
-                    
+
                     if attempt < self.config.max_retries {
                         // さらに短縮された指数バックオフ（5ms, 10ms, 20ms...）
-                        std::thread::sleep(Duration::from_millis(5 * (2_u64.pow(attempt as u32))));  // 50ms -> 5ms
+                        std::thread::sleep(Duration::from_millis(5 * (2_u64.pow(attempt as u32))));
+                        // 50ms -> 5ms
                     }
                 }
             }
         }
-        
+
         Err(last_error.unwrap_or_else(|| anyhow::anyhow!("Failed to create LSP client")))
     }
 
@@ -290,34 +319,41 @@ impl LspClientPool {
             "go" => detect_language("file.go"),
             "java" => detect_language("file.java"),
             _ => None,
-        }.ok_or_else(|| anyhow::anyhow!("Unsupported language: {}", language_id))?;
+        }
+        .ok_or_else(|| anyhow::anyhow!("Unsupported language: {}", language_id))?;
 
         // LSPサーバーを起動（初期化なし）
         let mut client = GenericLspClient::new_uninit(adapter)
             .with_context(|| format!("Failed to create {} LSP client", language_id))?;
-        
+
         // プロジェクトルートを指定して初期化
         let init_start = Instant::now();
-        client.initialize(project_root, Some(self.config.init_timeout))
+        client
+            .initialize(project_root, Some(self.config.init_timeout))
             .with_context(|| format!("Failed to initialize {} LSP client", language_id))?;
-        
+
         let init_duration = init_start.elapsed();
-        info!("LSP client for {} initialized in {:?}", language_id, init_duration);
-        
+        info!(
+            "LSP client for {} initialized in {:?}",
+            language_id, init_duration
+        );
+
         Ok(client)
     }
 
     /// クライアントを解放
     pub fn release_client(&self, language_id: &str) {
         let mut clients = self.clients.lock().unwrap();
-        
+
         if let Some(instances) = clients.get_mut(language_id) {
             // 最初のref_count > 0のインスタンスを探す
             for pooled in instances.iter_mut() {
                 if pooled.ref_count > 0 {
                     pooled.ref_count -= 1;
-                    debug!("Released LSP client for {} (instance: {}, ref_count: {})", 
-                           language_id, pooled.instance_id, pooled.ref_count);
+                    debug!(
+                        "Released LSP client for {} (instance: {}, ref_count: {})",
+                        language_id, pooled.instance_id, pooled.ref_count
+                    );
                     break;
                 }
             }
@@ -328,21 +364,23 @@ impl LspClientPool {
     pub fn cleanup_idle_clients(&self) {
         let mut clients = self.clients.lock().unwrap();
         let now = Instant::now();
-        
+
         for (language_id, instances) in clients.iter_mut() {
             instances.retain(|pooled| {
                 let idle_time = now - pooled.last_used;
                 let should_keep = pooled.ref_count > 0 || idle_time < self.config.max_idle_time;
-                
+
                 if !should_keep {
-                    info!("Cleaning up idle LSP instance for {} (instance: {})", 
-                          language_id, pooled.instance_id);
+                    info!(
+                        "Cleaning up idle LSP instance for {} (instance: {})",
+                        language_id, pooled.instance_id
+                    );
                 }
-                
+
                 should_keep
             });
         }
-        
+
         // 空になった言語エントリを削除
         clients.retain(|_, instances| !instances.is_empty());
     }
@@ -350,11 +388,11 @@ impl LspClientPool {
     /// すべてのクライアントをシャットダウン
     pub fn shutdown_all(&self) {
         let mut clients = self.clients.lock().unwrap();
-        
+
         for language_id in clients.keys().cloned().collect::<Vec<_>>() {
             info!("Shutting down LSP client for {}", language_id);
         }
-        
+
         // クライアントをクリア（デストラクタがシャットダウンを処理）
         clients.clear();
     }
@@ -362,27 +400,27 @@ impl LspClientPool {
     /// 統計情報を取得
     pub fn get_stats(&self) -> PoolStats {
         let clients = self.clients.lock().unwrap();
-        
+
         let mut total = 0;
         let mut active = 0;
-        
+
         for instances in clients.values() {
             total += instances.len();
             active += instances.iter().filter(|p| p.ref_count > 0).count();
         }
-        
+
         PoolStats {
             total_clients: total,
             active_clients: active,
             languages: clients.keys().cloned().collect(),
         }
     }
-    
+
     /// プロジェクト内の全言語のLSPクライアントを事前起動（ウォームアップ）
     pub fn warm_up(&self, project_root: &Path, languages: &[&str]) -> Result<()> {
         info!("Warming up LSP clients for {} languages", languages.len());
         let start = Instant::now();
-        
+
         for language_id in languages {
             match self.get_or_create_client_for_language(language_id, project_root) {
                 Ok(_) => {
@@ -394,11 +432,14 @@ impl LspClientPool {
                 }
             }
         }
-        
-        info!("LSP warm-up completed in {:.2}s", start.elapsed().as_secs_f64());
+
+        info!(
+            "LSP warm-up completed in {:.2}s",
+            start.elapsed().as_secs_f64()
+        );
         Ok(())
     }
-    
+
     /// 特定言語のクライアントを取得または作成（ファイルパスなし）
     pub fn get_or_create_client_for_language(
         &self,
@@ -408,7 +449,7 @@ impl LspClientPool {
         // 既存のクライアントをチェック
         {
             let mut clients = self.clients.lock().unwrap();
-            
+
             if let Some(pooled_vec) = clients.get_mut(language_id) {
                 // プロジェクトルートが同じクライアントを探す
                 for pooled in pooled_vec.iter_mut() {
@@ -428,7 +469,7 @@ impl LspClientPool {
         // 新しいクライアントを作成
         info!("Creating new LSP client for {}", language_id);
         let new_client = self.create_client_with_retry(language_id, project_root)?;
-        
+
         // Capabilitiesのサマリーを作成
         let capabilities_summary = CapabilitiesSummary {
             supports_document_symbol: new_client.has_capability("textDocument/documentSymbol"),
@@ -440,15 +481,18 @@ impl LspClientPool {
             supports_call_hierarchy: new_client.has_capability("textDocument/prepareCallHierarchy"),
             supports_semantic_tokens: new_client.has_capability("textDocument/semanticTokens"),
         };
-        
-        debug!("LSP client capabilities for {}: {:?}", language_id, capabilities_summary);
-        
+
+        debug!(
+            "LSP client capabilities for {}: {:?}",
+            language_id, capabilities_summary
+        );
+
         // プールに追加
         let client_arc = Arc::new(Mutex::new(new_client));
         {
             let mut clients = self.clients.lock().unwrap();
             let instance_id = self.next_instance_id.fetch_add(1, Ordering::SeqCst);
-            
+
             let pooled_client = PooledClient {
                 client: Arc::clone(&client_arc),
                 last_used: Instant::now(),
@@ -457,9 +501,10 @@ impl LspClientPool {
                 capabilities_summary,
                 instance_id,
             };
-            
+
             // Vec<PooledClient>を取得または作成
-            clients.entry(language_id.to_string())
+            clients
+                .entry(language_id.to_string())
                 .or_default()
                 .push(pooled_client);
         }
@@ -485,15 +530,11 @@ pub struct ScopedClient<'a> {
 }
 
 impl<'a> ScopedClient<'a> {
-    pub fn new(
-        pool: &'a LspClientPool,
-        file_path: &Path,
-        project_root: &Path,
-    ) -> Result<Self> {
-        let language_id = get_language_id(file_path)
-            .ok_or_else(|| anyhow::anyhow!("Unsupported file type"))?;
+    pub fn new(pool: &'a LspClientPool, file_path: &Path, project_root: &Path) -> Result<Self> {
+        let language_id =
+            get_language_id(file_path).ok_or_else(|| anyhow::anyhow!("Unsupported file type"))?;
         let client = pool.get_or_create_client(file_path, project_root)?;
-        
+
         Ok(Self {
             pool,
             language_id,
@@ -515,8 +556,8 @@ impl<'a> Drop for ScopedClient<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::fs;
+    use tempfile::TempDir;
 
     #[test]
     fn test_pool_creation() {
@@ -535,7 +576,7 @@ mod tests {
             request_timeout: Duration::from_secs(2),
             max_retries: 5,
         };
-        
+
         let pool = LspClientPool::new(config.clone());
         assert_eq!(pool.config.max_retries, 5);
         assert_eq!(pool.config.init_timeout, Duration::from_secs(10));
@@ -546,9 +587,9 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let test_file = temp_dir.path().join("test.rs");
         fs::write(&test_file, "fn main() {}").unwrap();
-        
+
         let pool = LspClientPool::with_defaults();
-        
+
         {
             // ScopedClientのスコープ
             let _client = ScopedClient::new(&pool, &test_file, temp_dir.path());
@@ -556,7 +597,7 @@ mod tests {
             // 注: 実際のLSPサーバーが起動できない環境では0になる
             assert!(stats.total_clients <= 1);
         }
-        
+
         // スコープ外でref_countが減る
         pool.cleanup_idle_clients();
     }

@@ -1,18 +1,18 @@
 //! LSIF Search Engine
-//! 
+//!
 //! This crate provides the search and query engine for indexed code.
 //! It includes basic search functionality and language-specific adapters.
 
-pub mod search;
-pub mod query;
-pub mod fuzzy;
 pub mod adapters;
+pub mod fuzzy;
+pub mod query;
+pub mod search;
 
 // Re-export main types
-pub use search::{SearchEngine, SearchOptions, SearchResult};
-pub use query::{QueryEngine, QueryPattern, QueryResult};
-pub use fuzzy::{FuzzySearcher, FuzzyMatch, MatchType};
 pub use adapters::{AdapterRegistry, LanguageAdapter};
+pub use fuzzy::{FuzzyMatch, FuzzySearcher, MatchType};
+pub use query::{QueryEngine, QueryPattern, QueryResult};
+pub use search::{SearchEngine, SearchOptions, SearchResult};
 
 use lsif_core::CodeGraph;
 

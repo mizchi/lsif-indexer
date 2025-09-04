@@ -4,10 +4,8 @@ use lsif_core::parallel::{
     ParallelIncrementalIndex,
 };
 // use lsif_core::parallel_optimized::{OptimizedDeadCodeDetector, OptimizedParallelGraph};
-use lsif_core::{
-    CodeGraph, EdgeKind, IncrementalIndex, Position, Range, Symbol, SymbolKind,
-};
 use lsif_core::incremental::UpdateResult;
+use lsif_core::{CodeGraph, EdgeKind, IncrementalIndex, Position, Range, Symbol, SymbolKind};
 use std::collections::HashMap;
 use std::path::PathBuf;
 

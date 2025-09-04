@@ -1,9 +1,9 @@
 use anyhow::Result;
+use cli::storage::IndexStorage;
+use core::CodeGraph;
 use lsp::adapter::lsp::{RustAnalyzerAdapter, TypeScriptAdapter};
 use lsp::lsp_client::LspClient;
 use lsp::lsp_indexer::LspIndexer;
-use cli::storage::IndexStorage;
-use core::CodeGraph;
 use lsp_types::*;
 use std::fs;
 use std::path::PathBuf;

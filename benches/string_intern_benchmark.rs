@@ -1,8 +1,8 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, BatchSize};
-use lsif_core::{CodeGraph, Symbol, SymbolKind, Position, Range};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use lsif_core::interned_graph::InternedGraph;
 use lsif_core::optimized_graph::OptimizedCodeGraph;
 use lsif_core::string_interner::StringInterner;
+use lsif_core::{CodeGraph, Position, Range, Symbol, SymbolKind};
 
 /// テスト用のSymbolを生成（重複する文字列を含む）
 fn create_test_symbol_with_duplicates(id: usize) -> Symbol {
@@ -88,33 +88,28 @@ fn benchmark_graph_with_interning(c: &mut Criterion) {
             |b, &size| {
                 b.iter(|| {
                     let mut graph = CodeGraph::new();
-                    
+
                     for i in 0..size {
                         graph.add_symbol(create_test_symbol_with_duplicates(i));
                     }
-                    
+
                     black_box(graph.symbol_count())
                 })
             },
         );
 
         // メモリプールを使用したOptimizedCodeGraph
-        group.bench_with_input(
-            BenchmarkId::new("pooled_graph", size),
-            size,
-            |b, &size| {
-                b.iter(|| {
-                    let graph = OptimizedCodeGraph::with_pool_size(size);
-                    
-                    let symbols: Vec<Symbol> = (0..size)
-                        .map(create_test_symbol_with_duplicates)
-                        .collect();
-                    graph.add_symbols_batch(symbols);
-                    
-                    black_box(graph.symbol_count())
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("pooled_graph", size), size, |b, &size| {
+            b.iter(|| {
+                let graph = OptimizedCodeGraph::with_pool_size(size);
+
+                let symbols: Vec<Symbol> =
+                    (0..size).map(create_test_symbol_with_duplicates).collect();
+                graph.add_symbols_batch(symbols);
+
+                black_box(graph.symbol_count())
+            })
+        });
 
         // インターン化されたInternedGraph
         group.bench_with_input(
@@ -123,12 +118,11 @@ fn benchmark_graph_with_interning(c: &mut Criterion) {
             |b, &size| {
                 b.iter(|| {
                     let graph = InternedGraph::new();
-                    
-                    let symbols: Vec<Symbol> = (0..size)
-                        .map(create_test_symbol_with_duplicates)
-                        .collect();
+
+                    let symbols: Vec<Symbol> =
+                        (0..size).map(create_test_symbol_with_duplicates).collect();
                     graph.add_symbols_batch(symbols);
-                    
+
                     black_box(graph.symbol_count())
                 })
             },
@@ -141,9 +135,9 @@ fn benchmark_graph_with_interning(c: &mut Criterion) {
 /// メモリ使用量のベンチマーク
 fn benchmark_memory_usage(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory_usage");
-    
+
     let size = 10000;
-    
+
     // 標準グラフのメモリ使用量を推定
     group.bench_function("standard_memory", |b| {
         b.iter(|| {
@@ -151,13 +145,15 @@ fn benchmark_memory_usage(c: &mut Criterion) {
             for i in 0..size {
                 graph.add_symbol(create_test_symbol_with_duplicates(i));
             }
-            
+
             // メモリ使用量の推定
-            let memory = size * (
-                std::mem::size_of::<Symbol>() +
+            let memory = size
+                * (
+                    std::mem::size_of::<Symbol>() +
                 50 + // 平均的な文字列サイズ
-                20  // ハッシュマップのオーバーヘッド
-            );
+                20
+                    // ハッシュマップのオーバーヘッド
+                );
             black_box(memory)
         })
     });
@@ -166,11 +162,11 @@ fn benchmark_memory_usage(c: &mut Criterion) {
     group.bench_function("interned_memory", |b| {
         b.iter(|| {
             let graph = InternedGraph::new();
-            
+
             for i in 0..size {
                 graph.add_symbol(create_test_symbol_with_duplicates(i));
             }
-            
+
             let memory = graph.estimated_memory_usage();
             black_box(memory)
         })
@@ -182,9 +178,9 @@ fn benchmark_memory_usage(c: &mut Criterion) {
 /// 検索パフォーマンスのベンチマーク
 fn benchmark_search_performance(c: &mut Criterion) {
     let mut group = c.benchmark_group("search_performance");
-    
+
     let size = 5000;
-    
+
     // 標準グラフを準備
     let standard_graph = {
         let mut graph = CodeGraph::new();
@@ -200,7 +196,7 @@ fn benchmark_search_performance(c: &mut Criterion) {
         for i in 0..size {
             graph.add_symbol(create_test_symbol_with_duplicates(i));
         }
-        
+
         // エッジを追加
         for i in 0..size / 10 {
             graph.add_edge(
@@ -245,18 +241,18 @@ fn benchmark_realistic_project(c: &mut Criterion) {
 
     // 大規模プロジェクト（1000ファイル、各50シンボル）
     let total_symbols = 50000;
-    
+
     group.bench_function("large_project_standard", |b| {
         b.iter(|| {
             let mut graph = CodeGraph::new();
-            
+
             for file_idx in 0..1000 {
                 for sym_idx in 0..50 {
                     let id = file_idx * 50 + sym_idx;
                     graph.add_symbol(create_test_symbol_with_duplicates(id));
                 }
             }
-            
+
             black_box(graph.symbol_count())
         })
     });
@@ -264,12 +260,12 @@ fn benchmark_realistic_project(c: &mut Criterion) {
     group.bench_function("large_project_interned", |b| {
         b.iter(|| {
             let graph = InternedGraph::new();
-            
+
             let symbols: Vec<Symbol> = (0..total_symbols)
                 .map(create_test_symbol_with_duplicates)
                 .collect();
             graph.add_symbols_batch(symbols);
-            
+
             // 統計情報を取得
             let stats = graph.interner_stats();
             black_box((graph.symbol_count(), stats.cache_hits))

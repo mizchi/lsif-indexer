@@ -1,7 +1,7 @@
 use crate::storage::IndexStorage;
-use lsif_core::{CodeGraph};
-use lsif_core::call_hierarchy::{format_hierarchy, CallHierarchyAnalyzer};
 use anyhow::Result;
+use lsif_core::call_hierarchy::{format_hierarchy, CallHierarchyAnalyzer};
+use lsif_core::CodeGraph;
 
 pub fn show_call_hierarchy(
     index_path: &str,

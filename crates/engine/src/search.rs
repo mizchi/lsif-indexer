@@ -1,7 +1,7 @@
 //! Basic search functionality
 
-use lsif_core::{CodeGraph, Symbol, SymbolKind, Position};
 use anyhow::Result;
+use lsif_core::{CodeGraph, Position, Symbol, SymbolKind};
 
 /// Search options
 #[derive(Debug, Clone, Default)]
@@ -44,7 +44,7 @@ impl SearchEngine {
         options: SearchOptions,
     ) -> Result<Vec<SearchResult>> {
         let mut results = Vec::new();
-        
+
         for symbol in self.graph.get_all_symbols() {
             if self.matches_name(&symbol.name, name, options.case_sensitive) {
                 if let Some(ref filter) = options.file_filter {
@@ -52,23 +52,23 @@ impl SearchEngine {
                         continue;
                     }
                 }
-                
+
                 if let Some(ref kind) = options.kind_filter {
                     if symbol.kind != *kind {
                         continue;
                     }
                 }
-                
+
                 if !options.include_private && self.is_private_symbol(symbol) {
                     continue;
                 }
-                
+
                 results.push(SearchResult {
                     symbol: symbol.clone(),
                     relevance: self.calculate_relevance(&symbol.name, name),
                     context: None,
                 });
-                
+
                 if let Some(limit) = options.limit {
                     if results.len() >= limit {
                         break;
@@ -76,10 +76,10 @@ impl SearchEngine {
                 }
             }
         }
-        
+
         // Sort by relevance
         results.sort_by(|a, b| b.relevance.partial_cmp(&a.relevance).unwrap());
-        
+
         Ok(results)
     }
 
@@ -91,36 +91,32 @@ impl SearchEngine {
     ) -> Result<Vec<SearchResult>> {
         let references = self.graph.find_references(symbol_id)?;
         let mut results = Vec::new();
-        
+
         for reference in references {
             if let Some(ref filter) = options.file_filter {
                 if !reference.file_path.contains(filter) {
                     continue;
                 }
             }
-            
+
             results.push(SearchResult {
                 symbol: reference.clone(),
                 relevance: 1.0,
                 context: None,
             });
-            
+
             if let Some(limit) = options.limit {
                 if results.len() >= limit {
                     break;
                 }
             }
         }
-        
+
         Ok(results)
     }
 
     /// Find symbols at a specific position
-    pub fn find_at_position(
-        &self,
-        file_path: &str,
-        position: Position,
-    ) -> Result<Option<Symbol>> {
+    pub fn find_at_position(&self, file_path: &str, position: Position) -> Result<Option<Symbol>> {
         self.graph.find_symbol_at_position(file_path, position)
     }
 
@@ -137,7 +133,7 @@ impl SearchEngine {
     ) -> Result<Vec<SearchResult>> {
         let regex = regex::Regex::new(pattern)?;
         let mut results = Vec::new();
-        
+
         for symbol in self.graph.get_all_symbols() {
             if regex.is_match(&symbol.name) {
                 if let Some(ref filter) = options.file_filter {
@@ -145,19 +141,19 @@ impl SearchEngine {
                         continue;
                     }
                 }
-                
+
                 if let Some(ref kind) = options.kind_filter {
                     if symbol.kind != *kind {
                         continue;
                     }
                 }
-                
+
                 results.push(SearchResult {
                     symbol: symbol.clone(),
                     relevance: 1.0,
                     context: None,
                 });
-                
+
                 if let Some(limit) = options.limit {
                     if results.len() >= limit {
                         break;
@@ -165,7 +161,7 @@ impl SearchEngine {
                 }
             }
         }
-        
+
         Ok(results)
     }
 
@@ -173,7 +169,9 @@ impl SearchEngine {
         if case_sensitive {
             symbol_name.contains(search_name)
         } else {
-            symbol_name.to_lowercase().contains(&search_name.to_lowercase())
+            symbol_name
+                .to_lowercase()
+                .contains(&search_name.to_lowercase())
         }
     }
 

@@ -22,26 +22,26 @@ impl BatchGraphUpdater {
             files_to_clear: Vec::new(),
         }
     }
-    
+
     /// 追加するシンボルを蓄積
     pub fn queue_symbol_addition(&mut self, symbol: Symbol) {
         self.symbols_to_add.push(symbol);
     }
-    
+
     /// 削除するシンボルを蓄積
     pub fn queue_symbol_removal(&mut self, symbol_id: String) {
         self.symbols_to_remove.push(symbol_id);
     }
-    
+
     /// ファイル内の全シンボルを削除するようマーク
     pub fn queue_file_clear(&mut self, file_path: String) {
         self.files_to_clear.push(file_path);
     }
-    
+
     /// 蓄積した変更をグラフに一括適用
     pub fn apply_to_graph(&self, graph: &mut CodeGraph) {
         let start = std::time::Instant::now();
-        
+
         // まず削除を実行
         if !self.files_to_clear.is_empty() {
             info!("Clearing symbols from {} files", self.files_to_clear.len());
@@ -51,38 +51,44 @@ impl BatchGraphUpdater {
                     .filter(|s| s.file_path == *file_path)
                     .map(|s| s.id.clone())
                     .collect();
-                
+
                 for symbol_id in symbols_to_remove {
                     graph.remove_symbol(&symbol_id);
                 }
             }
         }
-        
+
         if !self.symbols_to_remove.is_empty() {
-            info!("Removing {} individual symbols", self.symbols_to_remove.len());
+            info!(
+                "Removing {} individual symbols",
+                self.symbols_to_remove.len()
+            );
             for symbol_id in &self.symbols_to_remove {
                 graph.remove_symbol(symbol_id);
             }
         }
-        
+
         // 次に追加を実行（バッチで）
         if !self.symbols_to_add.is_empty() {
             info!("Adding {} symbols in batch", self.symbols_to_add.len());
-            
+
             // バッチサイズを調整（メモリ使用量とパフォーマンスのバランス）
             const BATCH_SIZE: usize = 100;
-            
+
             for chunk in self.symbols_to_add.chunks(BATCH_SIZE) {
                 for symbol in chunk {
                     graph.add_symbol(symbol.clone());
                 }
             }
         }
-        
+
         let elapsed = start.elapsed();
-        info!("Batch graph update completed in {:.3}s", elapsed.as_secs_f64());
+        info!(
+            "Batch graph update completed in {:.3}s",
+            elapsed.as_secs_f64()
+        );
     }
-    
+
     /// 統計情報を取得
     pub fn stats(&self) -> BatchUpdateStats {
         BatchUpdateStats {

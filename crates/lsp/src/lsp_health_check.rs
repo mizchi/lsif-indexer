@@ -55,7 +55,7 @@ impl LspHealthChecker {
             operation_times: Vec::new(),
             warmup_times: Vec::new(),
             operation_type_times: HashMap::new(),
-            warmup_requests: 5,  // 初期化後の最初の5リクエストはウォームアップ期間
+            warmup_requests: 5, // 初期化後の最初の5リクエストはウォームアップ期間
             request_count: 0,
             max_history: 100,
         }
@@ -64,16 +64,12 @@ impl LspHealthChecker {
     /// プロセスが正常に起動しているかチェック
     pub fn check_process_alive(child: &mut Child) -> Result<()> {
         match child.try_wait() {
-            Ok(Some(status)) => {
-                Err(anyhow!("LSP process exited with status: {:?}", status))
-            }
+            Ok(Some(status)) => Err(anyhow!("LSP process exited with status: {:?}", status)),
             Ok(None) => {
                 debug!("LSP process is running");
                 Ok(())
             }
-            Err(e) => {
-                Err(anyhow!("Failed to check LSP process status: {}", e))
-            }
+            Err(e) => Err(anyhow!("Failed to check LSP process status: {}", e)),
         }
     }
 
@@ -83,26 +79,26 @@ impl LspHealthChecker {
         stdout: &mut BufReader<impl BufRead>,
     ) -> Result<Duration> {
         let start = Instant::now();
-        
+
         // シンプルなテストメッセージを送信
         let test_message = r#"{"jsonrpc":"2.0","id":0,"method":"$/test"}"#;
         let content_length = test_message.len();
-        
+
         writeln!(stdin, "Content-Length: {}\r", content_length)?;
         writeln!(stdin, "\r")?;
         stdin.write_all(test_message.as_bytes())?;
         stdin.flush()?;
-        
+
         // レスポンスを待つ（タイムアウト付き）
         let timeout = Duration::from_secs(5);
         let mut waited = Duration::ZERO;
-        
+
         loop {
             if waited >= timeout {
                 warn!("Handshake timeout after {:?}", timeout);
                 break;
             }
-            
+
             // ヘッダーを読む
             let mut line = String::new();
             match stdout.read_line(&mut line) {
@@ -126,7 +122,7 @@ impl LspHealthChecker {
                 }
             }
         }
-        
+
         // タイムアウトしたが、プロセスは生きている
         Ok(timeout)
     }
@@ -141,29 +137,37 @@ impl LspHealthChecker {
     pub fn record_response_time(&mut self, duration: Duration) {
         self.record_response_time_for_operation(duration, LspOperationType::Other);
     }
-    
+
     /// 操作種別を指定してレスポンス時間を記録
-    pub fn record_response_time_for_operation(&mut self, duration: Duration, op_type: LspOperationType) {
+    pub fn record_response_time_for_operation(
+        &mut self,
+        duration: Duration,
+        op_type: LspOperationType,
+    ) {
         self.request_count += 1;
-        
+
         // ウォームアップ期間中
         if self.request_count <= self.warmup_requests {
             self.warmup_times.push(duration);
-            debug!("Warmup request #{} ({:?}): {:?}", self.request_count, op_type, duration);
+            debug!(
+                "Warmup request #{} ({:?}): {:?}",
+                self.request_count, op_type, duration
+            );
         } else {
             // 通常操作
             self.operation_times.push(duration);
             if self.operation_times.len() > self.max_history {
                 self.operation_times.remove(0);
             }
-            
+
             // 操作種別ごとの記録
             let type_times = self.operation_type_times.entry(op_type).or_default();
             type_times.push(duration);
-            if type_times.len() > self.max_history / 10 {  // 種別ごとは少なめに保持
+            if type_times.len() > self.max_history / 10 {
+                // 種別ごとは少なめに保持
                 type_times.remove(0);
             }
-            
+
             debug!("Operation {:?}: {:?}", op_type, duration);
         }
     }
@@ -178,11 +182,11 @@ impl LspHealthChecker {
             }
             return None;
         }
-        
+
         let total: Duration = self.operation_times.iter().sum();
         Some(total / self.operation_times.len() as u32)
     }
-    
+
     /// ウォームアップ期間の平均レスポンス時間
     pub fn average_warmup_time(&self) -> Option<Duration> {
         if self.warmup_times.is_empty() {
@@ -197,8 +201,9 @@ impl LspHealthChecker {
         match self.average_response_time() {
             Some(avg) => {
                 let timeout = avg * 3;
-                timeout.max(Duration::from_secs(3))
-                       .min(Duration::from_secs(60))
+                timeout
+                    .max(Duration::from_secs(3))
+                    .min(Duration::from_secs(60))
             }
             None => Duration::from_secs(10), // デフォルト
         }
@@ -208,37 +213,43 @@ impl LspHealthChecker {
     pub fn calculate_init_timeout(&self) -> Duration {
         // 既に初期化時間が記録されている場合はそれを基準に
         if let Some(init_time) = self.init_response_time {
-            let timeout = init_time * 3;  // 初期化時間の3倍
-            return timeout.max(Duration::from_secs(2))
-                         .min(Duration::from_secs(10));
+            let timeout = init_time * 3; // 初期化時間の3倍
+            return timeout
+                .max(Duration::from_secs(2))
+                .min(Duration::from_secs(10));
         }
-        
+
         // デフォルト: 短くしてフォールバックを早くする
         Duration::from_secs(5)
     }
-    
+
     /// ウォームアップ期間用のタイムアウトを計算
     pub fn calculate_warmup_timeout(&self) -> Duration {
         // ウォームアップ期間は初期化時間を基準に
         if let Some(init_time) = self.init_response_time {
             // 初期化時間の2倍（通常操作よりは長め）
             let timeout = init_time * 2;
-            return timeout.max(Duration::from_secs(5))
-                         .min(Duration::from_secs(30));
+            return timeout
+                .max(Duration::from_secs(5))
+                .min(Duration::from_secs(30));
         }
-        
+
         // ウォームアップ時間の平均がある場合
         if let Some(avg_warmup) = self.average_warmup_time() {
             let timeout = avg_warmup * 3;
-            return timeout.max(Duration::from_secs(5))
-                         .min(Duration::from_secs(30));
+            return timeout
+                .max(Duration::from_secs(5))
+                .min(Duration::from_secs(30));
         }
-        
-        Duration::from_secs(10)  // デフォルト
+
+        Duration::from_secs(10) // デフォルト
     }
-    
+
     /// 操作種別ごとの平均レスポンス時間
-    pub fn average_response_time_for_operation(&self, op_type: LspOperationType) -> Option<Duration> {
+    pub fn average_response_time_for_operation(
+        &self,
+        op_type: LspOperationType,
+    ) -> Option<Duration> {
         self.operation_type_times.get(&op_type).and_then(|times| {
             if times.is_empty() {
                 None
@@ -248,48 +259,50 @@ impl LspHealthChecker {
             }
         })
     }
-    
+
     /// 操作種別に応じたタイムアウトを計算
     pub fn calculate_timeout_for_operation(&self, op_type: LspOperationType) -> Duration {
         // 操作種別ごとの履歴がある場合はそれを使用
         if let Some(avg) = self.average_response_time_for_operation(op_type) {
             let multiplier = match op_type {
                 LspOperationType::Initialize => 3,      // 5 -> 3
-                LspOperationType::WorkspaceSymbol => 2,  // 4 -> 2 全体検索は時間がかかる
-                LspOperationType::References => 2,       // 4 -> 2 参照検索も時間がかかる
-                LspOperationType::CallHierarchy => 2,    // 3 -> 2
-                LspOperationType::DocumentSymbol => 2,   // 3 -> 2
-                LspOperationType::TypeDefinition => 2,   // 3 -> 2
-                LspOperationType::Implementation => 2,   // 3 -> 2
-                LspOperationType::Definition => 1,       // 2 -> 1.5 (後で調整)
+                LspOperationType::WorkspaceSymbol => 2, // 4 -> 2 全体検索は時間がかかる
+                LspOperationType::References => 2,      // 4 -> 2 参照検索も時間がかかる
+                LspOperationType::CallHierarchy => 2,   // 3 -> 2
+                LspOperationType::DocumentSymbol => 2,  // 3 -> 2
+                LspOperationType::TypeDefinition => 2,  // 3 -> 2
+                LspOperationType::Implementation => 2,  // 3 -> 2
+                LspOperationType::Definition => 1,      // 2 -> 1.5 (後で調整)
                 LspOperationType::Hover => 1,           // 2 -> 1.5 (後で調整)
-                LspOperationType::Completion => 1,       // 2 -> 1.5 (後で調整)
-                LspOperationType::SignatureHelp => 1,    // 2 -> 1.5 (後で調整)
+                LspOperationType::Completion => 1,      // 2 -> 1.5 (後で調整)
+                LspOperationType::SignatureHelp => 1,   // 2 -> 1.5 (後で調整)
                 LspOperationType::Rename => 2,          // 3 -> 2
                 LspOperationType::Format => 2,          // 3 -> 2
                 LspOperationType::Other => 2,           // 3 -> 2
             };
-            
+
             // multiplierが1の場合は1.5倍にする
             let timeout = if multiplier == 1 {
-                avg * 3 / 2  // 1.5倍
+                avg * 3 / 2 // 1.5倍
             } else {
                 avg * multiplier
             };
-            
+
             // 操作種別ごとの最小・最大値
             let (min, max) = match op_type {
                 LspOperationType::Initialize => (Duration::from_secs(10), Duration::from_secs(120)),
-                LspOperationType::WorkspaceSymbol | LspOperationType::References => 
-                    (Duration::from_secs(5), Duration::from_secs(60)),
-                LspOperationType::CallHierarchy | LspOperationType::DocumentSymbol => 
-                    (Duration::from_secs(3), Duration::from_secs(30)),
+                LspOperationType::WorkspaceSymbol | LspOperationType::References => {
+                    (Duration::from_secs(5), Duration::from_secs(60))
+                }
+                LspOperationType::CallHierarchy | LspOperationType::DocumentSymbol => {
+                    (Duration::from_secs(3), Duration::from_secs(30))
+                }
                 _ => (Duration::from_secs(2), Duration::from_secs(20)),
             };
-            
+
             return timeout.max(min).min(max);
         }
-        
+
         // デフォルト値（操作種別ごと）
         match op_type {
             LspOperationType::Initialize => Duration::from_secs(30),
@@ -308,7 +321,7 @@ impl LspHealthChecker {
             LspOperationType::Other => Duration::from_secs(10),
         }
     }
-    
+
     /// 現在のフェーズに応じた適切なタイムアウトを取得
     pub fn get_current_timeout(&self) -> Duration {
         if self.request_count == 0 {
@@ -322,19 +335,19 @@ impl LspHealthChecker {
             self.calculate_adaptive_timeout()
         }
     }
-    
+
     /// 操作種別とフェーズを考慮したタイムアウトを取得
     pub fn get_timeout_for_operation(&self, op_type: LspOperationType) -> Duration {
         if op_type == LspOperationType::Initialize {
             return self.calculate_init_timeout();
         }
-        
+
         if self.request_count <= self.warmup_requests {
             // ウォームアップ期間は少し長めに
             let base = self.calculate_timeout_for_operation(op_type);
-            return base * 5 / 4;  // 1.5倍 -> 1.25倍
+            return base * 5 / 4; // 1.5倍 -> 1.25倍
         }
-        
+
         self.calculate_timeout_for_operation(op_type)
     }
 
@@ -394,28 +407,24 @@ impl LspStartupValidator {
     }
 
     /// LSPサーバーの起動を段階的に確認
-    pub fn validate_startup(
-        &self,
-        child: &mut Child,
-        language: &str,
-    ) -> Result<StartupStatus> {
+    pub fn validate_startup(&self, child: &mut Child, language: &str) -> Result<StartupStatus> {
         let start = Instant::now();
-        
+
         // ステップ1: プロセスが生きているか確認
         debug!("Step 1: Checking if {} LSP process is alive", language);
         LspHealthChecker::check_process_alive(child)?;
-        
+
         // ステップ2: stdoutが準備できているか確認（少し待つ）
         debug!("Step 2: Waiting for {} LSP to be ready", language);
         std::thread::sleep(Duration::from_millis(100));
-        
+
         // ステップ3: プロセスがまだ生きているか再確認
         debug!("Step 3: Re-checking {} LSP process health", language);
         LspHealthChecker::check_process_alive(child)?;
-        
+
         let startup_time = start.elapsed();
         info!("{} LSP startup validated in {:?}", language, startup_time);
-        
+
         Ok(StartupStatus {
             startup_time,
             process_alive: true,
@@ -426,13 +435,13 @@ impl LspStartupValidator {
     pub fn wait_for_startup(&self, language: &str) -> Duration {
         // 言語別の起動待機時間（大幅に削減）
         let wait_time = match language {
-            "rust" => Duration::from_millis(50),  // 500ms -> 50ms
-            "typescript" | "javascript" => Duration::from_millis(30),  // 300ms -> 30ms
-            "python" => Duration::from_millis(20),  // 200ms -> 20ms
-            "go" => Duration::from_millis(20),  // 200ms -> 20ms
-            _ => Duration::from_millis(10),  // 100ms -> 10ms
+            "rust" => Duration::from_millis(50), // 500ms -> 50ms
+            "typescript" | "javascript" => Duration::from_millis(30), // 300ms -> 30ms
+            "python" => Duration::from_millis(20), // 200ms -> 20ms
+            "go" => Duration::from_millis(20),   // 200ms -> 20ms
+            _ => Duration::from_millis(10),      // 100ms -> 10ms
         };
-        
+
         debug!("Waiting {:?} for {} LSP startup", wait_time, language);
         std::thread::sleep(wait_time);
         wait_time
@@ -452,17 +461,17 @@ mod tests {
     #[test]
     fn test_health_checker() {
         let mut checker = LspHealthChecker::new();
-        
+
         // レスポンス時間を記録
         checker.record_response_time(Duration::from_millis(100));
         checker.record_response_time(Duration::from_millis(200));
         checker.record_response_time(Duration::from_millis(150));
-        
+
         // 平均を確認
         let avg = checker.average_response_time().unwrap();
         assert!(avg >= Duration::from_millis(100));
         assert!(avg <= Duration::from_millis(200));
-        
+
         // 適応的タイムアウトを確認
         let timeout = checker.calculate_adaptive_timeout();
         assert!(timeout >= Duration::from_secs(3)); // 最小値
@@ -471,11 +480,11 @@ mod tests {
     #[test]
     fn test_startup_validator() {
         let validator = LspStartupValidator::new();
-        
+
         // 言語別の待機時間を確認（実装の値と一致）
         let rust_wait = validator.wait_for_startup("rust");
         assert_eq!(rust_wait, Duration::from_millis(50));
-        
+
         let ts_wait = validator.wait_for_startup("typescript");
         assert_eq!(ts_wait, Duration::from_millis(30));
     }

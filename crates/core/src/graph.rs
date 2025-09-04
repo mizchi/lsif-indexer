@@ -99,12 +99,12 @@ impl CodeGraph {
         self.symbol_index.insert(id, node_index);
         node_index
     }
-    
+
     /// バルク挿入用：複数のシンボルを効率的に追加
     pub fn add_symbols(&mut self, symbols: Vec<Symbol>) {
         // 事前にインデックスのキャパシティを確保
         self.symbol_index.reserve(symbols.len());
-        
+
         for symbol in symbols {
             let id = symbol.id.clone();
             let node_index = self.graph.add_node(symbol);
@@ -130,7 +130,6 @@ impl CodeGraph {
             .get(id)
             .and_then(|idx| self.graph.node_weight(*idx))
     }
-
 
     pub fn find_definition(&self, reference_id: &str) -> Option<&Symbol> {
         if let Some(&node_idx) = self.symbol_index.get(reference_id) {
@@ -243,15 +242,24 @@ impl CodeGraph {
     }
 
     /// Find symbol at a specific position in a file
-    pub fn find_symbol_at_position(&self, file_path: &str, position: Position) -> anyhow::Result<Option<Symbol>> {
+    pub fn find_symbol_at_position(
+        &self,
+        file_path: &str,
+        position: Position,
+    ) -> anyhow::Result<Option<Symbol>> {
         for symbol in self.get_all_symbols() {
             if symbol.file_path == file_path
-                && position.line >= symbol.range.start.line 
-                && position.line <= symbol.range.end.line {
-                if position.line == symbol.range.start.line && position.character < symbol.range.start.character {
+                && position.line >= symbol.range.start.line
+                && position.line <= symbol.range.end.line
+            {
+                if position.line == symbol.range.start.line
+                    && position.character < symbol.range.start.character
+                {
                     continue;
                 }
-                if position.line == symbol.range.end.line && position.character > symbol.range.end.character {
+                if position.line == symbol.range.end.line
+                    && position.character > symbol.range.end.character
+                {
                     continue;
                 }
                 return Ok(Some(symbol.clone()));
@@ -272,10 +280,17 @@ impl CodeGraph {
     }
 
     /// Get outgoing edges from a symbol
-    pub fn get_outgoing_edges(&self, symbol_id: &str, edge_type: Option<EdgeKind>) -> anyhow::Result<Vec<Symbol>> {
+    pub fn get_outgoing_edges(
+        &self,
+        symbol_id: &str,
+        edge_type: Option<EdgeKind>,
+    ) -> anyhow::Result<Vec<Symbol>> {
         if let Some(&node_idx) = self.symbol_index.get(symbol_id) {
             let mut targets = Vec::new();
-            for edge in self.graph.edges_directed(node_idx, petgraph::Direction::Outgoing) {
+            for edge in self
+                .graph
+                .edges_directed(node_idx, petgraph::Direction::Outgoing)
+            {
                 if edge_type.is_none() || edge_type == Some(*edge.weight()) {
                     if let Some(symbol) = self.graph.node_weight(edge.target()) {
                         targets.push(symbol.clone());
@@ -289,10 +304,17 @@ impl CodeGraph {
     }
 
     /// Get incoming edges to a symbol
-    pub fn get_incoming_edges(&self, symbol_id: &str, edge_type: Option<EdgeKind>) -> anyhow::Result<Vec<Symbol>> {
+    pub fn get_incoming_edges(
+        &self,
+        symbol_id: &str,
+        edge_type: Option<EdgeKind>,
+    ) -> anyhow::Result<Vec<Symbol>> {
         if let Some(&node_idx) = self.symbol_index.get(symbol_id) {
             let mut sources = Vec::new();
-            for edge in self.graph.edges_directed(node_idx, petgraph::Direction::Incoming) {
+            for edge in self
+                .graph
+                .edges_directed(node_idx, petgraph::Direction::Incoming)
+            {
                 if edge_type.is_none() || edge_type == Some(*edge.weight()) {
                     if let Some(symbol) = self.graph.node_weight(edge.source()) {
                         sources.push(symbol.clone());

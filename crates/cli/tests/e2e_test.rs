@@ -1,8 +1,8 @@
+use anyhow::Result;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tempfile::TempDir;
-use anyhow::Result;
 
 /// エンドツーエンドテスト用のヘルパー構造体
 struct E2ETestHelper {
@@ -14,7 +14,7 @@ impl E2ETestHelper {
     /// テストヘルパーを作成
     fn new() -> Result<Self> {
         let temp_dir = TempDir::new()?;
-        
+
         // バイナリパスを取得（デバッグビルドを使用）
         let binary_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .parent()
@@ -59,7 +59,8 @@ name = "test"
 version = "0.1.0"
 edition = "2021"
 "#,
-        ).unwrap();
+        )
+        .unwrap();
 
         // src/main.rs
         fs::write(
@@ -108,7 +109,8 @@ mod tests {
     }
 }
 "#,
-        ).unwrap();
+        )
+        .unwrap();
 
         // src/lib.rs
         fs::write(
@@ -144,7 +146,8 @@ impl Greeter for Person {
     }
 }
 "#,
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     fn create_typescript_project(&self, dir: &Path) {
@@ -158,7 +161,8 @@ impl Greeter for Person {
         "strict": true
     }
 }"#,
-        ).unwrap();
+        )
+        .unwrap();
 
         // index.ts
         fs::write(
@@ -191,7 +195,8 @@ export { Person, Employee, createEmployee };
 const emp = createEmployee("Alice", 30, "Engineering");
 console.log(emp.introduce());
 "#,
-        ).unwrap();
+        )
+        .unwrap();
 
         // utils.ts
         fs::write(
@@ -220,7 +225,8 @@ export class MathUtils {
     }
 }
 "#,
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     fn create_go_project(&self, dir: &Path) {
@@ -231,7 +237,8 @@ export class MathUtils {
 
 go 1.21
 "#,
-        ).unwrap();
+        )
+        .unwrap();
 
         // main.go
         fs::write(
@@ -280,7 +287,8 @@ func Multiply(a, b int) int {
     return a * b
 }
 "#,
-        ).unwrap();
+        )
+        .unwrap();
 
         // utils.go
         fs::write(
@@ -315,7 +323,8 @@ func ToUpper(s string) string {
     return strings.ToUpper(s)
 }
 "#,
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     fn create_python_project(&self, dir: &Path) {
@@ -352,7 +361,8 @@ def main():
 if __name__ == "__main__":
     main()
 "#,
-        ).unwrap();
+        )
+        .unwrap();
 
         // utils.py
         fs::write(
@@ -386,7 +396,8 @@ CONSTANTS = {
     'E': 2.71828,
 }
 "#,
-        ).unwrap();
+        )
+        .unwrap();
 
         // __init__.py
         fs::write(dir.join("__init__.py"), "").unwrap();
@@ -395,15 +406,15 @@ CONSTANTS = {
     /// コマンドを実行
     fn run_command(&self, args: &[&str], cwd: Option<&Path>) -> Result<CommandOutput> {
         let mut cmd = Command::new(&self.binary_path);
-        
+
         if let Some(dir) = cwd {
             cmd.current_dir(dir);
         }
-        
+
         cmd.args(args);
-        
+
         let output = cmd.output()?;
-        
+
         Ok(CommandOutput {
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
@@ -433,17 +444,23 @@ mod tests {
         let output = helper.run_command(
             &[
                 "index-project",
-                "-p", project_dir.to_str().unwrap(),
-                "-o", db_path.to_str().unwrap(),
-                "-l", "rust",
+                "-p",
+                project_dir.to_str().unwrap(),
+                "-o",
+                db_path.to_str().unwrap(),
+                "-l",
+                "rust",
             ],
             None,
         );
 
         if let Ok(output) = output {
-            assert!(output.success || output.stdout.contains("Indexed"), 
-                    "Failed to index: {}", output.stderr);
-            
+            assert!(
+                output.success || output.stdout.contains("Indexed"),
+                "Failed to index: {}",
+                output.stderr
+            );
+
             // データベースファイルが作成されたことを確認
             assert!(db_path.exists() || output.stdout.contains("symbols"));
         }
@@ -458,16 +475,22 @@ mod tests {
         let output = helper.run_command(
             &[
                 "index-project",
-                "-p", project_dir.to_str().unwrap(),
-                "-o", db_path.to_str().unwrap(),
-                "-l", "typescript",
+                "-p",
+                project_dir.to_str().unwrap(),
+                "-o",
+                db_path.to_str().unwrap(),
+                "-l",
+                "typescript",
             ],
             None,
         );
 
         if let Ok(output) = output {
-            assert!(output.success || output.stdout.contains("Indexed"),
-                    "Failed to index TypeScript: {}", output.stderr);
+            assert!(
+                output.success || output.stdout.contains("Indexed"),
+                "Failed to index TypeScript: {}",
+                output.stderr
+            );
         }
     }
 
@@ -480,16 +503,22 @@ mod tests {
         let output = helper.run_command(
             &[
                 "index-project",
-                "-p", project_dir.to_str().unwrap(),
-                "-o", db_path.to_str().unwrap(),
-                "-l", "go",
+                "-p",
+                project_dir.to_str().unwrap(),
+                "-o",
+                db_path.to_str().unwrap(),
+                "-l",
+                "go",
             ],
             None,
         );
 
         if let Ok(output) = output {
-            assert!(output.success || output.stdout.contains("Indexed"),
-                    "Failed to index Go: {}", output.stderr);
+            assert!(
+                output.success || output.stdout.contains("Indexed"),
+                "Failed to index Go: {}",
+                output.stderr
+            );
         }
     }
 
@@ -502,16 +531,22 @@ mod tests {
         let output = helper.run_command(
             &[
                 "index-project",
-                "-p", project_dir.to_str().unwrap(),
-                "-o", db_path.to_str().unwrap(),
-                "-l", "python",
+                "-p",
+                project_dir.to_str().unwrap(),
+                "-o",
+                db_path.to_str().unwrap(),
+                "-l",
+                "python",
             ],
             None,
         );
 
         if let Ok(output) = output {
-            assert!(output.success || output.stdout.contains("Indexed"),
-                    "Failed to index Python: {}", output.stderr);
+            assert!(
+                output.success || output.stdout.contains("Indexed"),
+                "Failed to index Python: {}",
+                output.stderr
+            );
         }
     }
 
@@ -525,9 +560,12 @@ mod tests {
         let _ = helper.run_command(
             &[
                 "index-project",
-                "-p", project_dir.to_str().unwrap(),
-                "-o", db_path.to_str().unwrap(),
-                "-l", "rust",
+                "-p",
+                project_dir.to_str().unwrap(),
+                "-o",
+                db_path.to_str().unwrap(),
+                "-l",
+                "rust",
             ],
             None,
         );
@@ -537,18 +575,23 @@ mod tests {
             let output = helper.run_command(
                 &[
                     "query",
-                    "-i", db_path.to_str().unwrap(),
-                    "--query-type", "symbols",
+                    "-i",
+                    db_path.to_str().unwrap(),
+                    "--query-type",
+                    "symbols",
                 ],
                 None,
             );
 
             if let Ok(output) = output {
                 // シンボルが含まれていることを確認
-                assert!(output.stdout.contains("Calculator") || 
-                        output.stdout.contains("main") ||
-                        output.stdout.contains("Symbol"),
-                        "No symbols found in output: {}", output.stdout);
+                assert!(
+                    output.stdout.contains("Calculator")
+                        || output.stdout.contains("main")
+                        || output.stdout.contains("Symbol"),
+                    "No symbols found in output: {}",
+                    output.stdout
+                );
             }
         }
     }
@@ -563,9 +606,12 @@ mod tests {
         let _ = helper.run_command(
             &[
                 "index-project",
-                "-p", project_dir.to_str().unwrap(),
-                "-o", db_path.to_str().unwrap(),
-                "-l", "rust",
+                "-p",
+                project_dir.to_str().unwrap(),
+                "-o",
+                db_path.to_str().unwrap(),
+                "-l",
+                "rust",
             ],
             None,
         );
@@ -580,20 +626,25 @@ mod tests {
             let output = helper.run_command(
                 &[
                     "differential-index",
-                    "-p", project_dir.to_str().unwrap(),
-                    "-o", db_path.to_str().unwrap(),
+                    "-p",
+                    project_dir.to_str().unwrap(),
+                    "-o",
+                    db_path.to_str().unwrap(),
                 ],
                 None,
             );
 
             if let Ok(output) = output {
                 // 差分インデックスが成功または適切なメッセージが表示されること
-                assert!(output.success || 
-                        output.stdout.contains("Differential") ||
-                        output.stdout.contains("Updated") ||
-                        output.stderr.contains("not a git repository"), // Git未初期化の場合
-                        "Unexpected output: stdout={}, stderr={}", 
-                        output.stdout, output.stderr);
+                assert!(
+                    output.success
+                        || output.stdout.contains("Differential")
+                        || output.stdout.contains("Updated")
+                        || output.stderr.contains("not a git repository"), // Git未初期化の場合
+                    "Unexpected output: stdout={}, stderr={}",
+                    output.stdout,
+                    output.stderr
+                );
             }
         }
     }
@@ -608,30 +659,31 @@ mod tests {
         let _ = helper.run_command(
             &[
                 "index-project",
-                "-p", project_dir.to_str().unwrap(),
-                "-o", db_path.to_str().unwrap(),
-                "-l", "rust",
+                "-p",
+                project_dir.to_str().unwrap(),
+                "-o",
+                db_path.to_str().unwrap(),
+                "-l",
+                "rust",
             ],
             None,
         );
 
         if db_path.exists() {
-            let output = helper.run_command(
-                &[
-                    "show-dead-code",
-                    "-i", db_path.to_str().unwrap(),
-                ],
-                None,
-            );
+            let output =
+                helper.run_command(&["show-dead-code", "-i", db_path.to_str().unwrap()], None);
 
             if let Ok(output) = output {
                 // デッドコード検出が動作すること
                 // （実装によってはメッセージが異なる可能性がある）
-                assert!(output.stdout.contains("Dead") || 
-                        output.stdout.contains("Unused") ||
-                        output.stdout.contains("No dead code") ||
-                        output.stderr.contains("currently being refactored"),
-                        "Unexpected dead code output: {}", output.stdout);
+                assert!(
+                    output.stdout.contains("Dead")
+                        || output.stdout.contains("Unused")
+                        || output.stdout.contains("No dead code")
+                        || output.stderr.contains("currently being refactored"),
+                    "Unexpected dead code output: {}",
+                    output.stdout
+                );
             }
         }
     }

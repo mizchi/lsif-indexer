@@ -1,6 +1,6 @@
+use super::lsp::LspAdapter;
 use anyhow::Result;
 use std::process::{Child, Command, Stdio};
-use super::lsp::LspAdapter;
 
 /// tsgo (TypeScript Native Preview) LSP adapter
 pub struct TsgoAdapter;
@@ -21,7 +21,7 @@ impl LspAdapter for TsgoAdapter {
     }
 
     fn supports_workspace_symbol(&self) -> bool {
-        true  // tsgoはworkspace/symbolをサポート
+        true // tsgoはworkspace/symbolをサポート
     }
 }
 

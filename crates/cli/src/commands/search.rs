@@ -1,8 +1,8 @@
-use anyhow::Result;
-use lsif_core::SymbolKind;
 use super::utils::*;
 use crate::output_format::{OutputFormat, OutputFormatter};
-use crate::type_search::{TypeFilter, AdvancedSearch};
+use crate::type_search::{AdvancedSearch, TypeFilter};
+use anyhow::Result;
+use lsif_core::SymbolKind;
 
 pub fn handle_search(
     db_path: &str,
@@ -18,14 +18,14 @@ pub fn handle_search(
     has_field: Option<String>,
 ) -> Result<()> {
     let formatter = OutputFormatter::new(format);
-    
+
     if format == OutputFormat::Human {
         let mode = if fuzzy { "fuzzy" } else { "exact" };
         print_info(&format!("Searching for '{}' ({})", query, mode), "🔍");
     }
-    
+
     let graph = load_graph(db_path)?;
-    
+
     // Build type filters
     let mut type_filters = Vec::new();
     if let Some(ret) = returns {
@@ -40,7 +40,7 @@ pub fn handle_search(
     if let Some(field) = has_field {
         type_filters.push(TypeFilter::HasField(field));
     }
-    
+
     let results = if !type_filters.is_empty() {
         // Use advanced search with type filters
         let search = AdvancedSearch::new(&graph);
@@ -59,7 +59,7 @@ pub fn handle_search(
         }
         results
     };
-    
+
     if format == OutputFormat::Human {
         display_search_results(&results, max_results);
     } else {
@@ -82,14 +82,14 @@ fn should_include_symbol(
             return false;
         }
     }
-    
+
     // Path filter
     if let Some(ref pattern) = path_pattern {
         if !symbol.file_path.contains(pattern) {
             return false;
         }
     }
-    
+
     // Name matching
     if fuzzy {
         symbol.name.to_lowercase().contains(&query.to_lowercase())

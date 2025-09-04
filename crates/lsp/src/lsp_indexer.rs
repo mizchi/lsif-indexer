@@ -1,5 +1,5 @@
-use lsif_core::{CodeGraph, Position, Range, Symbol, SymbolKind};
 use anyhow::Result;
+use lsif_core::{CodeGraph, Position, Range, Symbol, SymbolKind};
 use lsp_types::DocumentSymbol;
 use tracing::debug;
 

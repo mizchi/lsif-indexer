@@ -1,5 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use cli::storage::{IndexFormat, IndexMetadata, IndexStorage};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use lsif_core::graph::{CodeGraph, Position, Range, Symbol, SymbolKind};
 use tempfile::TempDir;
 

@@ -60,7 +60,7 @@ impl GitDiffDetector {
     /// 前回のインデックス以降の変更ファイルを検出
     pub fn detect_changes_since(&mut self, last_commit: Option<&str>) -> Result<Vec<FileChange>> {
         info!("Detecting changes since commit: {:?}", last_commit);
-        
+
         // Gitリポジトリがない場合、または last_commit が None の場合はハッシュベースの検出を使用
         if self.repo.is_none() || last_commit.is_none() {
             // 全ファイルをコンテンツハッシュで管理
@@ -68,11 +68,11 @@ impl GitDiffDetector {
             info!("Hash-based detection found {} changes", changes.len());
             return Ok(changes);
         }
-        
+
         // Gitベースの変更検出
         let changes = self.detect_git_changes(last_commit)?;
         info!("Git detected {} changes", changes.len());
-        
+
         // 変更が0件の場合は、ハッシュベースの検出も試す
         if changes.is_empty() && !self.hash_cache.is_empty() {
             info!("No Git changes detected, trying hash-based detection");
@@ -80,7 +80,7 @@ impl GitDiffDetector {
             info!("Hash-based detection found {} changes", hash_changes.len());
             return Ok(hash_changes);
         }
-        
+
         Ok(changes)
     }
 
@@ -328,7 +328,7 @@ impl GitDiffDetector {
         }
         Ok(())
     }
-    
+
     /// キャッシュされたハッシュを設定
     pub fn set_cached_hash(&mut self, path: PathBuf, hash: String) {
         self.hash_cache.insert(path, hash);
@@ -412,14 +412,14 @@ mod tests {
         // The current implementation tracks files in hash_cache,
         // so deletion is detected when a cached file no longer exists
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Initialize git repository
         Command::new("git")
             .args(["init"])
             .current_dir(temp_dir.path())
             .output()
             .expect("Failed to initialize git");
-            
+
         let file1 = temp_dir.path().join("file1.rs");
 
         // Create and detect initial file

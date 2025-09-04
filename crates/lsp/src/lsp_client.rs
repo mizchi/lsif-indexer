@@ -488,73 +488,96 @@ impl LspClient {
 // エイリアスメソッド（既存コードとの互換性のため）
 impl LspClient {
     pub fn document_symbols(&mut self, uri: Url) -> Result<Vec<DocumentSymbol>> {
-        let path = uri.to_file_path()
+        let path = uri
+            .to_file_path()
             .map_err(|_| anyhow!("Invalid file URI: {}", uri))?;
         self.get_document_symbols(&path)
     }
-    
+
     pub fn goto_definition(&mut self, uri: Url, position: Position) -> Result<Option<Location>> {
-        let path = uri.to_file_path()
+        let path = uri
+            .to_file_path()
             .map_err(|_| anyhow!("Invalid file URI: {}", uri))?;
         self.go_to_definition(&path, position)
     }
-    
+
     pub fn get_definition(&mut self, path: &Path, position: Position) -> Result<Option<Location>> {
         self.go_to_definition(path, position)
     }
-    
+
     pub fn hover(&mut self, uri: Url, position: Position) -> Result<Option<String>> {
-        let path = uri.to_file_path()
+        let path = uri
+            .to_file_path()
             .map_err(|_| anyhow!("Invalid file URI: {}", uri))?;
         self.get_hover(&path, position)
     }
-    
-    pub fn call_hierarchy_prepare(&mut self, _uri: Url, _position: Position) -> Result<Vec<lsp_types::CallHierarchyItem>> {
+
+    pub fn call_hierarchy_prepare(
+        &mut self,
+        _uri: Url,
+        _position: Position,
+    ) -> Result<Vec<lsp_types::CallHierarchyItem>> {
         // 簡易実装（TODO: 実際のcall hierarchy実装が必要）
         Ok(vec![])
     }
-    
-    pub fn incoming_calls(&mut self, _item: lsp_types::CallHierarchyItem) -> Result<Vec<lsp_types::CallHierarchyIncomingCall>> {
+
+    pub fn incoming_calls(
+        &mut self,
+        _item: lsp_types::CallHierarchyItem,
+    ) -> Result<Vec<lsp_types::CallHierarchyIncomingCall>> {
         // 簡易実装
         Ok(vec![])
     }
-    
-    pub fn outgoing_calls(&mut self, _item: lsp_types::CallHierarchyItem) -> Result<Vec<lsp_types::CallHierarchyOutgoingCall>> {
+
+    pub fn outgoing_calls(
+        &mut self,
+        _item: lsp_types::CallHierarchyItem,
+    ) -> Result<Vec<lsp_types::CallHierarchyOutgoingCall>> {
         // 簡易実装
         Ok(vec![])
     }
-    
-    pub fn completion(&mut self, _uri: Url, _position: Position) -> Result<Vec<lsp_types::CompletionItem>> {
+
+    pub fn completion(
+        &mut self,
+        _uri: Url,
+        _position: Position,
+    ) -> Result<Vec<lsp_types::CompletionItem>> {
         // 簡易実装
         Ok(vec![])
     }
-    
+
     pub fn references(&mut self, uri: Url, position: Position) -> Result<Vec<Location>> {
-        let path = uri.to_file_path()
+        let path = uri
+            .to_file_path()
             .map_err(|_| anyhow!("Invalid file URI: {}", uri))?;
         self.find_references(&path, position)
     }
-    
+
     pub fn get_references(&mut self, path: &Path, position: Position) -> Result<Vec<Location>> {
         self.find_references(path, position)
     }
-    
+
     pub fn diagnostics(&mut self, _uri: Url) -> Result<Vec<lsp_types::Diagnostic>> {
         // 簡易実装
         Ok(vec![])
     }
-    
+
     pub fn implementation(&mut self, _uri: Url, _position: Position) -> Result<Vec<Location>> {
         // 簡易実装
         Ok(vec![])
     }
-    
+
     pub fn type_definition(&mut self, _uri: Url, _position: Position) -> Result<Vec<Location>> {
         // 簡易実装
         Ok(vec![])
     }
-    
-    pub fn rename(&mut self, _uri: Url, _position: Position, _new_name: String) -> Result<lsp_types::WorkspaceEdit> {
+
+    pub fn rename(
+        &mut self,
+        _uri: Url,
+        _position: Position,
+        _new_name: String,
+    ) -> Result<lsp_types::WorkspaceEdit> {
         // 簡易実装
         Ok(lsp_types::WorkspaceEdit::default())
     }

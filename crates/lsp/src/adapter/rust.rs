@@ -15,12 +15,7 @@ impl Default for RustAdapter {
 impl RustAdapter {
     pub fn new() -> Self {
         Self {
-            common: CommonAdapter::new(
-                "rust",
-                "rust-analyzer",
-                vec!["rs"],
-                vec!["//", "/*", "*/"],
-            ),
+            common: CommonAdapter::new("rust", "rust-analyzer", vec!["rs"], vec!["//", "/*", "*/"]),
         }
     }
 
@@ -38,14 +33,14 @@ impl RustAdapter {
     /// Rust固有の参照パターン
     pub fn get_reference_patterns(&self) -> Vec<&str> {
         vec![
-            r"\b{}\s*\(",           // 関数呼び出し
-            r"\b{}::",              // モジュールパス
-            r"::{}\b",              // use文
-            r"\b{}\s*\{{",          // 構造体初期化
-            r"<\s*{}\s*>",          // ジェネリクス
-            r":\s*{}\b",            // 型注釈
+            r"\b{}\s*\(",            // 関数呼び出し
+            r"\b{}::",               // モジュールパス
+            r"::{}\b",               // use文
+            r"\b{}\s*\{{",           // 構造体初期化
+            r"<\s*{}\s*>",           // ジェネリクス
+            r":\s*{}\b",             // 型注釈
             r"impl\s+.*\s+for\s+{}", // trait実装
-            r"as\s+{}\b",           // 型キャスト
+            r"as\s+{}\b",            // 型キャスト
         ]
     }
 
@@ -87,7 +82,10 @@ mod tests {
         let adapter = RustAdapter::new();
         assert_eq!(adapter.get_adapter().language_id, "rust");
         assert_eq!(adapter.get_adapter().lsp_server_name, "rust-analyzer");
-        assert!(adapter.get_adapter().file_extensions.contains(&"rs".to_string()));
+        assert!(adapter
+            .get_adapter()
+            .file_extensions
+            .contains(&"rs".to_string()));
     }
 
     #[test]
@@ -103,10 +101,7 @@ mod tests {
     #[test]
     fn test_rust_symbol_kind_inference() {
         let adapter = RustAdapter::new();
-        assert_eq!(
-            adapter.infer_symbol_kind("fn main()"),
-            SymbolKind::FUNCTION
-        );
+        assert_eq!(adapter.infer_symbol_kind("fn main()"), SymbolKind::FUNCTION);
         assert_eq!(
             adapter.infer_symbol_kind("pub struct User"),
             SymbolKind::STRUCT
@@ -119,9 +114,6 @@ mod tests {
             adapter.infer_symbol_kind("impl Display for User"),
             SymbolKind::CLASS
         );
-        assert_eq!(
-            adapter.infer_symbol_kind("mod utils"),
-            SymbolKind::MODULE
-        );
+        assert_eq!(adapter.infer_symbol_kind("mod utils"), SymbolKind::MODULE);
     }
 }

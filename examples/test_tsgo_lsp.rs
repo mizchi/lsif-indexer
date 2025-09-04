@@ -1,7 +1,6 @@
 /// tsgo LSPテストプログラム
-/// 
+///
 /// workspace/symbolとdocumentSymbolの自動切り替えをテスト
-
 use anyhow::Result;
 use lsp::adapter::tsgo::TsgoAdapter;
 use lsp::auto_switching_client::{AutoSwitchingLspClient, SymbolInfo};
@@ -18,7 +17,7 @@ fn main() -> Result<()> {
     // tsgoアダプタを作成
     println!("Creating tsgo adapter...");
     let adapter = Box::new(TsgoAdapter);
-    
+
     // 自動切り替えクライアントを作成
     println!("Initializing auto-switching LSP client...");
     let client = match AutoSwitchingLspClient::new(adapter) {
@@ -36,13 +35,30 @@ fn main() -> Result<()> {
 
     // 機能を確認
     println!("\n=== Server Capabilities ===");
-    println!("workspace/symbol: {}", if client.has_workspace_symbol() { "✅ Supported" } else { "❌ Not supported" });
-    println!("documentSymbol: {}", if client.has_document_symbol() { "✅ Supported" } else { "❌ Not supported" });
+    println!(
+        "workspace/symbol: {}",
+        if client.has_workspace_symbol() {
+            "✅ Supported"
+        } else {
+            "❌ Not supported"
+        }
+    );
+    println!(
+        "documentSymbol: {}",
+        if client.has_document_symbol() {
+            "✅ Supported"
+        } else {
+            "❌ Not supported"
+        }
+    );
 
     // テストプロジェクトのパス
     let test_project = Path::new("tmp/ts-test-project");
     if !test_project.exists() {
-        println!("\n⚠️  Test project not found at: {}", test_project.display());
+        println!(
+            "\n⚠️  Test project not found at: {}",
+            test_project.display()
+        );
         println!("Please create it first with TypeScript files.");
         return Ok(());
     }
@@ -64,7 +80,7 @@ fn main() -> Result<()> {
     if test_file.exists() {
         let file_uri = format!("file://{}", test_file.canonicalize()?.display());
         println!("\n=== Getting File Symbols: {} ===", test_file.display());
-        
+
         match client.get_file_symbols(&file_uri) {
             Ok(symbols) => {
                 println!("✅ Found {} symbols in file", symbols.len());
@@ -79,11 +95,11 @@ fn main() -> Result<()> {
     // 機能の詳細を表示
     println!("\n=== Detailed Capabilities ===");
     let caps = client.get_capabilities();
-    
+
     if let Some(ref ws_provider) = caps.workspace_symbol_provider {
         println!("workspace_symbol_provider: {:?}", ws_provider);
     }
-    
+
     if let Some(ref doc_provider) = caps.document_symbol_provider {
         println!("document_symbol_provider: {:?}", doc_provider);
     }
@@ -105,12 +121,12 @@ fn print_symbols(symbols: &[SymbolInfo], limit: usize) {
             symbol.location.uri.path(),
             symbol.location.range.start.line + 1
         );
-        
+
         if let Some(ref detail) = symbol.detail {
             println!("     Detail: {}", detail);
         }
     }
-    
+
     if symbols.len() > limit {
         println!("  ... and {} more symbols", symbols.len() - limit);
     }

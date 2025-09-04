@@ -18,11 +18,15 @@ fn main() {
     );
     all_results.insert("rust-analyzer".to_string(), rust_results);
 
-    let ts_workspace = std::env::current_dir().unwrap().join("test_projects/typescript");
+    let ts_workspace = std::env::current_dir()
+        .unwrap()
+        .join("test_projects/typescript");
     std::fs::create_dir_all(&ts_workspace).ok();
-    
+
     let ts_test_file = ts_workspace.join("test.ts");
-    std::fs::write(&ts_test_file, r#"
+    std::fs::write(
+        &ts_test_file,
+        r#"
 interface Person {
     name: string;
     age: number;
@@ -42,10 +46,14 @@ function main() {
 }
 
 export { Employee, Person, main };
-"#).ok();
+"#,
+    )
+    .ok();
 
     let ts_lib_file = ts_workspace.join("lib.ts");
-    std::fs::write(&ts_lib_file, r#"
+    std::fs::write(
+        &ts_lib_file,
+        r#"
 export function add(a: number, b: number): number {
     return a + b;
 }
@@ -63,13 +71,19 @@ export class Calculator {
         return multiply(a, b);
     }
 }
-"#).ok();
+"#,
+    )
+    .ok();
 
     let ts_files = vec!["test.ts", "lib.ts"];
-    
+
     let tsgo_results = run_benchmark_suite(
         "tsgo",
-        vec!["tsgo".to_string(), "--lsp".to_string(), "--stdio".to_string()],
+        vec![
+            "tsgo".to_string(),
+            "--lsp".to_string(),
+            "--stdio".to_string(),
+        ],
         ts_workspace.clone(),
         ts_files.clone(),
     );
@@ -77,15 +91,21 @@ export class Calculator {
 
     let go_workspace = std::env::current_dir().unwrap().join("test_projects/go");
     std::fs::create_dir_all(&go_workspace).ok();
-    
+
     let go_mod = go_workspace.join("go.mod");
-    std::fs::write(&go_mod, r#"module test
+    std::fs::write(
+        &go_mod,
+        r#"module test
 
 go 1.21
-"#).ok();
+"#,
+    )
+    .ok();
 
     let go_test_file = go_workspace.join("main.go");
-    std::fs::write(&go_test_file, r#"
+    std::fs::write(
+        &go_test_file,
+        r#"
 package main
 
 import "fmt"
@@ -111,10 +131,14 @@ func main() {
     }
     fmt.Println(emp.Greet())
 }
-"#).ok();
+"#,
+    )
+    .ok();
 
     let go_lib_file = go_workspace.join("lib.go");
-    std::fs::write(&go_lib_file, r#"
+    std::fs::write(
+        &go_lib_file,
+        r#"
 package main
 
 func Add(a, b int) int {
@@ -134,16 +158,14 @@ func (c Calculator) Add(a, b int) int {
 func (c Calculator) Multiply(a, b int) int {
     return Multiply(a, b)
 }
-"#).ok();
+"#,
+    )
+    .ok();
 
     let go_files = vec!["main.go", "lib.go"];
-    
-    let gopls_results = run_benchmark_suite(
-        "gopls",
-        vec!["gopls".to_string()],
-        go_workspace,
-        go_files,
-    );
+
+    let gopls_results =
+        run_benchmark_suite("gopls", vec!["gopls".to_string()], go_workspace, go_files);
     all_results.insert("gopls".to_string(), gopls_results);
 
     analyze_results(all_results);

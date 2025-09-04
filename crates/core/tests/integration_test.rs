@@ -1,10 +1,7 @@
-use core::{
-    CodeGraph, EdgeKind,
-    Symbol, SymbolKind, Position, Range,
-};
-use tempfile::TempDir;
-use std::fs;
+use core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
 use petgraph::visit::EdgeRef;
+use std::fs;
+use tempfile::TempDir;
 
 /// テスト用のコードサンプルを生成
 struct TestCodeSamples;
@@ -13,7 +10,9 @@ impl TestCodeSamples {
     /// Rustのコードサンプルを生成
     fn rust_samples() -> Vec<(&'static str, &'static str)> {
         vec![
-            ("main.rs", r#"
+            (
+                "main.rs",
+                r#"
 fn main() {
     println!("Hello, world!");
     let calc = Calculator::new();
@@ -46,8 +45,11 @@ mod tests {
         assert_eq!(calc.add(2, 3), 5);
     }
 }
-"#),
-            ("lib.rs", r#"
+"#,
+            ),
+            (
+                "lib.rs",
+                r#"
 pub mod utils {
     pub fn format_name(name: &str) -> String {
         format!("Hello, {}!", name)
@@ -73,14 +75,17 @@ impl Greeter for Person {
         format!("Hi, I'm {}", self.name)
     }
 }
-"#),
+"#,
+            ),
         ]
     }
 
     /// TypeScriptのコードサンプルを生成
     fn typescript_samples() -> Vec<(&'static str, &'static str)> {
         vec![
-            ("index.ts", r#"
+            (
+                "index.ts",
+                r#"
 interface Person {
     name: string;
     age: number;
@@ -103,8 +108,11 @@ function createEmployee(name: string, age: number): Employee {
 }
 
 export { Person, Employee, createEmployee };
-"#),
-            ("utils.ts", r#"
+"#,
+            ),
+            (
+                "utils.ts",
+                r#"
 export function add(a: number, b: number): number {
     return a + b;
 }
@@ -120,14 +128,17 @@ export class MathUtils {
 }
 
 export const PI = 3.14159;
-"#),
+"#,
+            ),
         ]
     }
 
     /// Goのコードサンプルを生成
     fn go_samples() -> Vec<(&'static str, &'static str)> {
         vec![
-            ("main.go", r#"
+            (
+                "main.go",
+                r#"
 package main
 
 import "fmt"
@@ -160,8 +171,11 @@ func main() {
 func Add(a, b int) int {
     return a + b
 }
-"#),
-            ("utils.go", r#"
+"#,
+            ),
+            (
+                "utils.go",
+                r#"
 package main
 
 import "strings"
@@ -179,14 +193,17 @@ type Calculator struct{}
 func (c *Calculator) Add(a, b int) int {
     return a + b
 }
-"#),
+"#,
+            ),
         ]
     }
 
     /// Pythonのコードサンプルを生成
     fn python_samples() -> Vec<(&'static str, &'static str)> {
         vec![
-            ("main.py", r#"
+            (
+                "main.py",
+                r#"
 class Person:
     def __init__(self, name: str, age: int):
         self.name = name
@@ -209,8 +226,11 @@ def main():
 
 if __name__ == "__main__":
     main()
-"#),
-            ("utils.py", r#"
+"#,
+            ),
+            (
+                "utils.py",
+                r#"
 def add(a: int, b: int) -> int:
     return a + b
 
@@ -224,7 +244,8 @@ class MathUtils:
 
 PI = 3.14159
 E = 2.71828
-"#),
+"#,
+            ),
         ]
     }
 }
@@ -238,8 +259,14 @@ fn create_test_symbols() -> Vec<Symbol> {
             kind: SymbolKind::Function,
             file_path: "main.rs".to_string(),
             range: Range {
-                start: Position { line: 1, character: 0 },
-                end: Position { line: 1, character: 4 },
+                start: Position {
+                    line: 1,
+                    character: 0,
+                },
+                end: Position {
+                    line: 1,
+                    character: 4,
+                },
             },
             documentation: None,
             detail: None,
@@ -250,8 +277,14 @@ fn create_test_symbols() -> Vec<Symbol> {
             kind: SymbolKind::Struct,
             file_path: "main.rs".to_string(),
             range: Range {
-                start: Position { line: 7, character: 0 },
-                end: Position { line: 7, character: 10 },
+                start: Position {
+                    line: 7,
+                    character: 0,
+                },
+                end: Position {
+                    line: 7,
+                    character: 10,
+                },
             },
             documentation: None,
             detail: None,
@@ -262,8 +295,14 @@ fn create_test_symbols() -> Vec<Symbol> {
             kind: SymbolKind::Method,
             file_path: "main.rs".to_string(),
             range: Range {
-                start: Position { line: 13, character: 4 },
-                end: Position { line: 13, character: 7 },
+                start: Position {
+                    line: 13,
+                    character: 4,
+                },
+                end: Position {
+                    line: 13,
+                    character: 7,
+                },
             },
             documentation: None,
             detail: None,
@@ -274,8 +313,14 @@ fn create_test_symbols() -> Vec<Symbol> {
             kind: SymbolKind::Struct,
             file_path: "lib.rs".to_string(),
             range: Range {
-                start: Position { line: 11, character: 0 },
-                end: Position { line: 11, character: 6 },
+                start: Position {
+                    line: 11,
+                    character: 0,
+                },
+                end: Position {
+                    line: 11,
+                    character: 6,
+                },
             },
             documentation: None,
             detail: None,
@@ -291,24 +336,30 @@ mod tests {
     fn test_graph_building() {
         let mut graph = CodeGraph::new();
         let symbols = create_test_symbols();
-        
+
         // シンボルを追加
         for symbol in &symbols {
             graph.add_symbol(symbol.clone());
         }
-        
+
         // 参照を追加
         // 参照を追加（エッジとして）
-        if let (Some(&from), Some(&to)) = (graph.symbol_index.get("main"), graph.symbol_index.get("Calculator")) {
+        if let (Some(&from), Some(&to)) = (
+            graph.symbol_index.get("main"),
+            graph.symbol_index.get("Calculator"),
+        ) {
             graph.graph.add_edge(from, to, core::EdgeKind::Reference);
         }
-        if let (Some(&from), Some(&to)) = (graph.symbol_index.get("main"), graph.symbol_index.get("Calculator::add")) {
+        if let (Some(&from), Some(&to)) = (
+            graph.symbol_index.get("main"),
+            graph.symbol_index.get("Calculator::add"),
+        ) {
             graph.graph.add_edge(from, to, core::EdgeKind::Reference);
         }
-        
+
         // グラフの検証
         assert_eq!(graph.symbol_index.len(), 4);
-        
+
         // mainから出ていくエッジの数をカウント
         if let Some(&node) = graph.symbol_index.get("main") {
             let edge_count = graph.graph.edges(node).count();
@@ -320,25 +371,31 @@ mod tests {
     fn test_graph_query() {
         let mut graph = CodeGraph::new();
         let symbols = create_test_symbols();
-        
+
         for symbol in &symbols {
             graph.add_symbol(symbol.clone());
         }
-        
+
         // 名前でシンボルを検索
-        let calculator_count = graph.graph.node_indices()
+        let calculator_count = graph
+            .graph
+            .node_indices()
             .filter(|&idx| graph.graph[idx].name == "Calculator")
             .count();
         assert_eq!(calculator_count, 1);
-        
+
         // 種類でシンボルを検索
-        let method_count = graph.graph.node_indices()
+        let method_count = graph
+            .graph
+            .node_indices()
             .filter(|&idx| graph.graph[idx].kind == SymbolKind::Method)
             .count();
         assert_eq!(method_count, 1);
-        
+
         // ファイルでシンボルを検索
-        let main_symbols_count = graph.graph.node_indices()
+        let main_symbols_count = graph
+            .graph
+            .node_indices()
             .filter(|&idx| graph.graph[idx].file_path == "main.rs")
             .count();
         assert_eq!(main_symbols_count, 3);
@@ -347,14 +404,14 @@ mod tests {
     #[test]
     fn test_test_code_samples() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Rustサンプル
         let rust_samples = TestCodeSamples::rust_samples();
         for (filename, content) in rust_samples {
             let file_path = temp_dir.path().join(filename);
             fs::write(&file_path, content).unwrap();
             assert!(file_path.exists());
-            
+
             let read_content = fs::read_to_string(&file_path).unwrap();
             // main.rsはCalculatorを含む、lib.rsはutilsを含む
             if filename == "main.rs" {
@@ -363,36 +420,36 @@ mod tests {
                 assert!(read_content.contains("utils"));
             }
         }
-        
+
         // TypeScriptサンプル
         let ts_samples = TestCodeSamples::typescript_samples();
         for (filename, content) in ts_samples {
             let file_path = temp_dir.path().join(filename);
             fs::write(&file_path, content).unwrap();
             assert!(file_path.exists());
-            
+
             let read_content = fs::read_to_string(&file_path).unwrap();
             assert!(read_content.contains("Employee") || read_content.contains("export"));
         }
-        
+
         // Goサンプル
         let go_samples = TestCodeSamples::go_samples();
         for (filename, content) in go_samples {
             let file_path = temp_dir.path().join(filename);
             fs::write(&file_path, content).unwrap();
             assert!(file_path.exists());
-            
+
             let read_content = fs::read_to_string(&file_path).unwrap();
             assert!(read_content.contains("package main"));
         }
-        
+
         // Pythonサンプル
         let py_samples = TestCodeSamples::python_samples();
         for (filename, content) in py_samples {
             let file_path = temp_dir.path().join(filename);
             fs::write(&file_path, content).unwrap();
             assert!(file_path.exists());
-            
+
             let read_content = fs::read_to_string(&file_path).unwrap();
             assert!(read_content.contains("def") || read_content.contains("class"));
         }
@@ -401,7 +458,7 @@ mod tests {
     #[test]
     fn test_symbol_relationships() {
         let mut graph = CodeGraph::new();
-        
+
         // 継承関係のテスト
         graph.add_symbol(Symbol {
             id: "Person".to_string(),
@@ -409,33 +466,49 @@ mod tests {
             kind: SymbolKind::Class,
             file_path: "test.py".to_string(),
             range: Range {
-                start: Position { line: 1, character: 0 },
-                end: Position { line: 1, character: 6 },
+                start: Position {
+                    line: 1,
+                    character: 0,
+                },
+                end: Position {
+                    line: 1,
+                    character: 6,
+                },
             },
             documentation: None,
             detail: None,
         });
-        
+
         graph.add_symbol(Symbol {
             id: "Employee".to_string(),
             name: "Employee".to_string(),
             kind: SymbolKind::Class,
             file_path: "test.py".to_string(),
             range: Range {
-                start: Position { line: 5, character: 0 },
-                end: Position { line: 5, character: 8 },
+                start: Position {
+                    line: 5,
+                    character: 0,
+                },
+                end: Position {
+                    line: 5,
+                    character: 8,
+                },
             },
             documentation: None,
             detail: None,
         });
-        
+
         // Employee extends Person - グラフに継承関係を追加
-        if let (Some(&person_idx), Some(&employee_idx)) = 
-            (graph.symbol_index.get("Person"), graph.symbol_index.get("Employee")) {
+        if let (Some(&person_idx), Some(&employee_idx)) = (
+            graph.symbol_index.get("Person"),
+            graph.symbol_index.get("Employee"),
+        ) {
             // 継承関係を参照で表現（EdgeKind::Inheritanceが存在しないため）
-            graph.graph.add_edge(employee_idx, person_idx, EdgeKind::Reference);
+            graph
+                .graph
+                .add_edge(employee_idx, person_idx, EdgeKind::Reference);
         }
-        
+
         // インターフェース実装のテスト
         graph.add_symbol(Symbol {
             id: "Greeter".to_string(),
@@ -443,24 +516,37 @@ mod tests {
             kind: SymbolKind::Interface,
             file_path: "test.ts".to_string(),
             range: Range {
-                start: Position { line: 1, character: 0 },
-                end: Position { line: 1, character: 7 },
+                start: Position {
+                    line: 1,
+                    character: 0,
+                },
+                end: Position {
+                    line: 1,
+                    character: 7,
+                },
             },
             documentation: None,
             detail: None,
         });
-        
+
         // Person implements Greeter
-        if let (Some(&person_idx), Some(&greeter_idx)) = 
-            (graph.symbol_index.get("Person"), graph.symbol_index.get("Greeter")) {
-            graph.graph.add_edge(person_idx, greeter_idx, EdgeKind::Implementation);
+        if let (Some(&person_idx), Some(&greeter_idx)) = (
+            graph.symbol_index.get("Person"),
+            graph.symbol_index.get("Greeter"),
+        ) {
+            graph
+                .graph
+                .add_edge(person_idx, greeter_idx, EdgeKind::Implementation);
         }
-        
+
         // 関係の検証
         // Greeterの実装を探す
         let mut implementations = Vec::new();
         if let Some(&greeter_idx) = graph.symbol_index.get("Greeter") {
-            for edge in graph.graph.edges_directed(greeter_idx, petgraph::Direction::Incoming) {
+            for edge in graph
+                .graph
+                .edges_directed(greeter_idx, petgraph::Direction::Incoming)
+            {
                 if matches!(edge.weight(), EdgeKind::Implementation) {
                     let source = edge.source();
                     if let Some(symbol) = graph.graph.node_weight(source) {
@@ -470,7 +556,7 @@ mod tests {
             }
         }
         assert!(implementations.contains(&"Person".to_string()));
-        
+
         // Employeeの基底クラスを探す
         let mut base_classes = Vec::new();
         if let Some(&employee_idx) = graph.symbol_index.get("Employee") {
@@ -491,33 +577,43 @@ mod tests {
     fn test_dead_code_detection() {
         let mut graph = CodeGraph::new();
         let symbols = create_test_symbols();
-        
+
         for symbol in &symbols {
             graph.add_symbol(symbol.clone());
         }
-        
+
         // mainから参照を追加
-        if let (Some(&main_idx), Some(&calc_idx)) = 
-            (graph.symbol_index.get("main"), graph.symbol_index.get("Calculator")) {
-            graph.graph.add_edge(main_idx, calc_idx, EdgeKind::Reference);
+        if let (Some(&main_idx), Some(&calc_idx)) = (
+            graph.symbol_index.get("main"),
+            graph.symbol_index.get("Calculator"),
+        ) {
+            graph
+                .graph
+                .add_edge(main_idx, calc_idx, EdgeKind::Reference);
         }
-        if let (Some(&main_idx), Some(&add_idx)) = 
-            (graph.symbol_index.get("main"), graph.symbol_index.get("Calculator::add")) {
+        if let (Some(&main_idx), Some(&add_idx)) = (
+            graph.symbol_index.get("main"),
+            graph.symbol_index.get("Calculator::add"),
+        ) {
             graph.graph.add_edge(main_idx, add_idx, EdgeKind::Reference);
         }
         // Personは参照されない（デッドコード）
-        
+
         // 未参照シンボルを見つける
         let mut unreferenced = Vec::new();
         for &node_idx in graph.symbol_index.values() {
-            let has_incoming = graph.graph.edges_directed(node_idx, petgraph::Direction::Incoming).count() > 0;
+            let has_incoming = graph
+                .graph
+                .edges_directed(node_idx, petgraph::Direction::Incoming)
+                .count()
+                > 0;
             if !has_incoming {
                 if let Some(symbol) = graph.graph.node_weight(node_idx) {
                     unreferenced.push(symbol.clone());
                 }
             }
         }
-        
+
         // Personが未参照として検出されるはず
         assert!(unreferenced.iter().any(|s| s.name == "Person"));
         // mainは参照されない（エントリーポイント）が未参照リストに含まれる
@@ -527,7 +623,7 @@ mod tests {
     #[test]
     fn test_circular_dependency_detection() {
         let mut graph = CodeGraph::new();
-        
+
         // 循環参照を作成
         graph.add_symbol(Symbol {
             id: "A".to_string(),
@@ -535,57 +631,78 @@ mod tests {
             kind: SymbolKind::Module,
             file_path: "a.rs".to_string(),
             range: Range {
-                start: Position { line: 1, character: 0 },
-                end: Position { line: 1, character: 1 },
+                start: Position {
+                    line: 1,
+                    character: 0,
+                },
+                end: Position {
+                    line: 1,
+                    character: 1,
+                },
             },
             documentation: None,
             detail: None,
         });
-        
+
         graph.add_symbol(Symbol {
             id: "B".to_string(),
             name: "B".to_string(),
             kind: SymbolKind::Module,
             file_path: "b.rs".to_string(),
             range: Range {
-                start: Position { line: 1, character: 0 },
-                end: Position { line: 1, character: 1 },
+                start: Position {
+                    line: 1,
+                    character: 0,
+                },
+                end: Position {
+                    line: 1,
+                    character: 1,
+                },
             },
             documentation: None,
             detail: None,
         });
-        
+
         graph.add_symbol(Symbol {
             id: "C".to_string(),
             name: "C".to_string(),
             kind: SymbolKind::Module,
             file_path: "c.rs".to_string(),
             range: Range {
-                start: Position { line: 1, character: 0 },
-                end: Position { line: 1, character: 1 },
+                start: Position {
+                    line: 1,
+                    character: 0,
+                },
+                end: Position {
+                    line: 1,
+                    character: 1,
+                },
             },
             documentation: None,
             detail: None,
         });
-        
+
         // A -> B -> C -> A の循環参照
-        if let (Some(&a_idx), Some(&b_idx)) = 
-            (graph.symbol_index.get("A"), graph.symbol_index.get("B")) {
+        if let (Some(&a_idx), Some(&b_idx)) =
+            (graph.symbol_index.get("A"), graph.symbol_index.get("B"))
+        {
             graph.graph.add_edge(a_idx, b_idx, EdgeKind::Reference);
         }
-        if let (Some(&b_idx), Some(&c_idx)) = 
-            (graph.symbol_index.get("B"), graph.symbol_index.get("C")) {
+        if let (Some(&b_idx), Some(&c_idx)) =
+            (graph.symbol_index.get("B"), graph.symbol_index.get("C"))
+        {
             graph.graph.add_edge(b_idx, c_idx, EdgeKind::Reference);
         }
-        if let (Some(&c_idx), Some(&a_idx)) = 
-            (graph.symbol_index.get("C"), graph.symbol_index.get("A")) {
+        if let (Some(&c_idx), Some(&a_idx)) =
+            (graph.symbol_index.get("C"), graph.symbol_index.get("A"))
+        {
             graph.graph.add_edge(c_idx, a_idx, EdgeKind::Reference);
         }
-        
+
         // petgraphのscc（強連結成分）を使用して循環を検出
         use petgraph::algo::kosaraju_scc;
         let sccs = kosaraju_scc(&graph.graph);
-        
+
         // 循環参照が検出されるはず（サイズ > 1のsccがある）
         let has_cycle = sccs.iter().any(|scc| scc.len() > 1);
         assert!(has_cycle);

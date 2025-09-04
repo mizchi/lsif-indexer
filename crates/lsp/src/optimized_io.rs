@@ -1,8 +1,8 @@
+use anyhow::Result;
+use memmap2::Mmap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
-use anyhow::Result;
-use memmap2::Mmap;
 
 /// 最適化されたファイル読み込み
 pub struct OptimizedFileReader {
@@ -66,7 +66,7 @@ impl OptimizedFileReader {
     fn read_with_mmap(&self, path: &Path) -> Result<String> {
         let file = File::open(path)?;
         let mmap = unsafe { Mmap::map(&file)? };
-        
+
         // UTF-8として解釈
         let content = std::str::from_utf8(&mmap)?;
         Ok(content.to_string())
@@ -75,11 +75,8 @@ impl OptimizedFileReader {
     /// 複数ファイルを並列で読み込み
     pub fn read_files_parallel(&self, paths: &[&Path]) -> Vec<Result<String>> {
         use rayon::prelude::*;
-        
-        paths
-            .par_iter()
-            .map(|path| self.read_file(path))
-            .collect()
+
+        paths.par_iter().map(|path| self.read_file(path)).collect()
     }
 }
 
@@ -132,7 +129,8 @@ impl FileContentCache {
         }
 
         // キャッシュに保存
-        self.cache.insert(path.to_path_buf(), (content.clone(), modified));
+        self.cache
+            .insert(path.to_path_buf(), (content.clone(), modified));
 
         Ok(content)
     }
@@ -159,10 +157,10 @@ mod tests {
         let mut file = NamedTempFile::new().unwrap();
         writeln!(file, "Hello, World!").unwrap();
         writeln!(file, "This is a test file.").unwrap();
-        
+
         let reader = OptimizedFileReader::default();
         let content = reader.read_file(file.path()).unwrap();
-        
+
         assert!(content.contains("Hello, World!"));
         assert!(content.contains("This is a test file."));
     }
@@ -173,15 +171,17 @@ mod tests {
         writeln!(file, "Line 1").unwrap();
         writeln!(file, "Line 2").unwrap();
         writeln!(file, "Line 3").unwrap();
-        
+
         let reader = OptimizedFileReader::default();
         let mut lines = Vec::new();
-        
-        reader.process_lines(file.path(), |line, num| {
-            lines.push(format!("{}: {}", num, line));
-            Ok(())
-        }).unwrap();
-        
+
+        reader
+            .process_lines(file.path(), |line, num| {
+                lines.push(format!("{}: {}", num, line));
+                Ok(())
+            })
+            .unwrap();
+
         assert_eq!(lines.len(), 3);
         assert_eq!(lines[0], "0: Line 1");
         assert_eq!(lines[1], "1: Line 2");
@@ -193,17 +193,17 @@ mod tests {
         let mut file = NamedTempFile::new().unwrap();
         writeln!(file, "Cached content").unwrap();
         file.flush().unwrap();
-        
+
         let cache = FileContentCache::new(10);
-        
+
         // 初回読み込み
         let content1 = cache.get_or_read(file.path()).unwrap();
         assert_eq!(content1.trim(), "Cached content");
-        
+
         // キャッシュから取得
         let content2 = cache.get_or_read(file.path()).unwrap();
         assert_eq!(content1, content2);
-        
+
         assert_eq!(cache.size(), 1);
     }
 
@@ -211,20 +211,20 @@ mod tests {
     fn test_cache_invalidation() {
         let file = NamedTempFile::new().unwrap();
         let path = file.path().to_path_buf();
-        
+
         // 初回の内容を書き込み
         std::fs::write(&path, "Original content\n").unwrap();
-        
+
         let cache = FileContentCache::new(10);
-        
+
         // 初回読み込み
         let content1 = cache.get_or_read(&path).unwrap();
         assert_eq!(content1.trim(), "Original content");
-        
+
         // ファイルを更新（タイムスタンプを変更するため少し待つ）
         std::thread::sleep(std::time::Duration::from_millis(10));
         std::fs::write(&path, "Updated content\n").unwrap();
-        
+
         // キャッシュが無効化され、新しい内容が読まれる
         let content2 = cache.get_or_read(&path).unwrap();
         assert_eq!(content2.trim(), "Updated content");
@@ -234,18 +234,18 @@ mod tests {
     fn test_parallel_file_reading() {
         let mut files = Vec::new();
         let mut paths = Vec::new();
-        
+
         for i in 0..5 {
             let mut file = NamedTempFile::new().unwrap();
             writeln!(file, "File {}", i).unwrap();
             paths.push(file.path().to_path_buf());
             files.push(file);
         }
-        
+
         let reader = OptimizedFileReader::default();
         let path_refs: Vec<&Path> = paths.iter().map(|p| p.as_path()).collect();
         let results = reader.read_files_parallel(&path_refs);
-        
+
         assert_eq!(results.len(), 5);
         for (i, result) in results.iter().enumerate() {
             assert!(result.as_ref().unwrap().contains(&format!("File {}", i)));
@@ -255,21 +255,26 @@ mod tests {
     #[test]
     fn test_performance_improvement() {
         use std::time::Instant;
-        
+
         // テスト用の大きめのファイルを作成
         let mut file = NamedTempFile::new().unwrap();
         for i in 0..10000 {
-            writeln!(file, "Line {}: Some test content that is reasonably long", i).unwrap();
+            writeln!(
+                file,
+                "Line {}: Some test content that is reasonably long",
+                i
+            )
+            .unwrap();
         }
         file.flush().unwrap();
-        
+
         // 通常の読み込み
         let start = Instant::now();
         for _ in 0..10 {
             let _ = std::fs::read_to_string(file.path());
         }
         let normal_time = start.elapsed();
-        
+
         // 最適化された読み込み（キャッシュあり）
         let cache = FileContentCache::new(10);
         let start = Instant::now();
@@ -277,10 +282,13 @@ mod tests {
             let _ = cache.get_or_read(file.path());
         }
         let optimized_time = start.elapsed();
-        
+
         // キャッシュありの方が高速であることを確認（通常は2倍以上高速だが、環境により変動するため1.5倍で判定）
-        assert!(optimized_time < normal_time * 2 / 3, 
-            "Cache should be faster. Normal: {:?}, Optimized: {:?}", 
-            normal_time, optimized_time);
+        assert!(
+            optimized_time < normal_time * 2 / 3,
+            "Cache should be faster. Normal: {:?}, Optimized: {:?}",
+            normal_time,
+            optimized_time
+        );
     }
 }

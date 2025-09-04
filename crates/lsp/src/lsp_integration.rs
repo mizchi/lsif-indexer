@@ -3,7 +3,7 @@ use lsp_types::*;
 use std::path::{Path, PathBuf};
 use tracing::{info, warn};
 
-use super::language_detector::{detect_file_language, create_language_adapter};
+use super::language_detector::{create_language_adapter, detect_file_language};
 use super::lsp_client::LspClient;
 use lsif_core::CodeGraph;
 use lsif_core::{Range, Symbol, SymbolKind as LSIFSymbolKind};
@@ -21,9 +21,11 @@ impl LspIntegration {
             .ok_or_else(|| anyhow!("Unable to create language adapter for {:?}", language))?;
 
         let mut client = LspClient::new(adapter)?;
-        
+
         // LSPサーバーを初期化（短いタイムアウトで）
-        if let Err(e) = client.initialize_with_timeout(&root_path, std::time::Duration::from_secs(5)) {
+        if let Err(e) =
+            client.initialize_with_timeout(&root_path, std::time::Duration::from_secs(5))
+        {
             warn!("Failed to initialize LSP server: {}", e);
             return Err(anyhow!("LSP server initialization failed: {}", e));
         }
@@ -85,7 +87,8 @@ impl LspIntegration {
         // language_idは不要（open_documentで処理される）
 
         // ファイルを開く
-        let path = uri.to_file_path()
+        let path = uri
+            .to_file_path()
             .map_err(|_| anyhow::anyhow!("Invalid file URI: {}", uri))?;
         self.client.open_document(&path)?;
 
@@ -159,7 +162,7 @@ impl LspIntegration {
                     // Add reference edge in graph
                 }
             }
-            
+
             // Analyze definitions
             if let Ok(definition_locations) = client.goto_definition(uri.clone(), *position) {
                 for def_loc in definition_locations {
@@ -175,30 +178,35 @@ impl LspIntegration {
             Ok(())
         })
     }
-    
+
     /// Helper method to analyze document symbols with a callback
-    fn analyze_document_symbols<F>(&mut self, uri: &Url, _graph: &mut CodeGraph, mut callback: F) -> Result<()>
+    fn analyze_document_symbols<F>(
+        &mut self,
+        uri: &Url,
+        _graph: &mut CodeGraph,
+        mut callback: F,
+    ) -> Result<()>
     where
         F: FnMut(&mut LspClient, &Url, &Position, String) -> Result<()>,
     {
         let symbols = self.client.document_symbols(uri.clone())?;
-        
+
         for symbol in symbols {
             let position = Position {
                 line: symbol.selection_range.start.line,
                 character: symbol.selection_range.start.character,
             };
-            
+
             let symbol_id = format!(
                 "{}#{}:{}",
                 uri.path(),
                 symbol.selection_range.start.line,
                 symbol.name
             );
-            
+
             callback(&mut self.client, uri, &position, symbol_id)?;
         }
-        
+
         Ok(())
     }
 
@@ -387,7 +395,6 @@ impl LspIntegration {
             _ => LSIFSymbolKind::Unknown,
         }
     }
-
 
     fn collect_source_files(root_path: &Path) -> Result<Vec<PathBuf>> {
         let mut files = Vec::new();

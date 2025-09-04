@@ -8,54 +8,39 @@ use regex::Regex;
 use std::path::Path;
 
 // Rust用の正規表現を静的に初期化
-static RUST_FN_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\s*(pub\s+)?(async\s+)?fn\s+(\w+)").unwrap()
-});
-static RUST_STRUCT_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\s*(pub\s+)?struct\s+(\w+)").unwrap()
-});
-static RUST_ENUM_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\s*(pub\s+)?enum\s+(\w+)").unwrap()
-});
-static RUST_IMPL_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\s*impl(?:\s+<[^>]+>)?\s+(\w+)").unwrap()
-});
-static RUST_TRAIT_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\s*(pub\s+)?trait\s+(\w+)").unwrap()
-});
+static RUST_FN_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*(pub\s+)?(async\s+)?fn\s+(\w+)").unwrap());
+static RUST_STRUCT_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*(pub\s+)?struct\s+(\w+)").unwrap());
+static RUST_ENUM_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*(pub\s+)?enum\s+(\w+)").unwrap());
+static RUST_IMPL_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*impl(?:\s+<[^>]+>)?\s+(\w+)").unwrap());
+static RUST_TRAIT_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*(pub\s+)?trait\s+(\w+)").unwrap());
 
 // TypeScript/JavaScript用の正規表現を静的に初期化
-static TS_FN_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\s*(export\s+)?(async\s+)?function\s+(\w+)").unwrap()
-});
-static TS_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\s*(export\s+)?class\s+(\w+)").unwrap()
-});
-static TS_INTERFACE_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\s*(export\s+)?interface\s+(\w+)").unwrap()
-});
-static TS_VAR_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\s*(export\s+)?(const|let|var)\s+(\w+)").unwrap()
-});
-static TS_ARROW_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\s*(export\s+)?const\s+(\w+)\s*=\s*(?:async\s+)?[(\[]").unwrap()
-});
+static TS_FN_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*(export\s+)?(async\s+)?function\s+(\w+)").unwrap());
+static TS_CLASS_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*(export\s+)?class\s+(\w+)").unwrap());
+static TS_INTERFACE_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*(export\s+)?interface\s+(\w+)").unwrap());
+static TS_VAR_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*(export\s+)?(const|let|var)\s+(\w+)").unwrap());
+static TS_ARROW_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*(export\s+)?const\s+(\w+)\s*=\s*(?:async\s+)?[(\[]").unwrap());
 
 // Python用の正規表現を静的に初期化
-static PY_FN_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\s*(?:async\s+)?def\s+(\w+)").unwrap()
-});
-static PY_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\s*class\s+(\w+)").unwrap()
-});
+static PY_FN_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*(?:async\s+)?def\s+(\w+)").unwrap());
+static PY_CLASS_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\s*class\s+(\w+)").unwrap());
 
 // Go用の正規表現を静的に初期化
-static GO_FN_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\s*func\s+(?:\(\s*\w+\s+[^)]+\)\s+)?(\w+)").unwrap()
-});
-static GO_TYPE_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\s*type\s+(\w+)\s+(struct|interface)").unwrap()
-});
+static GO_FN_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*func\s+(?:\(\s*\w+\s+[^)]+\)\s+)?(\w+)").unwrap());
+static GO_TYPE_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*type\s+(\w+)\s+(struct|interface)").unwrap());
 
 /// サポートされる言語
 pub enum FallbackLanguage {
@@ -74,15 +59,19 @@ impl FallbackIndexer {
     pub fn new(language: FallbackLanguage) -> Self {
         Self { language }
     }
-    
+
     /// Python用の最適化されたインデクサーを作成
     pub fn for_python() -> Result<Self> {
-        Ok(Self { language: FallbackLanguage::Python })
+        Ok(Self {
+            language: FallbackLanguage::Python,
+        })
     }
-    
+
     /// JavaScript用の最適化されたインデクサーを作成
     pub fn for_javascript() -> Result<Self> {
-        Ok(Self { language: FallbackLanguage::JavaScript })
+        Ok(Self {
+            language: FallbackLanguage::JavaScript,
+        })
     }
 
     /// 拡張子から言語を推測
@@ -364,20 +353,20 @@ mod tests {
     fn test_fallback_language_from_extension() {
         // Rust
         assert!(FallbackIndexer::from_extension(Path::new("test.rs")).is_some());
-        
+
         // TypeScript/JavaScript
         assert!(FallbackIndexer::from_extension(Path::new("test.ts")).is_some());
         assert!(FallbackIndexer::from_extension(Path::new("test.tsx")).is_some());
         assert!(FallbackIndexer::from_extension(Path::new("test.js")).is_some());
         assert!(FallbackIndexer::from_extension(Path::new("test.jsx")).is_some());
-        
+
         // Python
         assert!(FallbackIndexer::from_extension(Path::new("test.py")).is_some());
         assert!(FallbackIndexer::from_extension(Path::new("test.pyi")).is_some());
-        
+
         // Go
         assert!(FallbackIndexer::from_extension(Path::new("test.go")).is_some());
-        
+
         // 未対応の拡張子
         assert!(FallbackIndexer::from_extension(Path::new("test.xyz")).is_none());
         assert!(FallbackIndexer::from_extension(Path::new("test")).is_none());
@@ -387,7 +376,7 @@ mod tests {
     fn test_extract_rust_symbols() {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.rs");
-        
+
         let rust_code = r#"
 fn main() {
     println!("Hello");
@@ -407,24 +396,32 @@ trait MyTrait {
     fn method(&self);
 }
 "#;
-        
+
         fs::write(&file_path, rust_code).unwrap();
-        
+
         let indexer = FallbackIndexer::from_extension(&file_path).unwrap();
         let symbols = indexer.extract_symbols(&file_path).unwrap();
-        
+
         // 関数、構造体、トレイトが検出されることを確認
-        assert!(symbols.iter().any(|s| s.name == "main" && s.kind == SymbolKind::FUNCTION));
-        assert!(symbols.iter().any(|s| s.name == "MyStruct" && s.kind == SymbolKind::STRUCT));
-        assert!(symbols.iter().any(|s| s.name == "new" && s.kind == SymbolKind::FUNCTION));
-        assert!(symbols.iter().any(|s| s.name == "MyTrait" && s.kind == SymbolKind::INTERFACE));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "main" && s.kind == SymbolKind::FUNCTION));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "MyStruct" && s.kind == SymbolKind::STRUCT));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "new" && s.kind == SymbolKind::FUNCTION));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "MyTrait" && s.kind == SymbolKind::INTERFACE));
     }
 
     #[test]
     fn test_extract_typescript_symbols() {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.ts");
-        
+
         let ts_code = r#"
 function hello() {
     console.log("Hello");
@@ -445,25 +442,35 @@ interface MyInterface {
 const myVar = 123;
 export const exportedVar = "test";
 "#;
-        
+
         fs::write(&file_path, ts_code).unwrap();
-        
+
         let indexer = FallbackIndexer::from_extension(&file_path).unwrap();
         let symbols = indexer.extract_symbols(&file_path).unwrap();
-        
+
         // 関数、クラス、インターフェース、変数が検出されることを確認
-        assert!(symbols.iter().any(|s| s.name == "hello" && s.kind == SymbolKind::FUNCTION));
-        assert!(symbols.iter().any(|s| s.name == "MyClass" && s.kind == SymbolKind::CLASS));
-        assert!(symbols.iter().any(|s| s.name == "MyInterface" && s.kind == SymbolKind::INTERFACE));
-        assert!(symbols.iter().any(|s| s.name == "myVar" && s.kind == SymbolKind::VARIABLE));
-        assert!(symbols.iter().any(|s| s.name == "exportedVar" && s.kind == SymbolKind::VARIABLE));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "hello" && s.kind == SymbolKind::FUNCTION));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "MyClass" && s.kind == SymbolKind::CLASS));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "MyInterface" && s.kind == SymbolKind::INTERFACE));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "myVar" && s.kind == SymbolKind::VARIABLE));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "exportedVar" && s.kind == SymbolKind::VARIABLE));
     }
 
     #[test]
     fn test_extract_python_symbols() {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.py");
-        
+
         let py_code = r#"
 def hello():
     print("Hello")
@@ -478,25 +485,35 @@ class MyClass:
 async def async_function():
     await some_task()
 "#;
-        
+
         fs::write(&file_path, py_code).unwrap();
-        
+
         let indexer = FallbackIndexer::from_extension(&file_path).unwrap();
         let symbols = indexer.extract_symbols(&file_path).unwrap();
-        
+
         // 関数、クラス、メソッドが検出されることを確認
-        assert!(symbols.iter().any(|s| s.name == "hello" && s.kind == SymbolKind::FUNCTION));
-        assert!(symbols.iter().any(|s| s.name == "MyClass" && s.kind == SymbolKind::CLASS));
-        assert!(symbols.iter().any(|s| s.name == "__init__" && s.kind == SymbolKind::METHOD));
-        assert!(symbols.iter().any(|s| s.name == "method" && s.kind == SymbolKind::METHOD));
-        assert!(symbols.iter().any(|s| s.name == "async_function" && s.kind == SymbolKind::FUNCTION));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "hello" && s.kind == SymbolKind::FUNCTION));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "MyClass" && s.kind == SymbolKind::CLASS));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "__init__" && s.kind == SymbolKind::METHOD));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "method" && s.kind == SymbolKind::METHOD));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "async_function" && s.kind == SymbolKind::FUNCTION));
     }
 
     #[test]
     fn test_extract_go_symbols() {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.go");
-        
+
         let go_code = r#"
 package main
 
@@ -513,15 +530,21 @@ func CreateUser(name string, age int) *User {
     return &User{Name: name, Age: age}
 }
 "#;
-        
+
         fs::write(&file_path, go_code).unwrap();
-        
+
         let indexer = FallbackIndexer::from_extension(&file_path).unwrap();
         let symbols = indexer.extract_symbols(&file_path).unwrap();
-        
+
         // 構造体、メソッド、関数が検出されることを確認
-        assert!(symbols.iter().any(|s| s.name == "User" && s.kind == SymbolKind::STRUCT));
-        assert!(symbols.iter().any(|s| s.name == "Greet" && s.kind == SymbolKind::FUNCTION));
-        assert!(symbols.iter().any(|s| s.name == "CreateUser" && s.kind == SymbolKind::FUNCTION));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "User" && s.kind == SymbolKind::STRUCT));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "Greet" && s.kind == SymbolKind::FUNCTION));
+        assert!(symbols
+            .iter()
+            .any(|s| s.name == "CreateUser" && s.kind == SymbolKind::FUNCTION));
     }
 }

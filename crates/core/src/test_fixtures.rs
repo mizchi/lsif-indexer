@@ -103,18 +103,22 @@ mod tests {
     #[test]
     fn test_all_samples_available() {
         let samples = TestFixtures::all_samples();
-        
+
         // 4言語分のサンプルが存在
         assert_eq!(samples.len(), 4);
-        
+
         // 各言語に最低2ファイル以上
         for (lang, files) in samples {
             assert!(files.len() >= 2, "{} has less than 2 files", lang);
-            
+
             // 各ファイルにコンテンツが存在
             for file in files {
-                assert!(!file.content.is_empty() || file.path.contains("__init__"),
-                        "{}/{} is empty", lang, file.path);
+                assert!(
+                    !file.content.is_empty() || file.path.contains("__init__"),
+                    "{}/{} is empty",
+                    lang,
+                    file.path
+                );
             }
         }
     }

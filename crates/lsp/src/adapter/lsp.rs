@@ -1,17 +1,18 @@
+use crate::lsp_health_check::{LspHealthChecker, LspOperationType, LspStartupValidator};
+use crate::timeout_predictor::TimeoutPredictor;
 use anyhow::{anyhow, Result};
 use lsp_types::{
-    ClientCapabilities, ClientInfo, DidOpenTextDocumentParams, DocumentSymbol, DocumentSymbolParams, 
-    GotoDefinitionParams, GotoDefinitionResponse, InitializeParams, InitializeResult, 
-    InitializedParams, Location, PartialResultParams, ReferenceParams, SymbolInformation,
-    TextDocumentIdentifier, TextDocumentItem, Url, WorkDoneProgressParams, WorkspaceFolder,
+    ClientCapabilities, ClientInfo, DidOpenTextDocumentParams, DocumentSymbol,
+    DocumentSymbolParams, GotoDefinitionParams, GotoDefinitionResponse, InitializeParams,
+    InitializeResult, InitializedParams, Location, PartialResultParams, ReferenceParams,
+    SymbolInformation, TextDocumentIdentifier, TextDocumentItem, Url, WorkDoneProgressParams,
+    WorkspaceFolder,
 };
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
-use crate::timeout_predictor::TimeoutPredictor;
-use crate::lsp_health_check::{LspHealthChecker, LspStartupValidator, LspOperationType};
 use tracing::debug;
 
 /// Trait for language-specific LSP configurations
@@ -21,10 +22,10 @@ pub trait LspAdapter {
 
     /// Get the language ID for LSP
     fn language_id(&self) -> &str;
-    
+
     /// Whether this LSP supports workspace/symbol
     fn supports_workspace_symbol(&self) -> bool {
-        false  // デフォルトはfalse、各実装でオーバーライド可能
+        false // デフォルトはfalse、各実装でオーバーライド可能
     }
 
     /// Get initialization parameters specific to this language
@@ -32,7 +33,7 @@ pub trait LspAdapter {
         #[allow(deprecated)]
         InitializeParams {
             process_id: Some(std::process::id()),
-            root_uri: None,  // 後で設定
+            root_uri: None, // 後で設定
             initialization_options: None,
             capabilities: lsp_types::ClientCapabilities {
                 text_document: Some(lsp_types::TextDocumentClientCapabilities {
@@ -124,20 +125,20 @@ impl GenericLspClient {
     /// Create a new LSP client with the given adapter (without initialization)
     pub fn new_uninit(adapter: Box<dyn LspAdapter>) -> Result<Self> {
         use tracing::info;
-        
+
         let language_id = adapter.language_id().to_string();
         info!("Creating LSP client for language: {}", language_id);
-        
+
         // LSPプロセスを起動
         let mut child = adapter.spawn_command()?;
-        
+
         // 起動確認
         let validator = LspStartupValidator::new();
         validator.validate_startup(&mut child, &language_id)?;
-        
+
         // 言語別の起動待機
         validator.wait_for_startup(&language_id);
-        
+
         let stdout = child.stdout.take().ok_or_else(|| anyhow!("No stdout"))?;
         let stdin = child.stdin.take().ok_or_else(|| anyhow!("No stdin"))?;
 
@@ -151,17 +152,17 @@ impl GenericLspClient {
             health_checker: LspHealthChecker::new(),
             server_capabilities: None,
         };
-        
+
         // 初期化前にプロセスが生きているか再確認
         LspHealthChecker::check_process_alive(&mut client.child)?;
-        
+
         Ok(client)
     }
-    
+
     /// Create a new LSP client with the given adapter (with initialization)
     pub fn new(adapter: Box<dyn LspAdapter>) -> Result<Self> {
         let mut client = Self::new_uninit(adapter)?;
-        
+
         // デフォルトの初期化パラメータで初期化
         // 注意: root_uriがNoneのため、一部のLSPサーバーでは動作しない可能性がある
         let init_timeout = client.health_checker.calculate_init_timeout();
@@ -174,53 +175,67 @@ impl GenericLspClient {
         }
     }
 
-    fn initialize_with_params(&mut self, params: InitializeParams, timeout: Option<Duration>) -> Result<InitializeResult> {
-        use tracing::{debug, info};
+    fn initialize_with_params(
+        &mut self,
+        params: InitializeParams,
+        timeout: Option<Duration>,
+    ) -> Result<InitializeResult> {
         use std::time::Instant;
-        
+        use tracing::{debug, info};
+
         debug!("Sending initialize request for {}", self.language_id);
         debug!("Root URI: {:?}", params.root_uri);
-        
+
         // 初期化用のタイムアウトを取得
         let timeout = timeout.unwrap_or_else(|| {
-            self.health_checker.get_timeout_for_operation(LspOperationType::Initialize)
+            self.health_checker
+                .get_timeout_for_operation(LspOperationType::Initialize)
         });
-        
+
         let start = Instant::now();
-        let response: InitializeResult = self.send_request_with_timeout("initialize", params, timeout)?;
+        let response: InitializeResult =
+            self.send_request_with_timeout("initialize", params, timeout)?;
         let duration = start.elapsed();
-        
+
         // 初期化時間を記録
         self.health_checker.record_init_time(duration);
-        
-        info!("Received initialize response from {} in {:?}", self.language_id, duration);
+
+        info!(
+            "Received initialize response from {} in {:?}",
+            self.language_id, duration
+        );
         debug!("Server capabilities: {:?}", response.capabilities);
-        
+
         // サーバーのCapabilitiesを保存
         self.server_capabilities = Some(response.capabilities.clone());
-        
+
         // 言語固有の最適化を適用
         self.optimize_for_language();
-        
+
         // initialized通知を送信する前に少し待つ（大幅に削減）
-        std::thread::sleep(Duration::from_millis(10));  // 100ms -> 10ms
-        
+        std::thread::sleep(Duration::from_millis(10)); // 100ms -> 10ms
+
         debug!("Sending initialized notification for {}", self.language_id);
         self.send_notification("initialized", InitializedParams {})?;
-        
-        info!("Successfully completed initialization for {}", self.language_id);
+
+        info!(
+            "Successfully completed initialization for {}",
+            self.language_id
+        );
         Ok(response)
     }
 
     pub fn initialize(&mut self, project_root: &Path, timeout: Option<Duration>) -> Result<()> {
         use std::fs::canonicalize;
-        
-        let root_uri = canonicalize(project_root)
-            .and_then(|p| Url::from_file_path(p).map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid path")))?;
-        
+
+        let root_uri = canonicalize(project_root).and_then(|p| {
+            Url::from_file_path(p)
+                .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid path"))
+        })?;
+
         // 言語固有のクライアントCapabilitiesを構築
         let client_capabilities = self.build_client_capabilities();
-        
+
         #[allow(deprecated)]
         let params = InitializeParams {
             process_id: Some(std::process::id()),
@@ -240,20 +255,20 @@ impl GenericLspClient {
             }]),
             work_done_progress_params: WorkDoneProgressParams::default(),
         };
-        
+
         self.initialize_with_params(params, timeout)?;
         Ok(())
     }
-    
+
     /// 言語固有のクライアントCapabilitiesを構築
     fn build_client_capabilities(&self) -> ClientCapabilities {
         use lsp_types::*;
-        
+
         let mut capabilities = ClientCapabilities::default();
-        
+
         // テキストドキュメント関連のCapabilities
         let mut text_document = TextDocumentClientCapabilities::default();
-        
+
         // DocumentSymbol
         text_document.document_symbol = Some(DocumentSymbolClientCapabilities {
             dynamic_registration: Some(false),
@@ -290,37 +305,37 @@ impl GenericLspClient {
             }),
             tag_support: None,
         });
-        
+
         // Definition
         text_document.definition = Some(GotoCapability {
             dynamic_registration: Some(false),
             link_support: Some(true),
         });
-        
+
         // References
         text_document.references = Some(ReferenceClientCapabilities {
             dynamic_registration: Some(false),
         });
-        
+
         // Type Definition
         text_document.type_definition = Some(GotoCapability {
             dynamic_registration: Some(false),
             link_support: Some(true),
         });
-        
+
         // Implementation
         text_document.implementation = Some(GotoCapability {
             dynamic_registration: Some(false),
             link_support: Some(true),
         });
-        
+
         // Call Hierarchy
         text_document.call_hierarchy = Some(CallHierarchyClientCapabilities {
             dynamic_registration: Some(false),
         });
-        
+
         capabilities.text_document = Some(text_document);
-        
+
         // Workspace関連のCapabilities
         let mut workspace = WorkspaceClientCapabilities::default();
         workspace.symbol = Some(WorkspaceSymbolClientCapabilities {
@@ -358,9 +373,9 @@ impl GenericLspClient {
             tag_support: None,
             resolve_support: None,
         });
-        
+
         capabilities.workspace = Some(workspace);
-        
+
         capabilities
     }
 
@@ -384,13 +399,13 @@ impl GenericLspClient {
                 "textDocument/documentLink" => caps.document_link_provider.is_some(),
                 "textDocument/formatting" => caps.document_formatting_provider.is_some(),
                 "textDocument/rangeFormatting" => caps.document_range_formatting_provider.is_some(),
-                "textDocument/onTypeFormatting" => caps.document_on_type_formatting_provider.is_some(),
+                "textDocument/onTypeFormatting" => {
+                    caps.document_on_type_formatting_provider.is_some()
+                }
                 "textDocument/rename" => caps.rename_provider.is_some(),
                 "textDocument/foldingRange" => caps.folding_range_provider.is_some(),
                 "textDocument/selectionRange" => caps.selection_range_provider.is_some(),
-                "textDocument/semanticTokens" => {
-                    caps.semantic_tokens_provider.is_some()
-                }
+                "textDocument/semanticTokens" => caps.semantic_tokens_provider.is_some(),
                 "textDocument/linkedEditingRange" => caps.linked_editing_range_provider.is_some(),
                 "textDocument/moniker" => caps.moniker_provider.is_some(),
                 "textDocument/inlayHint" => caps.inlay_hint_provider.is_some(),
@@ -401,7 +416,7 @@ impl GenericLspClient {
             None => false,
         }
     }
-    
+
     /// サーバーがサポートするシンボルの種類を取得
     pub fn get_supported_symbol_kinds(&self) -> Vec<lsp_types::SymbolKind> {
         // デフォルトで全てのシンボル種類をサポート
@@ -434,26 +449,28 @@ impl GenericLspClient {
             lsp_types::SymbolKind::TYPE_PARAMETER,
         ]
     }
-    
+
     /// 言語IDを取得
     pub fn get_language_id(&self) -> &str {
         &self.language_id
     }
-    
+
     /// サーバーCapabilitiesを取得
     pub fn get_server_capabilities(&self) -> Option<&lsp_types::ServerCapabilities> {
         self.server_capabilities.as_ref()
     }
-    
+
     /// 言語固有の最適化を適用（Capabilitiesに基づく）
     pub fn optimize_for_language(&mut self) {
         use tracing::info;
-        
+
         match self.language_id.as_str() {
             "rust" => {
                 // Rustの場合、rust-analyzerの特性に合わせて最適化
                 if self.has_capability("textDocument/semanticTokens") {
-                    info!("Rust: Semantic tokens are supported, using for better symbol extraction");
+                    info!(
+                        "Rust: Semantic tokens are supported, using for better symbol extraction"
+                    );
                 }
                 if self.has_capability("textDocument/inlayHint") {
                     info!("Rust: Inlay hints are supported, can extract type information");
@@ -462,7 +479,9 @@ impl GenericLspClient {
             "typescript" | "javascript" => {
                 // TypeScript/JavaScriptの場合
                 if self.has_capability("textDocument/completion") {
-                    info!("TypeScript: Completion is supported, can extract more detailed type info");
+                    info!(
+                        "TypeScript: Completion is supported, can extract more detailed type info"
+                    );
                 }
             }
             "python" => {
@@ -478,14 +497,17 @@ impl GenericLspClient {
                 }
             }
             _ => {
-                info!("Using default LSP capabilities for language: {}", self.language_id);
+                info!(
+                    "Using default LSP capabilities for language: {}",
+                    self.language_id
+                );
             }
         }
     }
 
     pub fn get_document_symbols(&mut self, file_uri: &str) -> Result<Vec<DocumentSymbol>> {
         use std::time::Instant;
-        
+
         // Capabilityをチェック
         if !self.has_capability("textDocument/documentSymbol") {
             return Err(anyhow!(
@@ -493,21 +515,28 @@ impl GenericLspClient {
                 self.language_id
             ));
         }
-        
+
         let start = Instant::now();
-        
+
         // First, open the document
         let file_path = file_uri.strip_prefix("file://").unwrap_or(file_uri);
         let content = std::fs::read_to_string(file_path)?;
-        
+
         // ファイルサイズと行数を取得
         let file_size = content.len();
         let line_count = content.lines().count();
-        
+
         // 操作種別に応じたタイムアウトを取得
-        let timeout = self.health_checker.get_timeout_for_operation(LspOperationType::DocumentSymbol);
-        debug!("Processing {} ({}KB, {} lines) with timeout: {:?}", 
-                  file_path, file_size / 1024, line_count, timeout);  // eprintln -> debug
+        let timeout = self
+            .health_checker
+            .get_timeout_for_operation(LspOperationType::DocumentSymbol);
+        debug!(
+            "Processing {} ({}KB, {} lines) with timeout: {:?}",
+            file_path,
+            file_size / 1024,
+            line_count,
+            timeout
+        ); // eprintln -> debug
 
         self.send_notification(
             "textDocument/didOpen",
@@ -532,15 +561,19 @@ impl GenericLspClient {
 
         let response: Option<lsp_types::DocumentSymbolResponse> =
             self.send_request_with_timeout("textDocument/documentSymbol", params, timeout)?;
-        
+
         // 処理時間を記録
         let actual_duration = start.elapsed();
-        self.health_checker.record_response_time_for_operation(actual_duration, LspOperationType::DocumentSymbol);
-        self.timeout_predictor.record_processing(file_size, line_count, actual_duration);
-        
-        debug!("DocumentSymbol completed in {:?} (phase: {})", 
-               actual_duration, 
-               self.health_checker.get_health_status().current_phase);
+        self.health_checker
+            .record_response_time_for_operation(actual_duration, LspOperationType::DocumentSymbol);
+        self.timeout_predictor
+            .record_processing(file_size, line_count, actual_duration);
+
+        debug!(
+            "DocumentSymbol completed in {:?} (phase: {})",
+            actual_duration,
+            self.health_checker.get_health_status().current_phase
+        );
 
         match response {
             Some(lsp_types::DocumentSymbolResponse::Nested(symbols)) => Ok(symbols),
@@ -575,7 +608,7 @@ impl GenericLspClient {
                 self.language_id
             ));
         }
-        
+
         let response: Option<Vec<Location>> =
             self.send_request("textDocument/references", params)?;
 
@@ -590,7 +623,7 @@ impl GenericLspClient {
                 self.language_id
             ));
         }
-        
+
         let response: Option<GotoDefinitionResponse> =
             self.send_request("textDocument/definition", params)?;
 
@@ -614,14 +647,14 @@ impl GenericLspClient {
 
     /// ワークスペースシンボルを検索
     pub fn search_workspace_symbols(&mut self, query: &str) -> Result<Vec<SymbolInformation>> {
-        use lsp_types::{WorkspaceSymbolParams, WorkDoneProgressParams, PartialResultParams};
-        
+        use lsp_types::{PartialResultParams, WorkDoneProgressParams, WorkspaceSymbolParams};
+
         let params = WorkspaceSymbolParams {
             query: query.to_string(),
             work_done_progress_params: WorkDoneProgressParams::default(),
             partial_result_params: PartialResultParams::default(),
         };
-        
+
         self.send_request::<_, Option<Vec<SymbolInformation>>>("workspace/symbol", params)?
             .ok_or_else(|| anyhow!("No workspace symbols found"))
     }
@@ -634,7 +667,7 @@ impl GenericLspClient {
         // デフォルトタイムアウト（30秒）で送信
         self.send_request_with_timeout(method, params, std::time::Duration::from_secs(30))
     }
-    
+
     pub fn send_request_with_timeout<P: Serialize, R: for<'de> Deserialize<'de>>(
         &mut self,
         method: &str,
@@ -643,7 +676,7 @@ impl GenericLspClient {
     ) -> Result<R> {
         use std::time::Instant;
         use tracing::debug;
-        
+
         self.request_id += 1;
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
@@ -656,7 +689,7 @@ impl GenericLspClient {
         let content_length = request_str.len();
 
         debug!("Sending LSP request '{}' (id: {})", method, self.request_id);
-        
+
         writeln!(self.writer, "Content-Length: {content_length}\r")?;
         writeln!(self.writer, "\r")?;
         self.writer.write_all(request_str.as_bytes())?;
@@ -667,9 +700,13 @@ impl GenericLspClient {
         loop {
             let elapsed = start.elapsed();
             if elapsed > timeout {
-                return Err(anyhow!("LSP request '{}' timed out after {:?}", method, timeout));
+                return Err(anyhow!(
+                    "LSP request '{}' timed out after {:?}",
+                    method,
+                    timeout
+                ));
             }
-            
+
             // ノンブロッキング読み取りを試みる（100ms -> 10ms）
             match self.try_read_message(std::time::Duration::from_millis(10)) {
                 Ok(Some(response)) => {
@@ -678,7 +715,7 @@ impl GenericLspClient {
                         let response_time = start.elapsed();
                         self.health_checker.record_response_time(response_time);
                         debug!("LSP request '{}' completed in {:?}", method, response_time);
-                        
+
                         if let Some(error) = response.get("error") {
                             return Err(anyhow!("LSP error: {:?}", error));
                         }
@@ -716,26 +753,28 @@ impl GenericLspClient {
         Ok(())
     }
 
-    
-    fn try_read_message(&mut self, timeout: std::time::Duration) -> Result<Option<serde_json::Value>> {
+    fn try_read_message(
+        &mut self,
+        timeout: std::time::Duration,
+    ) -> Result<Option<serde_json::Value>> {
         use std::io::{ErrorKind, Read};
         use std::time::Instant;
-        
+
         let start = Instant::now();
         let mut headers = Vec::new();
         let mut content_length = 0;
-        
+
         // ヘッダーを読む（タイムアウト付き）
         loop {
             if start.elapsed() > timeout {
                 return Ok(None);
             }
-            
+
             // タイムアウトチェックを追加
             if start.elapsed() > timeout {
                 return Ok(None);
             }
-            
+
             let mut line = String::new();
             match self.reader.read_line(&mut line) {
                 Ok(0) => return Ok(None), // EOF
@@ -768,7 +807,7 @@ impl GenericLspClient {
         if start.elapsed() > timeout {
             return Ok(None);
         }
-        
+
         let mut buffer = vec![0u8; content_length];
         self.reader.read_exact(&mut buffer)?;
 
@@ -814,9 +853,7 @@ pub fn detect_language(file_path: &str) -> Option<Box<dyn LspAdapter>> {
 
 /// Get language ID from file path
 pub fn get_language_id(file_path: &Path) -> Option<String> {
-    let extension = file_path
-        .extension()
-        .and_then(|ext| ext.to_str())?;
+    let extension = file_path.extension().and_then(|ext| ext.to_str())?;
 
     match extension {
         "rs" => Some("rust".to_string()),
@@ -847,7 +884,7 @@ mod tests {
     fn test_rust_analyzer_adapter() {
         let adapter = RustAnalyzerAdapter;
         assert_eq!(adapter.language_id(), "rust");
-        
+
         // 初期化パラメータを取得できることを確認
         let init_params = adapter.get_init_params();
         assert!(init_params.capabilities.text_document.is_some());
@@ -861,7 +898,7 @@ mod tests {
     fn test_typescript_adapter() {
         let adapter = TypeScriptAdapter;
         assert_eq!(adapter.language_id(), "typescript");
-        
+
         // 初期化パラメータを取得できることを確認
         let init_params = adapter.get_init_params();
         assert!(init_params.capabilities.text_document.is_some());
@@ -872,11 +909,11 @@ mod tests {
         // 絶対パス
         assert!(detect_language("/home/user/project/main.rs").is_some());
         assert!(detect_language("/src/index.ts").is_some());
-        
+
         // 相対パス
         assert!(detect_language("./src/main.rs").is_some());
         assert!(detect_language("../lib/index.ts").is_some());
-        
+
         // 複雑なパス
         assert!(detect_language("some/deep/path/to/file.rs").is_some());
         assert!(detect_language("path with spaces/file.ts").is_some());

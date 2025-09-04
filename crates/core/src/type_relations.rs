@@ -333,7 +333,7 @@ impl<'a> TypeRelationsAnalyzer<'a> {
                         petgraph::Direction::Outgoing => edge.target(),
                         petgraph::Direction::Incoming => edge.source(),
                     };
-                    
+
                     if let Some(related) = self.graph.graph.node_weight(related_node) {
                         if self.is_type_symbol(related) {
                             results.push(related.clone());

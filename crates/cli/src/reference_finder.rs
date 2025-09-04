@@ -1,9 +1,9 @@
-use lsp::adapter::language::{LanguageAdapter, RustLanguageAdapter, TypeScriptLanguageAdapter};
+use anyhow::Result;
 /// 参照検索の実装
 ///
 /// ファイル内容を実際に検索して使用箇所を見つける
 use lsif_core::{Position, Range, Symbol, SymbolKind};
-use anyhow::Result;
+use lsp::adapter::language::{LanguageAdapter, RustLanguageAdapter, TypeScriptLanguageAdapter};
 use regex::Regex;
 use std::collections::HashSet;
 use std::path::Path;
@@ -54,7 +54,7 @@ pub fn find_all_references(
             }
             _ => None,
         };
-        
+
         if let Some(adapter) = language_adapter {
             if adapter.is_source_file(path) {
                 if let Ok(content) = std::fs::read_to_string(path) {
@@ -161,7 +161,7 @@ fn find_references_in_file(
                     },
                 },
                 documentation: None,
-            detail: None,
+                detail: None,
             };
 
             references.push(Reference {
@@ -412,7 +412,7 @@ fn main() {
                         },
                     },
                     documentation: None,
-            detail: None,
+                    detail: None,
                 },
                 is_definition: false,
             },
@@ -433,7 +433,7 @@ fn main() {
                         },
                     },
                     documentation: None,
-            detail: None,
+                    detail: None,
                 },
                 is_definition: true,
             },
@@ -454,7 +454,7 @@ fn main() {
                         },
                     },
                     documentation: None,
-            detail: None,
+                    detail: None,
                 },
                 is_definition: false,
             },

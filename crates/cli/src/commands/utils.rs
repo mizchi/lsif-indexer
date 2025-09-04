@@ -1,6 +1,6 @@
+use crate::storage::IndexStorage;
 use anyhow::Result;
 use lsif_core::{CodeGraph, Symbol};
-use crate::storage::IndexStorage;
 
 /// Parse location format: file.rs:10:5 or file.rs
 pub fn parse_location(location: &str) -> Result<(String, u32, u32)> {
@@ -24,25 +24,21 @@ pub fn find_symbol_at_location<'a>(
     line: u32,
     column: u32,
 ) -> Option<&'a Symbol> {
-    graph.get_all_symbols()
-        .find(|s| {
-            s.file_path == file && 
-            s.range.start.line == line &&
-            s.range.start.character >= column.saturating_sub(5) &&
-            s.range.start.character <= column + 5
-        })
+    graph.get_all_symbols().find(|s| {
+        s.file_path == file
+            && s.range.start.line == line
+            && s.range.start.character >= column.saturating_sub(5)
+            && s.range.start.character <= column + 5
+    })
 }
 
 /// Format symbol location for display
 pub fn format_symbol_location(symbol: &Symbol) -> String {
     format!(
         "{}:{}:{}",
-        symbol.file_path,
-        symbol.range.start.line,
-        symbol.range.start.character
+        symbol.file_path, symbol.range.start.line, symbol.range.start.character
     )
 }
-
 
 /// Print error message with emoji
 pub fn print_error(message: &str) {

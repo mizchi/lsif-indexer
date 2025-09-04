@@ -1,6 +1,6 @@
-use lsp::adapter::lsp::{GenericLspClient, LspAdapter};
-use lsif_core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
 use anyhow::Result;
+use lsif_core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
+use lsp::adapter::lsp::{GenericLspClient, LspAdapter};
 use lsp_types::{
     DocumentSymbol, GotoDefinitionParams, Location, PartialResultParams, Position as LspPosition,
     ReferenceContext, ReferenceParams, TextDocumentIdentifier, TextDocumentPositionParams,

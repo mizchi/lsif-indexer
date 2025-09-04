@@ -152,10 +152,12 @@ impl LspBenchmark {
             },
             initialization_options: None,
             trace: Some(TraceValue::Off),
-            workspace_folders: Url::from_file_path(&self.workspace_path).ok().map(|uri| vec![WorkspaceFolder {
-                uri,
-                name: "workspace".to_string(),
-            }]),
+            workspace_folders: Url::from_file_path(&self.workspace_path).ok().map(|uri| {
+                vec![WorkspaceFolder {
+                    uri,
+                    name: "workspace".to_string(),
+                }]
+            }),
             client_info: Some(ClientInfo {
                 name: "lsp-benchmark".to_string(),
                 version: Some("1.0.0".to_string()),
@@ -244,7 +246,12 @@ impl LspBenchmark {
         })
     }
 
-    pub fn benchmark_definition(&mut self, file_path: &str, line: u32, column: u32) -> Result<BenchmarkResult> {
+    pub fn benchmark_definition(
+        &mut self,
+        file_path: &str,
+        line: u32,
+        column: u32,
+    ) -> Result<BenchmarkResult> {
         let start = Instant::now();
 
         let uri = Url::from_file_path(self.workspace_path.join(file_path))
@@ -274,14 +281,22 @@ impl LspBenchmark {
             .map(|s| s.to_string());
 
         Ok(BenchmarkResult {
-            operation: format!("textDocument/definition ({}:{}:{})", file_path, line, column),
+            operation: format!(
+                "textDocument/definition ({}:{}:{})",
+                file_path, line, column
+            ),
             duration,
             success,
             error,
         })
     }
 
-    pub fn benchmark_references(&mut self, file_path: &str, line: u32, column: u32) -> Result<BenchmarkResult> {
+    pub fn benchmark_references(
+        &mut self,
+        file_path: &str,
+        line: u32,
+        column: u32,
+    ) -> Result<BenchmarkResult> {
         let start = Instant::now();
 
         let uri = Url::from_file_path(self.workspace_path.join(file_path))
@@ -314,7 +329,10 @@ impl LspBenchmark {
             .map(|s| s.to_string());
 
         Ok(BenchmarkResult {
-            operation: format!("textDocument/references ({}:{}:{})", file_path, line, column),
+            operation: format!(
+                "textDocument/references ({}:{}:{})",
+                file_path, line, column
+            ),
             duration,
             success,
             error,
@@ -405,7 +423,12 @@ impl LspBenchmark {
     }
 }
 
-pub fn run_benchmark_suite(lsp_name: &str, lsp_command: Vec<String>, workspace_path: PathBuf, test_files: Vec<&str>) -> Vec<BenchmarkResult> {
+pub fn run_benchmark_suite(
+    lsp_name: &str,
+    lsp_command: Vec<String>,
+    workspace_path: PathBuf,
+    test_files: Vec<&str>,
+) -> Vec<BenchmarkResult> {
     let mut results = Vec::new();
     let mut benchmark = LspBenchmark::new(lsp_command, workspace_path.clone());
 
@@ -434,9 +457,16 @@ pub fn run_benchmark_suite(lsp_name: &str, lsp_command: Vec<String>, workspace_p
         match benchmark.benchmark_workspace_symbol(query) {
             Ok(result) => {
                 if result.success {
-                    println!("✓ workspace/symbol ('{}'): {:.3}s", query, result.duration.as_secs_f64());
+                    println!(
+                        "✓ workspace/symbol ('{}'): {:.3}s",
+                        query,
+                        result.duration.as_secs_f64()
+                    );
                 } else {
-                    println!("✗ workspace/symbol ('{}') failed: {:?}", query, result.error);
+                    println!(
+                        "✗ workspace/symbol ('{}') failed: {:?}",
+                        query, result.error
+                    );
                 }
                 results.push(result);
             }
@@ -451,9 +481,16 @@ pub fn run_benchmark_suite(lsp_name: &str, lsp_command: Vec<String>, workspace_p
         match benchmark.benchmark_document_symbol(file_path) {
             Ok(result) => {
                 if result.success {
-                    println!("✓ documentSymbol ({}): {:.3}s", file_path, result.duration.as_secs_f64());
+                    println!(
+                        "✓ documentSymbol ({}): {:.3}s",
+                        file_path,
+                        result.duration.as_secs_f64()
+                    );
                 } else {
-                    println!("✗ documentSymbol ({}) failed: {:?}", file_path, result.error);
+                    println!(
+                        "✗ documentSymbol ({}) failed: {:?}",
+                        file_path, result.error
+                    );
                 }
                 results.push(result);
             }
@@ -466,9 +503,16 @@ pub fn run_benchmark_suite(lsp_name: &str, lsp_command: Vec<String>, workspace_p
         match benchmark.benchmark_definition(file_path, 10, 5) {
             Ok(result) => {
                 if result.success {
-                    println!("✓ definition ({}:10:5): {:.3}s", file_path, result.duration.as_secs_f64());
+                    println!(
+                        "✓ definition ({}:10:5): {:.3}s",
+                        file_path,
+                        result.duration.as_secs_f64()
+                    );
                 } else {
-                    println!("✗ definition ({}:10:5) failed: {:?}", file_path, result.error);
+                    println!(
+                        "✗ definition ({}:10:5) failed: {:?}",
+                        file_path, result.error
+                    );
                 }
                 results.push(result);
             }
@@ -481,9 +525,16 @@ pub fn run_benchmark_suite(lsp_name: &str, lsp_command: Vec<String>, workspace_p
         match benchmark.benchmark_references(file_path, 10, 5) {
             Ok(result) => {
                 if result.success {
-                    println!("✓ references ({}:10:5): {:.3}s", file_path, result.duration.as_secs_f64());
+                    println!(
+                        "✓ references ({}:10:5): {:.3}s",
+                        file_path,
+                        result.duration.as_secs_f64()
+                    );
                 } else {
-                    println!("✗ references ({}:10:5) failed: {:?}", file_path, result.error);
+                    println!(
+                        "✗ references ({}:10:5) failed: {:?}",
+                        file_path, result.error
+                    );
                 }
                 results.push(result);
             }
@@ -506,7 +557,11 @@ pub fn analyze_results(all_results: HashMap<String, Vec<BenchmarkResult>>) {
     for (lsp_name, results) in &all_results {
         for result in results {
             if result.success {
-                let op_type = result.operation.split_whitespace().next().unwrap_or("unknown");
+                let op_type = result
+                    .operation
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("unknown");
                 operation_stats
                     .entry(op_type.to_string())
                     .or_default()
@@ -519,17 +574,23 @@ pub fn analyze_results(all_results: HashMap<String, Vec<BenchmarkResult>>) {
     println!("| 操作 | tsgo | rust-analyzer | gopls |");
     println!("|------|------|---------------|-------|");
 
-    for op_type in ["initialize", "workspace/symbol", "textDocument/documentSymbol", "textDocument/definition", "textDocument/references"] {
+    for op_type in [
+        "initialize",
+        "workspace/symbol",
+        "textDocument/documentSymbol",
+        "textDocument/definition",
+        "textDocument/references",
+    ] {
         if let Some(stats) = operation_stats.get(op_type) {
             let mut row = format!("| {} |", op_type);
-            
+
             for lsp in ["tsgo", "rust-analyzer", "gopls"] {
                 let times: Vec<Duration> = stats
                     .iter()
                     .filter(|(name, _)| name == lsp)
                     .map(|(_, d)| *d)
                     .collect();
-                
+
                 if !times.is_empty() {
                     let avg = times.iter().sum::<Duration>() / times.len() as u32;
                     row.push_str(&format!(" {:.3}s |", avg.as_secs_f64()));
@@ -553,10 +614,14 @@ pub fn analyze_results(all_results: HashMap<String, Vec<BenchmarkResult>>) {
                 if result.operation == "initialize" && result.duration < fastest_init.1 {
                     fastest_init = (lsp_name.as_str(), result.duration);
                 }
-                if result.operation.starts_with("workspace/symbol") && result.duration < fastest_workspace_symbol.1 {
+                if result.operation.starts_with("workspace/symbol")
+                    && result.duration < fastest_workspace_symbol.1
+                {
                     fastest_workspace_symbol = (lsp_name.as_str(), result.duration);
                 }
-                if result.operation.starts_with("textDocument/documentSymbol") && result.duration < fastest_document_symbol.1 {
+                if result.operation.starts_with("textDocument/documentSymbol")
+                    && result.duration < fastest_document_symbol.1
+                {
                     fastest_document_symbol = (lsp_name.as_str(), result.duration);
                 }
             }
@@ -564,15 +629,27 @@ pub fn analyze_results(all_results: HashMap<String, Vec<BenchmarkResult>>) {
     }
 
     println!("### 初期化パフォーマンス");
-    println!("- 最速: {} ({:.3}s)", fastest_init.0, fastest_init.1.as_secs_f64());
+    println!(
+        "- 最速: {} ({:.3}s)",
+        fastest_init.0,
+        fastest_init.1.as_secs_f64()
+    );
     println!("- 推奨: 初期化は1度だけなので、機能の充実度を優先すべき\n");
 
     println!("### workspace/symbol (プロジェクト全体検索)");
-    println!("- 最速: {} ({:.3}s)", fastest_workspace_symbol.0, fastest_workspace_symbol.1.as_secs_f64());
+    println!(
+        "- 最速: {} ({:.3}s)",
+        fastest_workspace_symbol.0,
+        fastest_workspace_symbol.1.as_secs_f64()
+    );
     println!("- 推奨: 大規模プロジェクトでは応答速度が重要。キャッシュ戦略も検討\n");
 
     println!("### textDocument/documentSymbol (ファイル内シンボル)");
-    println!("- 最速: {} ({:.3}s)", fastest_document_symbol.0, fastest_document_symbol.1.as_secs_f64());
+    println!(
+        "- 最速: {} ({:.3}s)",
+        fastest_document_symbol.0,
+        fastest_document_symbol.1.as_secs_f64()
+    );
     println!("- 推奨: 頻繁に呼ばれるため、レスポンス時間が重要\n");
 
     println!("## 最適なアクセス戦略\n");

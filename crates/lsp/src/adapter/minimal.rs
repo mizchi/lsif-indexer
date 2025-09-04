@@ -1,4 +1,3 @@
-
 // LanguageAdapterトレイトは language.rs から使用
 
 /// コメントスタイル定義

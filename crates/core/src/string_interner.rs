@@ -1,8 +1,8 @@
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use std::sync::Arc;
 use std::fmt;
+use std::sync::Arc;
 
 /// インターン化された文字列を表す軽量な識別子
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -13,7 +13,7 @@ impl InternedString {
     pub fn as_str(&self) -> &'static str {
         GLOBAL_INTERNER.get(*self)
     }
-    
+
     /// 内部のIDを取得
     pub fn id(&self) -> u32 {
         self.0
@@ -63,28 +63,28 @@ impl StringInterner {
     /// 文字列をインターン化
     pub fn intern(&self, s: &str) -> InternedString {
         let mut stats = self.stats.write();
-        
+
         // 既存の文字列を検索
         if let Some(id) = self.string_to_id.get(s) {
             stats.cache_hits += 1;
             return InternedString(*id.value());
         }
-        
+
         stats.cache_misses += 1;
-        
+
         // 新しい文字列を追加
         let mut id_to_string = self.id_to_string.write();
         let id = id_to_string.len() as u32;
-        
+
         // 文字列をリークして'static生存期間を得る
         let leaked_str: &'static str = Box::leak(s.to_string().into_boxed_str());
-        
+
         id_to_string.push(leaked_str);
         self.string_to_id.insert(s.to_string(), id);
-        
+
         stats.total_strings += 1;
         stats.total_bytes += s.len();
-        
+
         InternedString(id)
     }
 
@@ -96,10 +96,7 @@ impl StringInterner {
     /// IDから文字列を取得
     pub fn get(&self, interned: InternedString) -> &'static str {
         let id_to_string = self.id_to_string.read();
-        id_to_string
-            .get(interned.0 as usize)
-            .copied()
-            .unwrap_or("")
+        id_to_string.get(interned.0 as usize).copied().unwrap_or("")
     }
 
     /// 統計情報を取得
@@ -200,18 +197,18 @@ mod tests {
     #[test]
     fn test_string_interner_basic() {
         let interner = StringInterner::new();
-        
+
         let s1 = interner.intern("hello");
         let s2 = interner.intern("world");
         let s3 = interner.intern("hello"); // 同じ文字列
-        
+
         assert_eq!(s1, s3); // 同じIDを持つ
         assert_ne!(s1, s2);
-        
+
         // ローカルインターナーを使う場合は、getメソッドを直接使う
         assert_eq!(interner.get(s1), "hello");
         assert_eq!(interner.get(s2), "world");
-        
+
         let stats = interner.stats();
         assert_eq!(stats.total_strings, 2); // "hello"と"world"のみ
         assert_eq!(stats.cache_hits, 1); // "hello"の2回目
@@ -222,10 +219,10 @@ mod tests {
         let s1 = intern("test1");
         let s2 = intern("test2");
         let s3 = intern("test1");
-        
+
         assert_eq!(s1, s3);
         assert_ne!(s1, s2);
-        
+
         assert_eq!(s1.as_str(), "test1");
     }
 
@@ -237,39 +234,48 @@ mod tests {
             kind: crate::SymbolKind::Function,
             file_path: "src/main.rs".to_string(),
             range: crate::Range {
-                start: crate::Position { line: 0, character: 0 },
-                end: crate::Position { line: 1, character: 0 },
+                start: crate::Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: crate::Position {
+                    line: 1,
+                    character: 0,
+                },
             },
             documentation: Some("Test doc".to_string()),
             detail: None,
         };
-        
+
         let interned = InternedSymbol::from_symbol(symbol.clone());
         let converted = interned.to_symbol();
-        
+
         assert_eq!(symbol, converted);
-        
+
         // メモリサイズが大幅に削減されているはず
-        let original_size = std::mem::size_of::<crate::Symbol>() + 
-            symbol.id.len() + symbol.name.len() + symbol.file_path.len() + 8;
+        let original_size = std::mem::size_of::<crate::Symbol>()
+            + symbol.id.len()
+            + symbol.name.len()
+            + symbol.file_path.len()
+            + 8;
         let interned_size = interned.estimated_size();
-        
+
         assert!(interned_size < original_size);
     }
 
     #[test]
     fn test_batch_intern() {
         let interner = StringInterner::new();
-        
+
         let strings = vec![
             "alpha".to_string(),
             "beta".to_string(),
             "gamma".to_string(),
             "alpha".to_string(), // 重複
         ];
-        
+
         let interned = interner.intern_batch(strings);
-        
+
         assert_eq!(interned.len(), 4);
         assert_eq!(interned[0], interned[3]); // 同じ文字列は同じID
         assert_eq!(interner.len(), 3); // ユニークな文字列は3つ
@@ -278,14 +284,14 @@ mod tests {
     #[test]
     fn test_memory_estimation() {
         let interner = StringInterner::new();
-        
+
         for i in 0..100 {
             interner.intern(&format!("string_{}", i));
         }
-        
+
         let memory = interner.estimated_memory_usage();
         assert!(memory > 0);
-        
+
         let stats = interner.stats();
         assert_eq!(stats.total_strings, 100);
         assert_eq!(stats.cache_misses, 100);

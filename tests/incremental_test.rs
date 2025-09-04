@@ -1,7 +1,5 @@
 use core::graph::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
-use core::incremental::{
-    calculate_file_hash, FileUpdate, IncrementalIndex, UpdateResult,
-};
+use core::incremental::{calculate_file_hash, FileUpdate, IncrementalIndex, UpdateResult};
 use std::path::{Path, PathBuf};
 
 fn create_test_symbol(id: &str, name: &str, kind: SymbolKind, file_path: &str) -> Symbol {

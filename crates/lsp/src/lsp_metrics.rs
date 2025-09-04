@@ -1,7 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use serde::{Deserialize, Serialize};
 use tracing::info;
 
 /// LSPメトリクス収集システム
@@ -117,12 +117,7 @@ impl LspMetricsCollector {
     }
 
     /// 操作の完了を記録
-    pub fn record_operation_complete(
-        &self,
-        operation: &str,
-        duration: Duration,
-        success: bool,
-    ) {
+    pub fn record_operation_complete(&self, operation: &str, duration: Duration, success: bool) {
         let mut metrics = self.metrics.write().unwrap();
         metrics.total_requests += 1;
 
@@ -161,7 +156,7 @@ impl LspMetricsCollector {
         duration: Duration,
     ) {
         let mut metrics = self.metrics.write().unwrap();
-        
+
         let lang_metrics = metrics
             .language_metrics
             .entry(language.to_string())
@@ -222,19 +217,21 @@ impl LspMetricsCollector {
     /// メトリクスのサマリーを取得
     pub fn get_summary(&self) -> MetricsSummary {
         let metrics = self.metrics.read().unwrap();
-        let uptime = metrics.start_instant
+        let uptime = metrics
+            .start_instant
             .map(|instant| instant.elapsed())
             .unwrap_or_else(|| Duration::from_secs(0));
 
-        let total_cache_requests = 
-            metrics.cache_metrics.l1_hits + metrics.cache_metrics.l1_misses +
-            metrics.cache_metrics.l2_hits + metrics.cache_metrics.l2_misses +
-            metrics.cache_metrics.l3_hits + metrics.cache_metrics.l3_misses;
+        let total_cache_requests = metrics.cache_metrics.l1_hits
+            + metrics.cache_metrics.l1_misses
+            + metrics.cache_metrics.l2_hits
+            + metrics.cache_metrics.l2_misses
+            + metrics.cache_metrics.l3_hits
+            + metrics.cache_metrics.l3_misses;
 
-        let total_cache_hits = 
-            metrics.cache_metrics.l1_hits + 
-            metrics.cache_metrics.l2_hits + 
-            metrics.cache_metrics.l3_hits;
+        let total_cache_hits = metrics.cache_metrics.l1_hits
+            + metrics.cache_metrics.l2_hits
+            + metrics.cache_metrics.l3_hits;
 
         let overall_cache_hit_rate = if total_cache_requests > 0 {
             total_cache_hits as f64 / total_cache_requests as f64
@@ -271,8 +268,9 @@ impl LspMetricsCollector {
             cache_hit_rate: overall_cache_hit_rate,
             error_rate,
             pool_efficiency: if metrics.pool_metrics.instance_creation_count > 0 {
-                metrics.pool_metrics.instance_reuse_count as f64 / 
-                (metrics.pool_metrics.instance_creation_count + metrics.pool_metrics.instance_reuse_count) as f64
+                metrics.pool_metrics.instance_reuse_count as f64
+                    / (metrics.pool_metrics.instance_creation_count
+                        + metrics.pool_metrics.instance_reuse_count) as f64
             } else {
                 0.0
             },
@@ -287,14 +285,24 @@ impl LspMetricsCollector {
         println!("\n=== LSP Performance Metrics Report ===");
         println!("Uptime: {:.2}s", summary.uptime.as_secs_f64());
         println!("Total Requests: {}", summary.total_requests);
-        println!("Average Response Time: {:.3}ms", summary.average_response_time.as_millis());
-        println!("Overall Cache Hit Rate: {:.1}%", summary.cache_hit_rate * 100.0);
+        println!(
+            "Average Response Time: {:.3}ms",
+            summary.average_response_time.as_millis()
+        );
+        println!(
+            "Overall Cache Hit Rate: {:.1}%",
+            summary.cache_hit_rate * 100.0
+        );
         println!("Error Rate: {:.1}%", summary.error_rate * 100.0);
-        println!("Pool Reuse Efficiency: {:.1}%", summary.pool_efficiency * 100.0);
+        println!(
+            "Pool Reuse Efficiency: {:.1}%",
+            summary.pool_efficiency * 100.0
+        );
 
         println!("\n## Operation Breakdown");
         for (op_name, op_metrics) in &metrics.operation_metrics {
-            println!("  {}: {} requests, avg {:.3}ms, success rate {:.1}%",
+            println!(
+                "  {}: {} requests, avg {:.3}ms, success rate {:.1}%",
                 op_name,
                 op_metrics.count,
                 op_metrics.avg_duration.as_millis(),
@@ -309,8 +317,9 @@ impl LspMetricsCollector {
             } else {
                 Duration::ZERO
             };
-            
-            println!("  {}: {} files, {} symbols, avg {:.3}ms/file",
+
+            println!(
+                "  {}: {} files, {} symbols, avg {:.3}ms/file",
                 lang,
                 lang_metrics.files_processed,
                 lang_metrics.symbols_extracted,
@@ -319,29 +328,45 @@ impl LspMetricsCollector {
         }
 
         println!("\n## Cache Statistics");
-        println!("  L1: {} hits, {} misses ({:.1}% hit rate)",
+        println!(
+            "  L1: {} hits, {} misses ({:.1}% hit rate)",
             metrics.cache_metrics.l1_hits,
             metrics.cache_metrics.l1_misses,
-            cache_hit_rate(metrics.cache_metrics.l1_hits, metrics.cache_metrics.l1_misses) * 100.0
+            cache_hit_rate(
+                metrics.cache_metrics.l1_hits,
+                metrics.cache_metrics.l1_misses
+            ) * 100.0
         );
-        println!("  L2: {} hits, {} misses ({:.1}% hit rate)",
+        println!(
+            "  L2: {} hits, {} misses ({:.1}% hit rate)",
             metrics.cache_metrics.l2_hits,
             metrics.cache_metrics.l2_misses,
-            cache_hit_rate(metrics.cache_metrics.l2_hits, metrics.cache_metrics.l2_misses) * 100.0
+            cache_hit_rate(
+                metrics.cache_metrics.l2_hits,
+                metrics.cache_metrics.l2_misses
+            ) * 100.0
         );
-        println!("  L3: {} hits, {} misses ({:.1}% hit rate)",
+        println!(
+            "  L3: {} hits, {} misses ({:.1}% hit rate)",
             metrics.cache_metrics.l3_hits,
             metrics.cache_metrics.l3_misses,
-            cache_hit_rate(metrics.cache_metrics.l3_hits, metrics.cache_metrics.l3_misses) * 100.0
+            cache_hit_rate(
+                metrics.cache_metrics.l3_hits,
+                metrics.cache_metrics.l3_misses
+            ) * 100.0
         );
 
         println!("\n## Pool Statistics");
-        println!("  Total Instances: {}", metrics.pool_metrics.total_instances);
-        println!("  Active: {}, Idle: {}", 
-            metrics.pool_metrics.active_instances,
-            metrics.pool_metrics.idle_instances
+        println!(
+            "  Total Instances: {}",
+            metrics.pool_metrics.total_instances
         );
-        println!("  Created: {}, Reused: {}, Evicted: {}",
+        println!(
+            "  Active: {}, Idle: {}",
+            metrics.pool_metrics.active_instances, metrics.pool_metrics.idle_instances
+        );
+        println!(
+            "  Created: {}, Reused: {}, Evicted: {}",
             metrics.pool_metrics.instance_creation_count,
             metrics.pool_metrics.instance_reuse_count,
             metrics.pool_metrics.instance_eviction_count
@@ -386,13 +411,14 @@ pub struct OperationTimer {
     collector: LspMetricsCollector,
     operation: String,
     start_time: Instant,
-    start_instant: Instant,  // 追加
+    start_instant: Instant, // 追加
 }
 
 impl Drop for OperationTimer {
     fn drop(&mut self) {
         let duration = self.start_instant.elapsed();
-        self.collector.record_operation_complete(&self.operation, duration, true);
+        self.collector
+            .record_operation_complete(&self.operation, duration, true);
     }
 }
 
@@ -412,17 +438,17 @@ mod tests {
     #[test]
     fn test_metrics_collection() {
         let collector = LspMetricsCollector::new();
-        
+
         // 操作を記録
         collector.record_operation_complete("initialize", Duration::from_millis(100), true);
         collector.record_operation_complete("workspace/symbol", Duration::from_millis(50), true);
         collector.record_operation_complete("workspace/symbol", Duration::from_millis(60), false);
-        
+
         // キャッシュヒット/ミスを記録
         collector.record_cache_hit(CacheLevel::L1);
         collector.record_cache_miss(CacheLevel::L1);
         collector.record_cache_hit(CacheLevel::L2);
-        
+
         let summary = collector.get_summary();
         assert_eq!(summary.total_requests, 3);
         assert!(summary.error_rate > 0.0);
@@ -432,13 +458,20 @@ mod tests {
     #[test]
     fn test_operation_timer() {
         let collector = LspMetricsCollector::new();
-        
+
         {
             let _timer = collector.record_operation_start("test_operation");
             std::thread::sleep(Duration::from_millis(10));
         } // タイマーがドロップされて自動的に記録される
-        
+
         let metrics = collector.metrics.read().unwrap();
-        assert_eq!(metrics.operation_metrics.get("test_operation").unwrap().count, 1);
+        assert_eq!(
+            metrics
+                .operation_metrics
+                .get("test_operation")
+                .unwrap()
+                .count,
+            1
+        );
     }
 }

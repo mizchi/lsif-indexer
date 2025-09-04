@@ -1,6 +1,6 @@
+use anyhow::Result;
 use rayon::prelude::*;
 use std::path::PathBuf;
-use anyhow::Result;
 
 /// 適応的並列処理の設定
 #[derive(Debug, Clone)]
@@ -16,9 +16,9 @@ pub struct AdaptiveParallelConfig {
 impl Default for AdaptiveParallelConfig {
     fn default() -> Self {
         Self {
-            parallel_threshold: 30,  // 30ファイル以上で並列処理
-            max_threads: 0,          // 自動（CPU数に基づく）
-            chunk_size: 10,          // より小さなチャンクで並列度を向上
+            parallel_threshold: 30, // 30ファイル以上で並列処理
+            max_threads: 0,         // 自動（CPU数に基づく）
+            chunk_size: 10,         // より小さなチャンクで並列度を向上
         }
     }
 }
@@ -64,18 +64,10 @@ impl AdaptiveParallelExecutor {
             files.iter().map(processor).collect()
         } else if let Some(pool) = &self.thread_pool {
             // カスタムスレッドプールで並列処理
-            pool.install(|| {
-                files
-                    .par_iter()
-                    .map(processor)
-                    .collect()
-            })
+            pool.install(|| files.par_iter().map(processor).collect())
         } else {
             // デフォルトの並列処理
-            files
-                .par_iter()
-                .map(processor)
-                .collect()
+            files.par_iter().map(processor).collect()
         }
     }
 
@@ -106,7 +98,7 @@ impl AdaptiveParallelExecutor {
         R: Send,
     {
         let len = items.len();
-        
+
         if len < self.config.parallel_threshold {
             // シーケンシャル処理
             items.into_iter().map(mapper).collect()
@@ -136,7 +128,8 @@ impl AdaptiveParallelExecutor {
             parallel_threshold: self.config.parallel_threshold,
             max_threads: self.config.max_threads,
             chunk_size: self.config.chunk_size,
-            thread_pool_size: self.thread_pool
+            thread_pool_size: self
+                .thread_pool
                 .as_ref()
                 .map(|p| p.current_num_threads())
                 .unwrap_or_else(rayon::current_num_threads),
@@ -181,7 +174,7 @@ impl AdaptiveIncrementalProcessor {
     {
         // 追加と変更は並列処理の恩恵を受けやすい
         let total_changes = added.len() + modified.len();
-        
+
         if total_changes >= self.executor.config.parallel_threshold {
             // 並列処理
             rayon::scope(|s| {
@@ -190,7 +183,7 @@ impl AdaptiveIncrementalProcessor {
                         let _ = processor(path, ChangeType::Added);
                     });
                 });
-                
+
                 s.spawn(|_| {
                     modified.par_iter().for_each(|path| {
                         let _ = processor(path, ChangeType::Modified);
@@ -236,14 +229,14 @@ mod tests {
             max_threads: 2,
             chunk_size: 5,
         };
-        
+
         let executor = AdaptiveParallelExecutor::new(config).unwrap();
-        
+
         // 閾値未満：シーケンシャル処理
         let small_items = vec![1, 2, 3, 4, 5];
         let small_result = executor.map_conditional(small_items, |x| x * 2);
         assert_eq!(small_result, vec![2, 4, 6, 8, 10]);
-        
+
         // 閾値以上：並列処理
         let large_items: Vec<i32> = (1..=20).collect();
         let large_result = executor.map_conditional(large_items, |x| x * 2);
@@ -258,14 +251,12 @@ mod tests {
             max_threads: 2,
             chunk_size: 3,
         };
-        
+
         let executor = AdaptiveParallelExecutor::new(config).unwrap();
-        
+
         let items: Vec<i32> = (1..=10).collect();
-        let result = executor.process_chunked(items, |chunk| {
-            chunk.iter().map(|x| x * 2).collect()
-        });
-        
+        let result = executor.process_chunked(items, |chunk| chunk.iter().map(|x| x * 2).collect());
+
         let expected: Vec<i32> = (2..=20).step_by(2).collect();
         assert_eq!(result, expected);
     }
@@ -274,24 +265,21 @@ mod tests {
     fn test_incremental_processor() {
         let config = AdaptiveParallelConfig::default();
         let processor = AdaptiveIncrementalProcessor::new(config).unwrap();
-        
+
         let added = vec![PathBuf::from("a.rs"), PathBuf::from("b.rs")];
         let modified = vec![PathBuf::from("c.rs")];
         let deleted = vec![PathBuf::from("d.rs")];
-        
+
         let counter = Arc::new(AtomicUsize::new(0));
         let counter_clone = counter.clone();
-        
-        processor.process_changes(
-            added,
-            modified,
-            deleted,
-            move |_path, _change_type| {
+
+        processor
+            .process_changes(added, modified, deleted, move |_path, _change_type| {
                 counter_clone.fetch_add(1, Ordering::SeqCst);
                 Ok(())
-            },
-        ).unwrap();
-        
+            })
+            .unwrap();
+
         assert_eq!(counter.load(Ordering::SeqCst), 4);
     }
 
@@ -302,16 +290,16 @@ mod tests {
             max_threads: 2,
             chunk_size: 5,
         };
-        
+
         let executor = AdaptiveParallelExecutor::new(config).unwrap();
-        
+
         // 小さいファイルセット（シーケンシャル）
         let small_files = vec![PathBuf::from("a.rs"), PathBuf::from("b.rs")];
         let small_result = executor.process_files(small_files, |path| {
             path.file_name().unwrap().to_str().unwrap().to_string()
         });
         assert_eq!(small_result, vec!["a.rs", "b.rs"]);
-        
+
         // 大きいファイルセット（並列）
         let large_files: Vec<PathBuf> = (0..10)
             .map(|i| PathBuf::from(format!("file{}.rs", i)))
@@ -329,21 +317,19 @@ mod tests {
             max_threads: 2,
             chunk_size: 5,
         };
-        
+
         let executor = AdaptiveParallelExecutor::new(config).unwrap();
-        
+
         // 小さいデータセット
         let small_items = vec![1, 2, 3];
-        let small_result = executor.filter_map(small_items, |x| {
-            if x % 2 == 0 { Some(x * 2) } else { None }
-        });
+        let small_result =
+            executor.filter_map(small_items, |x| if x % 2 == 0 { Some(x * 2) } else { None });
         assert_eq!(small_result, vec![4]);
-        
+
         // 大きいデータセット
         let large_items: Vec<i32> = (1..=10).collect();
-        let large_result = executor.filter_map(large_items, |x| {
-            if x % 2 == 0 { Some(x * 2) } else { None }
-        });
+        let large_result =
+            executor.filter_map(large_items, |x| if x % 2 == 0 { Some(x * 2) } else { None });
         assert_eq!(large_result, vec![4, 8, 12, 16, 20]);
     }
 
@@ -354,10 +340,10 @@ mod tests {
             max_threads: 4,
             chunk_size: 25,
         };
-        
+
         let executor = AdaptiveParallelExecutor::new(config).unwrap();
         let stats = executor.get_stats();
-        
+
         assert_eq!(stats.parallel_threshold, 100);
         assert_eq!(stats.max_threads, 4);
         assert_eq!(stats.chunk_size, 25);
@@ -368,7 +354,7 @@ mod tests {
     fn test_with_defaults() {
         let executor = AdaptiveParallelExecutor::with_defaults().unwrap();
         let stats = executor.get_stats();
-        
+
         assert_eq!(stats.parallel_threshold, 30);
         assert_eq!(stats.max_threads, 0);
         assert_eq!(stats.chunk_size, 10);
@@ -382,25 +368,26 @@ mod tests {
             chunk_size: 5,
         };
         let processor = AdaptiveIncrementalProcessor::new(config).unwrap();
-        
+
         // 並列処理される十分な数のファイル
-        let added: Vec<PathBuf> = (0..10).map(|i| PathBuf::from(format!("a{}.rs", i))).collect();
-        let modified: Vec<PathBuf> = (0..10).map(|i| PathBuf::from(format!("m{}.rs", i))).collect();
+        let added: Vec<PathBuf> = (0..10)
+            .map(|i| PathBuf::from(format!("a{}.rs", i)))
+            .collect();
+        let modified: Vec<PathBuf> = (0..10)
+            .map(|i| PathBuf::from(format!("m{}.rs", i)))
+            .collect();
         let deleted = vec![PathBuf::from("d.rs")];
-        
+
         let counter = Arc::new(AtomicUsize::new(0));
         let counter_clone = counter.clone();
-        
-        processor.process_changes(
-            added,
-            modified,
-            deleted,
-            move |_path, _change_type| {
+
+        processor
+            .process_changes(added, modified, deleted, move |_path, _change_type| {
                 counter_clone.fetch_add(1, Ordering::SeqCst);
                 Ok(())
-            },
-        ).unwrap();
-        
+            })
+            .unwrap();
+
         assert_eq!(counter.load(Ordering::SeqCst), 21);
     }
 }

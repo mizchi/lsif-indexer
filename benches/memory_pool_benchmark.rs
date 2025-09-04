@@ -1,7 +1,7 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, BatchSize};
-use lsif_core::{CodeGraph, Symbol, SymbolKind, Position, Range};
-use lsif_core::optimized_graph::OptimizedCodeGraph;
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use lsif_core::memory_pool::SymbolPool;
+use lsif_core::optimized_graph::OptimizedCodeGraph;
+use lsif_core::{CodeGraph, Position, Range, Symbol, SymbolKind};
 
 /// テスト用のSymbolを生成
 fn create_test_symbol(id: usize) -> Symbol {
@@ -40,46 +40,38 @@ fn benchmark_standard_allocation(c: &mut Criterion) {
     let mut group = c.benchmark_group("symbol_allocation");
 
     for size in [100, 1000, 10000].iter() {
-        group.bench_with_input(
-            BenchmarkId::new("standard", size),
-            size,
-            |b, &size| {
-                b.iter(|| {
+        group.bench_with_input(BenchmarkId::new("standard", size), size, |b, &size| {
+            b.iter(|| {
+                let mut symbols = Vec::with_capacity(size);
+                for i in 0..size {
+                    symbols.push(create_test_symbol(i));
+                }
+                black_box(symbols)
+            })
+        });
+
+        group.bench_with_input(BenchmarkId::new("pooled", size), size, |b, &size| {
+            b.iter_batched_ref(
+                || SymbolPool::new(size),
+                |pool| {
                     let mut symbols = Vec::with_capacity(size);
                     for i in 0..size {
-                        symbols.push(create_test_symbol(i));
+                        let sym = create_test_symbol(i);
+                        let pooled = pool.acquire(
+                            sym.id,
+                            sym.name,
+                            sym.kind,
+                            sym.file_path,
+                            sym.range,
+                            sym.documentation,
+                        );
+                        symbols.push(pooled);
                     }
                     black_box(symbols)
-                })
-            },
-        );
-
-        group.bench_with_input(
-            BenchmarkId::new("pooled", size),
-            size,
-            |b, &size| {
-                b.iter_batched_ref(
-                    || SymbolPool::new(size),
-                    |pool| {
-                        let mut symbols = Vec::with_capacity(size);
-                        for i in 0..size {
-                            let sym = create_test_symbol(i);
-                            let pooled = pool.acquire(
-                                sym.id,
-                                sym.name,
-                                sym.kind,
-                                sym.file_path,
-                                sym.range,
-                                sym.documentation,
-                            );
-                            symbols.push(pooled);
-                        }
-                        black_box(symbols)
-                    },
-                    BatchSize::SmallInput,
-                )
-            },
-        );
+                },
+                BatchSize::SmallInput,
+            )
+        });
     }
 
     group.finish();
@@ -97,14 +89,14 @@ fn benchmark_graph_construction(c: &mut Criterion) {
             |b, &size| {
                 b.iter(|| {
                     let mut graph = CodeGraph::new();
-                    
+
                     // Symbolを追加
                     for i in 0..size {
                         graph.add_symbol(create_test_symbol(i));
                     }
-                    
+
                     // エッジは追加しない（Symbol処理のみのベンチマーク）
-                    
+
                     black_box(graph)
                 })
             },
@@ -117,15 +109,13 @@ fn benchmark_graph_construction(c: &mut Criterion) {
             |b, &size| {
                 b.iter(|| {
                     let graph = OptimizedCodeGraph::with_pool_size(size);
-                    
+
                     // Symbolをバッチで追加
-                    let symbols: Vec<Symbol> = (0..size)
-                        .map(create_test_symbol)
-                        .collect();
+                    let symbols: Vec<Symbol> = (0..size).map(create_test_symbol).collect();
                     graph.add_symbols_batch(symbols);
-                    
+
                     // エッジは追加しない（Symbol処理のみのベンチマーク）
-                    
+
                     black_box(graph)
                 })
             },
@@ -140,7 +130,7 @@ fn benchmark_symbol_operations(c: &mut Criterion) {
     let mut group = c.benchmark_group("symbol_operations");
 
     let size = 10000;
-    
+
     // 標準グラフを準備
     let standard_graph = {
         let mut graph = CodeGraph::new();
@@ -154,9 +144,7 @@ fn benchmark_symbol_operations(c: &mut Criterion) {
     // 最適化グラフを準備
     let optimized_graph = {
         let graph = OptimizedCodeGraph::with_pool_size(size);
-        let symbols: Vec<Symbol> = (0..size)
-            .map(create_test_symbol)
-            .collect();
+        let symbols: Vec<Symbol> = (0..size).map(create_test_symbol).collect();
         graph.add_symbols_batch(symbols);
         // エッジは追加しない（Symbol処理のみのベンチマーク）
         graph
@@ -202,7 +190,7 @@ fn benchmark_pool_reuse(c: &mut Criterion) {
     group.bench_function("without_reuse", |b| {
         b.iter(|| {
             let mut symbols = Vec::new();
-            
+
             // 1000個作成、破棄、再作成を5回繰り返す
             for round in 0..5 {
                 for i in 0..1000 {
@@ -210,7 +198,7 @@ fn benchmark_pool_reuse(c: &mut Criterion) {
                 }
                 symbols.clear(); // 破棄
             }
-            
+
             black_box(symbols)
         })
     });
@@ -220,7 +208,7 @@ fn benchmark_pool_reuse(c: &mut Criterion) {
             || SymbolPool::new(1000),
             |pool| {
                 let mut pooled_symbols = Vec::new();
-                
+
                 // 1000個作成、返却、再利用を5回繰り返す
                 for round in 0..5 {
                     for i in 0..1000 {
@@ -234,13 +222,13 @@ fn benchmark_pool_reuse(c: &mut Criterion) {
                             sym.documentation,
                         ));
                     }
-                    
+
                     // プールに返却
                     for pooled in pooled_symbols.drain(..) {
                         pool.release(pooled);
                     }
                 }
-                
+
                 black_box(pool.stats())
             },
             BatchSize::SmallInput,
@@ -258,14 +246,14 @@ fn benchmark_realistic_indexing(c: &mut Criterion) {
     group.bench_function("small_project_standard", |b| {
         b.iter(|| {
             let mut graph = CodeGraph::new();
-            
+
             for file_idx in 0..100 {
                 for sym_idx in 0..30 {
                     let id = file_idx * 30 + sym_idx;
                     graph.add_symbol(create_test_symbol(id));
                 }
             }
-            
+
             black_box(graph.symbol_count())
         })
     });
@@ -273,12 +261,10 @@ fn benchmark_realistic_indexing(c: &mut Criterion) {
     group.bench_function("small_project_optimized", |b| {
         b.iter(|| {
             let graph = OptimizedCodeGraph::with_pool_size(3000);
-            
-            let symbols: Vec<Symbol> = (0..3000)
-                .map(create_test_symbol)
-                .collect();
+
+            let symbols: Vec<Symbol> = (0..3000).map(create_test_symbol).collect();
             graph.add_symbols_batch(symbols);
-            
+
             black_box(graph.symbol_count())
         })
     });
@@ -287,14 +273,14 @@ fn benchmark_realistic_indexing(c: &mut Criterion) {
     group.bench_function("medium_project_standard", |b| {
         b.iter(|| {
             let mut graph = CodeGraph::new();
-            
+
             for file_idx in 0..500 {
                 for sym_idx in 0..50 {
                     let id = file_idx * 50 + sym_idx;
                     graph.add_symbol(create_test_symbol(id));
                 }
             }
-            
+
             black_box(graph.symbol_count())
         })
     });
@@ -302,12 +288,10 @@ fn benchmark_realistic_indexing(c: &mut Criterion) {
     group.bench_function("medium_project_optimized", |b| {
         b.iter(|| {
             let graph = OptimizedCodeGraph::with_pool_size(25000);
-            
-            let symbols: Vec<Symbol> = (0..25000)
-                .map(create_test_symbol)
-                .collect();
+
+            let symbols: Vec<Symbol> = (0..25000).map(create_test_symbol).collect();
             graph.add_symbols_batch(symbols);
-            
+
             black_box(graph.symbol_count())
         })
     });

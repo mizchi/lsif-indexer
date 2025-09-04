@@ -1,5 +1,5 @@
 /// 言語別アダプタモジュール
-/// 
+///
 /// 各言語のLSP統合とフォールバック実装を提供
 // 共通モジュール
 pub mod common;
@@ -27,5 +27,5 @@ pub use go::GoAdapter;
 pub use python::PythonAdapter;
 pub use python::PythonAdapter as PythonLspAdapter;
 pub use rust::RustAdapter as RustLspAdapter;
-pub use tsgo::{TsgoAdapter, TypeScriptLSAdapter, JavaScriptAdapter as TsgoJavaScriptAdapter};
+pub use tsgo::{JavaScriptAdapter as TsgoJavaScriptAdapter, TsgoAdapter, TypeScriptLSAdapter};
 pub use typescript::{JavaScriptAdapter, TypeScriptAdapter as TypeScriptLspAdapter};
