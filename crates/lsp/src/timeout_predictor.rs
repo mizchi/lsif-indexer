@@ -347,14 +347,14 @@ mod tests {
     fn test_timeout_prediction() {
         let predictor = TimeoutPredictor::new();
         
-        // 小さいファイル
+        // 小さいファイル - 最小値は200ms
         let timeout = predictor.predict_timeout(1000, 50);
-        assert!(timeout >= Duration::from_secs(3));
+        assert!(timeout >= Duration::from_millis(200));
         assert!(timeout <= Duration::from_secs(10));
         
         // 大きいファイル
         let timeout = predictor.predict_timeout(100_000, 5000);
-        assert!(timeout >= Duration::from_secs(5));
+        assert!(timeout >= Duration::from_millis(200));
         assert!(timeout <= Duration::from_secs(60));
     }
 

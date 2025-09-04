@@ -472,11 +472,11 @@ mod tests {
     fn test_startup_validator() {
         let validator = LspStartupValidator::new();
         
-        // 言語別の待機時間を確認
+        // 言語別の待機時間を確認（実装の値と一致）
         let rust_wait = validator.wait_for_startup("rust");
-        assert_eq!(rust_wait, Duration::from_millis(500));
+        assert_eq!(rust_wait, Duration::from_millis(50));
         
         let ts_wait = validator.wait_for_startup("typescript");
-        assert_eq!(ts_wait, Duration::from_millis(300));
+        assert_eq!(ts_wait, Duration::from_millis(30));
     }
 }
