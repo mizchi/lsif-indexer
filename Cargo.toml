@@ -8,7 +8,7 @@ name = "simple_usage"
 path = "examples/simple_usage.rs"
 
 [dependencies]
-core = { path = "crates/core" }
+lsif-core = { path = "crates/core" }
 
 [dev-dependencies]
 tempfile = { workspace = true }

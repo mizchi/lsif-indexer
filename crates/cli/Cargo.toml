@@ -10,7 +10,7 @@ name = "lsif"
 path = "src/bin/lsif.rs"
 
 [dependencies]
-lsif-core = { path = "../core", package = "core" }
+lsif-core = { path = "../core" }
 lsp = { path = "../lsp" }
 sled.workspace = true
 petgraph.workspace = true
@@ -41,7 +41,7 @@ rayon.workspace = true
 num_cpus = "1.16"
 
 [dev-dependencies]
-lsif-core = { path = "../core", package = "core", features = ["experimental-optimizations"] }
+lsif-core = { path = "../core", features = ["experimental-optimizations"] }
 tempfile = { workspace = true }
 criterion = { workspace = true }
 rayon = { workspace = true }

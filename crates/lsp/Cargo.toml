@@ -6,7 +6,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-lsif-core = { path = "../core", package = "core" }
+lsif-core = { path = "../core" }
 lsp-types.workspace = true
 serde.workspace = true
 serde_json.workspace = true
