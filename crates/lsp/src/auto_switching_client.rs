@@ -339,6 +339,7 @@ mod tests {
     }
     
     #[test]
+    #[ignore = "Requires tsgo to be installed"]
     fn test_with_real_tsgo() {
         use crate::adapter::tsgo::TsgoAdapter;
         
@@ -360,6 +361,7 @@ mod tests {
     }
     
     #[test]
+    #[ignore = "Requires rust-analyzer to be installed"]
     fn test_with_real_rust_analyzer() {
         use crate::adapter::lsp::RustAnalyzerAdapter;
         
@@ -373,6 +375,7 @@ mod tests {
     }
     
     #[test]
+    #[ignore = "Requires gopls to be installed"]
     fn test_with_real_gopls() {
         use crate::adapter::go::GoAdapter;
         
