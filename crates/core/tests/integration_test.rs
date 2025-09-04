@@ -1,4 +1,4 @@
-use core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
+use lsif_core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
 use petgraph::visit::EdgeRef;
 use std::fs;
 use tempfile::TempDir;
@@ -348,13 +348,13 @@ mod tests {
             graph.symbol_index.get("main"),
             graph.symbol_index.get("Calculator"),
         ) {
-            graph.graph.add_edge(from, to, core::EdgeKind::Reference);
+            graph.graph.add_edge(from, to, EdgeKind::Reference);
         }
         if let (Some(&from), Some(&to)) = (
             graph.symbol_index.get("main"),
             graph.symbol_index.get("Calculator::add"),
         ) {
-            graph.graph.add_edge(from, to, core::EdgeKind::Reference);
+            graph.graph.add_edge(from, to, EdgeKind::Reference);
         }
 
         // グラフの検証
