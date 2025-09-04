@@ -58,6 +58,16 @@ pub trait LanguageOptimization: Send + Sync {
         2000
     }
     
+    /// 優先すべきLSPサーバー名を返す
+    fn preferred_lsp_server(&self) -> Option<&'static str> {
+        None
+    }
+    
+    /// ワークスペースシンボル検索をキャッシュすべきか
+    fn should_cache_workspace_symbols(&self) -> bool {
+        true
+    }
+    
     /// ファイルをスキップすべきか判定
     fn should_skip_file(&self, path: &Path) -> bool {
         // デフォルトでは生成ファイルや巨大ファイルをスキップ
@@ -187,6 +197,12 @@ pub struct TypeScriptOptimization {
     is_javascript: bool,
 }
 
+impl Default for TypeScriptOptimization {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TypeScriptOptimization {
     pub fn new() -> Self {
         Self { is_javascript: false }
@@ -255,6 +271,12 @@ impl LanguageOptimization for TypeScriptOptimization {
 /// 言語最適化戦略のファクトリ
 pub struct OptimizationStrategy {
     strategies: HashMap<String, Box<dyn LanguageOptimization>>,
+}
+
+impl Default for OptimizationStrategy {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl OptimizationStrategy {

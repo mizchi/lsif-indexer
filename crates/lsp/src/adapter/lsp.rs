@@ -147,7 +147,7 @@ impl GenericLspClient {
             writer: BufWriter::new(stdin),
             request_id: 0,
             language_id: language_id.clone(),
-            timeout_predictor: TimeoutPredictor::with_config(5, 3, 120),
+            timeout_predictor: TimeoutPredictor::new(),
             health_checker: LspHealthChecker::new(),
             server_capabilities: None,
         };
@@ -731,6 +731,11 @@ impl GenericLspClient {
                 return Ok(None);
             }
             
+            // タイムアウトチェックを追加
+            if start.elapsed() > timeout {
+                return Ok(None);
+            }
+            
             let mut line = String::new();
             match self.reader.read_line(&mut line) {
                 Ok(0) => return Ok(None), // EOF
@@ -759,7 +764,11 @@ impl GenericLspClient {
             return Ok(None);
         }
 
-        // コンテンツを読む
+        // コンテンツを読む（タイムアウト付き）
+        if start.elapsed() > timeout {
+            return Ok(None);
+        }
+        
         let mut buffer = vec![0u8; content_length];
         self.reader.read_exact(&mut buffer)?;
 

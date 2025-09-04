@@ -209,12 +209,12 @@ impl LspHealthChecker {
         // 既に初期化時間が記録されている場合はそれを基準に
         if let Some(init_time) = self.init_response_time {
             let timeout = init_time * 3;  // 初期化時間の3倍
-            return timeout.max(Duration::from_secs(10))
-                         .min(Duration::from_secs(120));
+            return timeout.max(Duration::from_secs(2))
+                         .min(Duration::from_secs(10));
         }
         
-        // デフォルト: 言語別に調整可能
-        Duration::from_secs(30)
+        // デフォルト: 短くしてフォールバックを早くする
+        Duration::from_secs(5)
     }
     
     /// ウォームアップ期間用のタイムアウトを計算

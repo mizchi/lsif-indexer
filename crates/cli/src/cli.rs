@@ -39,6 +39,10 @@ pub struct Cli {
     /// Verbose output
     #[arg(short = 'v', long = "verbose", global = true)]
     pub verbose: bool,
+    
+    /// Disable LSP and use fallback indexer
+    #[arg(long = "no-lsp", global = true)]
+    pub no_lsp: bool,
 
     /// Output format (human, quickfix, lsp, grep, json, tsv, null)
     #[arg(short = 'f', long = "format", global = true, default_value = "human")]
@@ -235,6 +239,11 @@ impl Cli {
 
         let db_path = self.database.unwrap_or_else(|| DEFAULT_INDEX_PATH.to_string());
         let project_root = self.project_root.unwrap_or_else(|| ".".to_string());
+
+        // --no-lspオプションが指定されていたら環境変数を設定
+        if self.no_lsp {
+            std::env::set_var("LSIF_FALLBACK_ONLY", "1");
+        }
 
         // Smart auto-indexing: only if DB doesn't exist or is stale
         // Skip auto-index for Index command (it handles indexing itself)

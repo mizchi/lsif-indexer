@@ -145,23 +145,10 @@ impl LspIntegration {
         Ok(symbol_id)
     }
 
-    async fn analyze_references(&mut self, uri: &Url, _graph: &mut CodeGraph) -> Result<()> {
-        let symbols = self.client.document_symbols(uri.clone())?;
-
-        for symbol in symbols {
-            let position = Position {
-                line: symbol.selection_range.start.line,
-                character: symbol.selection_range.start.character,
-            };
-
-            let _symbol_id = format!(
-                "{}#{}:{}",
-                uri.path(),
-                symbol.selection_range.start.line,
-                symbol.name
-            );
-
-            if let Ok(references) = self.client.references(uri.clone(), position) {
+    async fn analyze_references(&mut self, uri: &Url, graph: &mut CodeGraph) -> Result<()> {
+        self.analyze_document_symbols(uri, graph, |client, uri, position, _symbol_id| {
+            // Analyze references
+            if let Ok(references) = client.references(uri.clone(), *position) {
                 for reference in references {
                     let _ref_id = format!(
                         "{}:{}:{}",
@@ -169,13 +156,12 @@ impl LspIntegration {
                         reference.range.start.line + 1,
                         reference.range.start.character + 1
                     );
-
                     // Add reference edge in graph
-                    // This would need proper node lookup - skipping for now
                 }
             }
-
-            if let Ok(definition_locations) = self.client.goto_definition(uri.clone(), position) {
+            
+            // Analyze definitions
+            if let Ok(definition_locations) = client.goto_definition(uri.clone(), *position) {
                 for def_loc in definition_locations {
                     let _def_id = format!(
                         "{}:{}:{}",
@@ -183,13 +169,36 @@ impl LspIntegration {
                         def_loc.range.start.line + 1,
                         def_loc.range.start.character + 1
                     );
-
                     // Add definition edge in graph
-                    // This would need proper node lookup - skipping for now
                 }
             }
+            Ok(())
+        })
+    }
+    
+    /// Helper method to analyze document symbols with a callback
+    fn analyze_document_symbols<F>(&mut self, uri: &Url, _graph: &mut CodeGraph, mut callback: F) -> Result<()>
+    where
+        F: FnMut(&mut LspClient, &Url, &Position, String) -> Result<()>,
+    {
+        let symbols = self.client.document_symbols(uri.clone())?;
+        
+        for symbol in symbols {
+            let position = Position {
+                line: symbol.selection_range.start.line,
+                character: symbol.selection_range.start.character,
+            };
+            
+            let symbol_id = format!(
+                "{}#{}:{}",
+                uri.path(),
+                symbol.selection_range.start.line,
+                symbol.name
+            );
+            
+            callback(&mut self.client, uri, &position, symbol_id)?;
         }
-
+        
         Ok(())
     }
 

@@ -18,6 +18,9 @@ pub mod lsp_health_check;
 pub mod lsp_rpc_client;
 pub mod lsp_manager;
 pub mod unified_indexer;
+pub mod lsp_performance_benchmark;
+pub mod hierarchical_cache;
+pub mod lsp_metrics;
 
 // その他のモジュール
 pub mod language_detector;

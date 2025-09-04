@@ -124,6 +124,7 @@ impl DifferentialIndexer {
         
         // LSPプールの設定（言語最適化設定を使用）
         let pool_config = PoolConfig {
+            max_instances_per_language: 4,
             max_idle_time: std::time::Duration::from_secs(300),
             init_timeout: std::time::Duration::from_millis(project_config.lsp_timeout_ms),
             request_timeout: std::time::Duration::from_millis(project_config.lsp_timeout_ms / 2),
@@ -945,7 +946,7 @@ impl DifferentialIndexer {
                     // LSPで空の結果が返った場合はフォールバックを試行
                     info!("LSP returned no symbols after {:.3}s, trying fallback for: {}", 
                           lsp_elapsed.as_secs_f64(), path.display());
-                    let _fallback_start = Instant::now();
+                    let fallback_start = Instant::now();
                     match self.extract_symbols_with_fallback(path) {
                         Ok(symbols) => {
                             let fallback_elapsed = fallback_start.elapsed();

@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{self, BufRead, BufReader};
+use std::io::{BufRead, BufReader};
 use std::path::Path;
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -8,6 +8,12 @@ use anyhow::Result;
 /// ファイルコンテンツのキャッシュ
 pub struct FileContentCache {
     cache: HashMap<String, Vec<u8>>,
+}
+
+impl Default for FileContentCache {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FileContentCache {
@@ -71,7 +77,7 @@ impl FastFileReader {
         }
         
         // 大きいファイルはバッファリング
-        let mut reader = BufReader::with_capacity(BUFFER_SIZE, file);
+        let reader = BufReader::with_capacity(BUFFER_SIZE, file);
         let mut content = String::with_capacity(file_size);
         
         for line in reader.lines() {

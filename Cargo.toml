@@ -1,3 +1,15 @@
+[package]
+name = "lsif-indexer-workspace"
+version = "0.1.0"
+edition = "2021"
+
+[[example]]
+name = "simple_usage"
+path = "examples/simple_usage.rs"
+
+[dependencies]
+core = { path = "crates/core" }
+
 [workspace]
 members = ["crates/core", "crates/lsp", "crates/cli", "crates/engine"]
 resolver = "2"

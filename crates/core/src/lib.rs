@@ -11,6 +11,7 @@ pub mod lsif;
 pub mod call_hierarchy;
 pub mod type_relations;
 pub mod definition_chain;
+pub mod test_fixtures;
 pub mod parallel;
 pub mod fuzzy_search;
 

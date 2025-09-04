@@ -33,8 +33,8 @@ impl InternedGraph {
             kind: symbol.kind,
             file_path: intern(&symbol.file_path),
             range: symbol.range,
-            documentation: symbol.documentation.as_deref().map(|d| intern(d)),
-            detail: symbol.detail.as_deref().map(|d| intern(d)),
+            documentation: symbol.documentation.as_deref().map(intern),
+            detail: symbol.detail.as_deref().map(intern),
         };
         
         self.symbols.insert(interned_id, interned_symbol);
