@@ -114,7 +114,8 @@ impl LanguageOptimization for RustOptimization {
     fn should_skip_file(&self, path: &Path) -> bool {
         if let Some(path_str) = path.to_str() {
             // targetディレクトリ内のファイルはスキップ
-            if path_str.contains("/target/") || path_str.contains("\\target\\") {
+            if path_str.contains("/target/") || path_str.contains("\\target\\") 
+                || path_str.starts_with("target/") || path_str.starts_with("target\\") {
                 return true;
             }
         }
@@ -244,8 +245,12 @@ impl LanguageOptimization for TypeScriptOptimization {
             // node_modulesとdistディレクトリをスキップ
             if path_str.contains("/node_modules/") || 
                path_str.contains("\\node_modules\\") ||
+               path_str.starts_with("node_modules/") ||
+               path_str.starts_with("node_modules\\") ||
                path_str.contains("/dist/") ||
                path_str.contains("\\dist\\") ||
+               path_str.starts_with("dist/") ||
+               path_str.starts_with("dist\\") ||
                path_str.contains("/build/") ||
                path_str.contains("\\build\\") {
                 return true;

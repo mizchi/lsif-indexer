@@ -253,26 +253,21 @@ impl FallbackIndexer {
                 ));
             } else if let Some(caps) = PY_FN_REGEX.captures(line) {
                 let name = caps.get(1).unwrap().as_str().to_string();
+                // インデントされている場合はメソッド、そうでなければ関数
+                let kind = if line.trim_start() != *line {
+                    SymbolKind::METHOD
+                } else {
+                    SymbolKind::FUNCTION
+                };
+                let column = line.len() - line.trim_start().len();
                 symbols.push(self.create_symbol(
                     name,
-                    SymbolKind::FUNCTION,
+                    kind,
                     line_no as u32,
-                    0,
+                    column as u32,
                     line_no as u32,
                     line.len() as u32,
                 ));
-            } else if line.trim_start() != *line {
-                if let Some(caps) = PY_FN_REGEX.captures(line) {
-                let name = caps.get(1).unwrap().as_str().to_string();
-                symbols.push(self.create_symbol(
-                    name,
-                    SymbolKind::METHOD,
-                    line_no as u32,
-                    4, // インデント考慮
-                    line_no as u32,
-                    line.len() as u32,
-                ));
-                }
             }
         }
 
@@ -294,41 +289,17 @@ impl FallbackIndexer {
                     line_no as u32,
                     line.len() as u32,
                 ));
-            } else if let Some(caps) = RUST_STRUCT_REGEX.captures(line) {
-                let name = caps.get(1).unwrap().as_str().to_string();
-                symbols.push(self.create_symbol(
-                    name,
-                    SymbolKind::STRUCT,
-                    line_no as u32,
-                    0,
-                    line_no as u32,
-                    line.len() as u32,
-                ));
-            } else if let Some(caps) = TS_INTERFACE_REGEX.captures(line) {
-                let name = caps.get(1).unwrap().as_str().to_string();
-                symbols.push(self.create_symbol(
-                    name,
-                    SymbolKind::INTERFACE,
-                    line_no as u32,
-                    0,
-                    line_no as u32,
-                    line.len() as u32,
-                ));
             } else if let Some(caps) = GO_TYPE_REGEX.captures(line) {
                 let name = caps.get(1).unwrap().as_str().to_string();
+                let type_kind = caps.get(2).unwrap().as_str();
+                let kind = match type_kind {
+                    "struct" => SymbolKind::STRUCT,
+                    "interface" => SymbolKind::INTERFACE,
+                    _ => SymbolKind::CLASS,
+                };
                 symbols.push(self.create_symbol(
                     name,
-                    SymbolKind::CLASS,
-                    line_no as u32,
-                    0,
-                    line_no as u32,
-                    line.len() as u32,
-                ));
-            } else if let Some(caps) = TS_VAR_REGEX.captures(line) {
-                let name = caps.get(1).unwrap().as_str().to_string();
-                symbols.push(self.create_symbol(
-                    name,
-                    SymbolKind::VARIABLE,
+                    kind,
                     line_no as u32,
                     0,
                     line_no as u32,
