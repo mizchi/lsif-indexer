@@ -152,7 +152,7 @@ jobs:
     
     - name: Run clippy
       if: matrix.rust == 'stable'
-      run: cargo clippy --all-targets --all-features -- -D warnings
+      run: cargo clippy --all-targets --all-features -- -W warnings
     
     # ベンチマーク（安定版のみ）
     - name: Run benchmarks

@@ -18,6 +18,8 @@ lsp = { path = "crates/lsp" }
 anyhow = { workspace = true }
 lsp-types = { workspace = true }
 git2 = { workspace = true }
+serde_json = { workspace = true }
+bincode = { workspace = true }
 
 [workspace]
 members = ["crates/core", "crates/lsp", "crates/cli", "crates/engine"]
