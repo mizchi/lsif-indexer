@@ -56,7 +56,7 @@ jobs:
         curl -L https://github.com/rust-lang/rust-analyzer/releases/latest/download/rust-analyzer-x86_64-unknown-linux-gnu.gz | gunzip -c - > rust-analyzer
         chmod +x rust-analyzer
         sudo mv rust-analyzer /usr/local/bin/
-        rust-analyzer --version
+        /usr/local/bin/rust-analyzer --version
     
     - name: Install gopls
       run: |
@@ -202,6 +202,7 @@ jobs:
         curl -L https://github.com/rust-lang/rust-analyzer/releases/latest/download/rust-analyzer-x86_64-unknown-linux-gnu.gz | gunzip -c - > rust-analyzer
         chmod +x rust-analyzer
         sudo mv rust-analyzer /usr/local/bin/
+        /usr/local/bin/rust-analyzer --version
         
         # gopls
         go install golang.org/x/tools/gopls@latest
