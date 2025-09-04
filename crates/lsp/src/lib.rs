@@ -25,6 +25,7 @@ pub mod fallback_indexer;
 pub mod timeout_predictor;
 pub mod regex_cache;
 pub mod optimized_io;
+pub mod language_optimization;
 
 // テスト用ユーティリティ
 #[cfg(test)]
@@ -47,3 +48,4 @@ pub use timeout_predictor::{TimeoutPredictor, PredictorStatistics};
 pub use lsp_rpc_client::LspRpcClient;
 pub use lsp_manager::{UnifiedLspManager, LspServerConfig, LspServerRegistry, ProjectIndex};
 pub use unified_indexer::{UnifiedIndexer, IndexResult};
+pub use language_optimization::{LanguageOptimization, OptimizationStrategy, ProjectOptimizationConfig};

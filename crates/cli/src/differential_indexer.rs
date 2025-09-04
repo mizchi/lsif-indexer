@@ -6,7 +6,6 @@ use tracing::{debug, info, warn, error};
 
 use crate::adaptive_parallel::{AdaptiveParallelConfig, AdaptiveIncrementalProcessor};
 use crate::git_diff::{FileChange, FileChangeStatus, GitDiffDetector};
-use crate::reference_finder;
 use crate::storage::IndexStorage;
 use lsif_core::{CodeGraph, Symbol, SymbolKind};
 use chrono::{DateTime, Utc};
@@ -18,6 +17,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use lsp::lsp_indexer::LspIndexer;
 use lsp::language_detector::detect_project_language;
 use lsp::lsp_pool::{LspClientPool, PoolConfig};
+use lsp::language_optimization::{OptimizationStrategy, ProjectOptimizationConfig};
 
 /// 差分インデックスのメタデータ
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,6 +91,10 @@ pub struct DifferentialIndexer {
     lsp_pool: LspClientPool,
     /// フォールバックインデクサーのみを使用するかどうか
     fallback_only: bool,
+    /// 言語最適化戦略
+    optimization_strategy: OptimizationStrategy,
+    /// プロジェクト最適化設定
+    project_config: ProjectOptimizationConfig,
 }
 
 impl DifferentialIndexer {
@@ -111,11 +115,18 @@ impl DifferentialIndexer {
         let parallel_config = AdaptiveParallelConfig::default();
         let parallel_processor = AdaptiveIncrementalProcessor::new(parallel_config)?;
 
-        // LSPプールの設定（短いタイムアウトでフォールバックを早期実行）
+        // 言語最適化戦略を初期化
+        let optimization_strategy = OptimizationStrategy::new();
+        let project_config = optimization_strategy.analyze_project(&project_root);
+        
+        info!("Project optimization config: language={:?}, parallel={}, chunk_size={}", 
+              project_config.main_language, project_config.use_parallel, project_config.chunk_size);
+        
+        // LSPプールの設定（言語最適化設定を使用）
         let pool_config = PoolConfig {
             max_idle_time: std::time::Duration::from_secs(300),
-            init_timeout: std::time::Duration::from_secs(2),  // 2秒に短縮（さらに高速化）
-            request_timeout: std::time::Duration::from_secs(1), // 1秒に短縮（さらに高速化）
+            init_timeout: std::time::Duration::from_millis(project_config.lsp_timeout_ms),
+            request_timeout: std::time::Duration::from_millis(project_config.lsp_timeout_ms / 2),
             max_retries: 1,  // リトライを1回に削減
         };
         let lsp_pool = LspClientPool::new(pool_config);
@@ -123,12 +134,14 @@ impl DifferentialIndexer {
         Ok(Self {
             storage,
             git_detector,
-            project_root,
+            project_root: project_root.clone(),
             metadata,
             parallel_processor,
             lsp_indexer: None,
             lsp_pool,
             fallback_only: false,
+            optimization_strategy,
+            project_config,
         })
     }
 
@@ -464,11 +477,12 @@ impl DifferentialIndexer {
         let mut new_file_hashes = HashMap::new();
         let mut processed_count = 0;
         
-        // 並列処理の閾値を確認（デフォルトは30ファイル以上で並列化）
-        let should_parallel = total_files >= self.parallel_processor.config.parallel_threshold;
+        // 並列処理の閾値を確認（言語最適化設定を使用）
+        let should_parallel = self.project_config.use_parallel && 
+                             total_files >= self.project_config.chunk_size;
         
-        // 並列処理を使用（フォールバックモードの場合のみ）
-        if should_parallel && self.fallback_only {
+        // 並列処理を使用（言語最適化設定に基づく）
+        if should_parallel && (self.fallback_only || !self.project_config.prefer_lsp) {
             // 並列処理モード
             use rayon::prelude::*;
             
@@ -477,9 +491,18 @@ impl DifferentialIndexer {
             eprintln!("⚡ Using parallel processing for {} files", total_files);
             
             // シンボル抽出を並列化
+            let optimization_strategy = &self.optimization_strategy;
             let symbols_results: Vec<(PathBuf, FileChangeStatus, Option<Vec<Symbol>>)> = changes
                 .par_iter()
                 .map(|change| {
+                    // 言語最適化によるファイルスキップ判定
+                    if let Some(strategy) = optimization_strategy.get_strategy_for_file(&change.path) {
+                        if strategy.should_skip_file(&change.path) {
+                            debug!("Skipping file based on optimization strategy: {}", change.path.display());
+                            return (change.path.clone(), change.status.clone(), None);
+                        }
+                    }
+                    
                     let symbols = match &change.status {
                         FileChangeStatus::Added | FileChangeStatus::Modified | FileChangeStatus::Renamed { .. } | FileChangeStatus::Untracked => {
                             // ファイルごとにフォールバックインデクサーを作成
@@ -488,7 +511,7 @@ impl DifferentialIndexer {
                                     match indexer.extract_symbols(&change.path) {
                                         Ok(doc_symbols) => {
                                             // DocumentSymbolをSymbolに変換
-                                            let file_uri = format!("file://{}", change.path.display());
+                                            let _file_uri = format!("file://{}", change.path.display());
                                             let symbols: Vec<Symbol> = doc_symbols.into_iter().map(|doc_sym| {
                                                 let file_path = change.path.to_string_lossy().to_string();
                                                 Symbol {
@@ -804,38 +827,9 @@ impl DifferentialIndexer {
                     }
                     result.symbols_deleted += old_symbols.len();
                 }
-                FileChangeStatus::Untracked => {
-                    // コンテンツハッシュで管理
-                    if let Some(ref hash) = change.content_hash {
-                        if self.is_file_changed(&change.path, hash)? {
-                            result.files_modified += 1;
-
-                            // 既存のシンボルを削除
-                            let path_str = change.path.to_string_lossy();
-                            let old_symbols: Vec<_> = graph
-                                .get_all_symbols()
-                                .filter(|s| s.file_path == path_str)
-                                .map(|s| s.id.clone())
-                                .collect();
-
-                            for id in &old_symbols {
-                                graph.remove_symbol(id);
-                            }
-                            result.symbols_deleted += old_symbols.len();
-
-                            // 新しいシンボルを追加
-                            let symbols = self.extract_symbols_from_file(&change.path)?;
-                            result.symbols_updated += symbols.len();
-
-                            for symbol in symbols {
-                                graph.add_symbol(symbol);
-                            }
-                        }
-                    }
-                }
             }
         }
-        }
+        }  // else節を閉じる
         
         // プログレスバー完了
         if let Some(pb) = progress_bar {
@@ -951,7 +945,7 @@ impl DifferentialIndexer {
                     // LSPで空の結果が返った場合はフォールバックを試行
                     info!("LSP returned no symbols after {:.3}s, trying fallback for: {}", 
                           lsp_elapsed.as_secs_f64(), path.display());
-                    let fallback_start = Instant::now();
+                    let _fallback_start = Instant::now();
                     match self.extract_symbols_with_fallback(path) {
                         Ok(symbols) => {
                             let fallback_elapsed = fallback_start.elapsed();
@@ -972,7 +966,7 @@ impl DifferentialIndexer {
                     let lsp_elapsed = lsp_start.elapsed();
                     warn!("LSP indexer failed for {} after {:.3}s: {}, trying fallback", 
                           path.display(), lsp_elapsed.as_secs_f64(), e);
-                    let fallback_start = Instant::now();
+                    let _fallback_start = Instant::now();
                     match self.extract_symbols_with_fallback(path) {
                         Ok(symbols) => {
                             info!("Fallback extracted {} symbols after LSP failed from {}", 
@@ -1407,69 +1401,6 @@ impl DifferentialIndexer {
         false
     }
 
-    /// ファイルから参照を検出してグラフにエッジを追加
-    fn add_references_to_graph(&self, graph: &mut CodeGraph, file_path: &Path) -> Result<()> {
-        // グラフの中のすべてのシンボルを取得
-        let all_symbols: Vec<_> = graph
-            .get_all_symbols()
-            .map(|s| (s.name.clone(), s.id.clone(), s.kind))
-            .collect();
-
-        // 各シンボルに対して、このファイル内での参照を検索
-        for (name, symbol_id, kind) in all_symbols {
-            let references =
-                reference_finder::find_all_references(&self.project_root, &name, &kind)?;
-
-            // このファイル内の参照のみを処理
-            let file_path_str = file_path.to_string_lossy();
-            for ref_item in references {
-                if ref_item.symbol.file_path == file_path_str && !ref_item.is_definition {
-                    // 参照元シンボルを特定
-                    // 現在の位置に最も近いシンボルを探す
-                    if let Some(source_symbol) = self.find_symbol_at_position(
-                        graph,
-                        &ref_item.symbol.file_path,
-                        ref_item.symbol.range.start.line,
-                        ref_item.symbol.range.start.character,
-                    ) {
-                        // 参照エッジを追加
-                        if let (Some(from_idx), Some(to_idx)) = (
-                            graph.get_node_index(&source_symbol.id),
-                            graph.get_node_index(&symbol_id),
-                        ) {
-                            graph.add_edge(from_idx, to_idx, lsif_core::EdgeKind::Reference);
-                            debug!(
-                                "Added reference edge: {} -> {}",
-                                source_symbol.id, symbol_id
-                            );
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// 指定位置のシンボルを探す
-    fn find_symbol_at_position(
-        &self,
-        graph: &CodeGraph,
-        file_path: &str,
-        line: u32,
-        character: u32,
-    ) -> Option<Symbol> {
-        graph
-            .get_all_symbols()
-            .filter(|s| s.file_path == file_path)
-            .find(|s| {
-                s.range.start.line <= line
-                    && s.range.end.line >= line
-                    && s.range.start.character <= character
-                    && s.range.end.character >= character
-            })
-            .cloned()
-    }
 }
 
 
@@ -1558,46 +1489,6 @@ mod tests {
         assert!(result.files_added > 0 || result.files_modified > 0);
     }
 
-    #[test]
-    fn test_find_symbol_at_position() {
-        let temp_dir = TempDir::new().unwrap();
-        let storage_path = temp_dir.path().join("test.db");
-        let project_root = temp_dir.path();
-
-        // Git初期化
-        fs::create_dir_all(project_root.join(".git")).unwrap();
-
-        let indexer = DifferentialIndexer::new(&storage_path, project_root).unwrap();
-        let mut graph = CodeGraph::new();
-
-        let symbol = Symbol {
-            id: "test".to_string(),
-            name: "test".to_string(),
-            kind: SymbolKind::Function,
-            file_path: "test.rs".to_string(),
-            range: lsif_core::Range {
-                start: lsif_core::Position {
-                    line: 0,
-                    character: 0,
-                },
-                end: lsif_core::Position {
-                    line: 5,
-                    character: 10,
-                },
-            },
-            documentation: None,
-            detail: None,
-        };
-
-        graph.add_symbol(symbol.clone());
-
-        let found = indexer.find_symbol_at_position(&graph, "test.rs", 2, 5);
-        assert!(found.is_some());
-        assert_eq!(found.unwrap().id, "test");
-
-        let not_found = indexer.find_symbol_at_position(&graph, "test.rs", 10, 5);
-        assert!(not_found.is_none());
-    }
 
 
     #[test]

@@ -43,15 +43,6 @@ pub fn format_symbol_location(symbol: &Symbol) -> String {
     )
 }
 
-/// Print symbol info with emoji
-pub fn print_symbol_info(symbol: &Symbol, emoji: &str) {
-    println!(
-        "{} {} at {}",
-        emoji,
-        symbol.name,
-        format_symbol_location(symbol)
-    );
-}
 
 /// Print error message with emoji
 pub fn print_error(message: &str) {

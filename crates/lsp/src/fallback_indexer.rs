@@ -56,9 +56,6 @@ static GO_FN_REGEX: Lazy<Regex> = Lazy::new(|| {
 static GO_TYPE_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"^\s*type\s+(\w+)\s+(struct|interface)").unwrap()
 });
-static GO_VAR_REGEX: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\s*(var|const)\s+(\w+)").unwrap()
-});
 
 /// サポートされる言語
 pub enum FallbackLanguage {
@@ -76,6 +73,16 @@ pub struct FallbackIndexer {
 impl FallbackIndexer {
     pub fn new(language: FallbackLanguage) -> Self {
         Self { language }
+    }
+    
+    /// Python用の最適化されたインデクサーを作成
+    pub fn for_python() -> Result<Self> {
+        Ok(Self { language: FallbackLanguage::Python })
+    }
+    
+    /// JavaScript用の最適化されたインデクサーを作成
+    pub fn for_javascript() -> Result<Self> {
+        Ok(Self { language: FallbackLanguage::JavaScript })
     }
 
     /// 拡張子から言語を推測

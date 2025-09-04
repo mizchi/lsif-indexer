@@ -99,6 +99,18 @@ impl CodeGraph {
         self.symbol_index.insert(id, node_index);
         node_index
     }
+    
+    /// バルク挿入用：複数のシンボルを効率的に追加
+    pub fn add_symbols(&mut self, symbols: Vec<Symbol>) {
+        // 事前にインデックスのキャパシティを確保
+        self.symbol_index.reserve(symbols.len());
+        
+        for symbol in symbols {
+            let id = symbol.id.clone();
+            let node_index = self.graph.add_node(symbol);
+            self.symbol_index.insert(id, node_index);
+        }
+    }
 
     pub fn remove_symbol(&mut self, id: &str) -> bool {
         if let Some(node_index) = self.symbol_index.remove(id) {

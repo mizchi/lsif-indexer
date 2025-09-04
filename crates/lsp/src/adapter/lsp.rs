@@ -716,40 +716,6 @@ impl GenericLspClient {
         Ok(())
     }
 
-    fn read_message(&mut self) -> Result<Option<serde_json::Value>> {
-        let mut headers = Vec::new();
-        loop {
-            let mut line = String::new();
-            self.reader.read_line(&mut line)?;
-
-            if line == "\r\n" || line == "\n" {
-                break;
-            }
-            headers.push(line);
-        }
-
-        let mut content_length = 0;
-        for header in headers {
-            if header.starts_with("Content-Length:") {
-                content_length = header
-                    .trim_start_matches("Content-Length:")
-                    .trim()
-                    .trim_end_matches('\r')
-                    .parse()?;
-            }
-        }
-
-        if content_length == 0 {
-            return Ok(None);
-        }
-
-        let mut buffer = vec![0u8; content_length];
-        use std::io::Read;
-        self.reader.read_exact(&mut buffer)?;
-
-        let response: serde_json::Value = serde_json::from_slice(&buffer)?;
-        Ok(Some(response))
-    }
     
     fn try_read_message(&mut self, timeout: std::time::Duration) -> Result<Option<serde_json::Value>> {
         use std::io::{ErrorKind, Read};

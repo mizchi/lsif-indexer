@@ -379,14 +379,6 @@ impl LspIntegration {
         }
     }
 
-    fn markup_content_to_string(&self, content: MarkedString) -> String {
-        match content {
-            MarkedString::String(s) => s,
-            MarkedString::LanguageString(ls) => {
-                format!("```{}\n{}\n```", ls.language, ls.value)
-            }
-        }
-    }
 
     fn collect_source_files(root_path: &Path) -> Result<Vec<PathBuf>> {
         let mut files = Vec::new();

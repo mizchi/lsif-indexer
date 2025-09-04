@@ -23,6 +23,7 @@ pub mod type_search;
 pub mod storage;
 
 // Utilities
+pub mod fast_file_reader;
 pub mod fuzzy_search;
 pub mod generic_helpers;
 pub mod git_diff;
