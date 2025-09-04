@@ -291,6 +291,7 @@ mod tests {
     }
     
     #[tokio::test]
+    #[ignore = "Requires LSP server to be installed"]
     async fn test_index_empty_project() {
         let temp_dir = TempDir::new().unwrap();
         let mut indexer = UnifiedIndexer::new();

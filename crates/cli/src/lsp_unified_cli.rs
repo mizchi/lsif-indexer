@@ -105,6 +105,7 @@ mod tests {
     extern crate std;
     
     #[tokio::test]
+    #[ignore = "Requires LSP server to be installed"]
     async fn test_index_empty_directory() {
         let temp_dir = TempDir::new().unwrap();
         
@@ -119,6 +120,7 @@ mod tests {
     }
     
     #[tokio::test]
+    #[ignore = "Requires LSP server to be installed"]
     async fn test_index_rust_file() {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.rs");
