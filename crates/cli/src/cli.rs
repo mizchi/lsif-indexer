@@ -176,8 +176,8 @@ pub enum Commands {
         show_progress: bool,
     },
 
-    /// Find unused code [aliases: unused, u]
-    #[command(visible_alias = "unused", visible_alias = "u")]
+    /// Find unused code [alias: u]
+    #[command(visible_alias = "u")]
     Unused {
         /// Show only public unused symbols
         #[arg(short = 'p', long = "public")]
@@ -208,8 +208,8 @@ pub enum Commands {
         by_type: bool,
     },
 
-    /// Export index data [aliases: export, e]
-    #[command(visible_alias = "export", visible_alias = "e")]
+    /// Export index data [alias: e]
+    #[command(visible_alias = "e")]
     Export {
         /// Output file
         output: String,

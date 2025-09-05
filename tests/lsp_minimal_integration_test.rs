@@ -1,5 +1,5 @@
 use lsp::adapter::go::GoAdapter;
-use lsp::lsp_minimal_client::MinimalLspClient;
+use lsp::lsp_client::LspClient;
 use lsp_types::Position;
 use std::path::PathBuf;
 
@@ -14,7 +14,7 @@ fn test_gopls_with_minimal_client() {
 
     // GoアダプタでLSPクライアントを作成
     let adapter = Box::new(GoAdapter);
-    let mut client = match MinimalLspClient::new(adapter) {
+    let mut client = match LspClient::new(adapter) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Failed to create LSP client: {}", e);
@@ -144,7 +144,7 @@ fn test_multiple_file_analysis() {
     }
 
     let adapter = Box::new(GoAdapter);
-    let mut client = match MinimalLspClient::new(adapter) {
+    let mut client = match LspClient::new(adapter) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Failed to create client: {}", e);

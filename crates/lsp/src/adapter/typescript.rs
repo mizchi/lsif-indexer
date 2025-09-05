@@ -1,6 +1,8 @@
 use super::common::spawn_lsp_server;
 use super::language::{DefinitionPattern, LanguageAdapter, PatternType};
+use super::lsp::LspAdapter;
 use anyhow::Result;
+use std::process::Child;
 
 /// TypeScript/JavaScript言語のアダプタ実装
 /// typescript-language-serverを使用してTS/JSコードを解析
@@ -165,6 +167,16 @@ impl LanguageAdapter for TypeScriptAdapter {
             || before.chars().filter(|&c| c == '"').count() % 2 == 1
             || before.chars().filter(|&c| c == '\'').count() % 2 == 1
             || before.chars().filter(|&c| c == '`').count() % 2 == 1
+    }
+}
+
+impl LspAdapter for TypeScriptAdapter {
+    fn spawn_command(&self) -> Result<Child> {
+        spawn_lsp_server("typescript-language-server", &["--stdio"])
+    }
+
+    fn language_id(&self) -> &str {
+        LanguageAdapter::language_id(self)
     }
 }
 

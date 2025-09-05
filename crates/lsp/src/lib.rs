@@ -38,7 +38,7 @@ pub mod test_utils;
 pub use adapter::{
     detect_language, detect_minimal_language, CommonAdapter, GenericLspClient, GoAdapter,
     JavaScriptAdapter, LanguageAdapter, LspAdapter, PythonAdapter, PythonLspAdapter,
-    RustAnalyzerAdapter, RustLspAdapter, TypeScriptAdapter, TypeScriptLspAdapter,
+    RustAnalyzerAdapter, TypeScriptAdapter,
 };
 
 // Other re-exports

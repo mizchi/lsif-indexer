@@ -20,6 +20,11 @@ lsp-types = { workspace = true }
 git2 = { workspace = true }
 serde_json = { workspace = true }
 bincode = { workspace = true }
+criterion = { workspace = true }
+rayon = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 [workspace]
 members = ["crates/core", "crates/lsp", "crates/cli", "crates/engine"]
@@ -83,7 +88,7 @@ xxhash-rust = { version = "0.8", features = ["xxh3"] }
 tempfile = "3.8"
 criterion = "0.5"
 
-[workspace.dev-dependencies]
-tokio = { version = "1.35", features = ["full", "test-util"] }
-tempfile = "3.8"
-criterion = "0.5"
+# [workspace.dev-dependencies] # Currently unused
+# tokio = { version = "1.35", features = ["full", "test-util"] }
+# tempfile = "3.8"
+# criterion = "0.5"

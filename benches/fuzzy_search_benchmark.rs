@@ -1,6 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use lsif_core::{fuzzy_search::FuzzySearchIndex, CodeGraph, Position, Range, Symbol, SymbolKind};
-use std::collections::HashSet;
 
 /// テスト用のシンボルを生成
 fn create_test_symbols(count: usize) -> Vec<Symbol> {
@@ -96,7 +95,7 @@ fn create_test_symbols(count: usize) -> Vec<Symbol> {
                 },
             },
             documentation: None,
-            detail: None,
+        detail: None,
         });
     }
 
@@ -255,7 +254,7 @@ fn benchmark_trigram_generation(c: &mut Criterion) {
                         },
                     },
                     documentation: None,
-                    detail: None,
+        detail: None,
                 };
                 index.add_symbol(symbol);
                 black_box(index.stats())

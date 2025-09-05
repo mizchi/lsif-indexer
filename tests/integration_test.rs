@@ -26,6 +26,7 @@ fn test_symbol_storage_and_retrieval() {
             },
         },
         documentation: Some("User struct".to_string()),
+        detail: None,
     };
 
     let main_symbol = Symbol {
@@ -44,6 +45,7 @@ fn test_symbol_storage_and_retrieval() {
             },
         },
         documentation: Some("Main function".to_string()),
+        detail: None,
     };
 
     // シンボルをグラフに追加
@@ -65,14 +67,14 @@ fn test_symbol_storage_and_retrieval() {
     assert!(loaded_graph.find_symbol("main.rs#main").is_some());
 
     // 参照の検証（Userを参照しているのはmain）
-    let refs = loaded_graph.find_references("user.rs#User");
+    let refs = loaded_graph.find_references("user.rs#User").unwrap();
     assert_eq!(refs.len(), 1);
     assert_eq!(refs[0].name, "main");
 }
 
 #[test]
 fn test_incremental_update() {
-    use lsif_lsif_core::IncrementalIndex;
+    use lsif_core::IncrementalIndex;
     use std::path::Path;
 
     let mut index = IncrementalIndex::new();
@@ -95,6 +97,7 @@ fn test_incremental_update() {
                 },
             },
             documentation: None,
+        detail: None,
         },
         Symbol {
             id: "file1.rs#func2".to_string(),
@@ -112,6 +115,7 @@ fn test_incremental_update() {
                 },
             },
             documentation: None,
+        detail: None,
         },
     ];
 
@@ -141,6 +145,7 @@ fn test_incremental_update() {
                 },
             },
             documentation: None,
+        detail: None,
         },
         Symbol {
             id: "file1.rs#func3".to_string(), // 新規
@@ -158,6 +163,7 @@ fn test_incremental_update() {
                 },
             },
             documentation: None,
+        detail: None,
         },
     ];
 
@@ -191,6 +197,7 @@ fn test_dead_code_detection() {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     // 使用されていない関数
@@ -210,6 +217,7 @@ fn test_dead_code_detection() {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     // main関数
@@ -229,6 +237,7 @@ fn test_dead_code_detection() {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     let used_idx = graph.add_symbol(used_func);
@@ -245,8 +254,8 @@ fn test_dead_code_detection() {
     assert_eq!(all_symbols.len(), 3);
 
     // 参照カウント（誰がこのシンボルを参照しているか）
-    let used_refs = graph.find_references("file.rs#used_func");
-    let unused_refs = graph.find_references("file.rs#unused_func");
+    let used_refs = graph.find_references("file.rs#used_func").unwrap();
+    let unused_refs = graph.find_references("file.rs#unused_func").unwrap();
 
     assert_eq!(used_refs.len(), 1); // mainから参照されている
     assert_eq!(used_refs[0].id, "file.rs#main");

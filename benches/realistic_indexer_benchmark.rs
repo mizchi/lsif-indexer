@@ -1,7 +1,6 @@
 use cli::differential_indexer::DifferentialIndexer;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::fs;
-use std::path::Path;
 use tempfile::TempDir;
 
 /// 現実的なプロジェクト構造を作成（30-50ファイル）

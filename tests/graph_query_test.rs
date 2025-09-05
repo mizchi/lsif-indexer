@@ -1,7 +1,5 @@
-use lsif_core::{
-    format_query_results, CodeGraph, EdgeKind, Position, QueryEngine, QueryParser, Range, Symbol,
-    SymbolKind,
-};
+use lsif_core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
+use lsif_core::graph_query::{format_query_results, QueryEngine, QueryParser};
 
 fn create_test_graph() -> CodeGraph {
     let mut graph = CodeGraph::new();
@@ -23,6 +21,7 @@ fn create_test_graph() -> CodeGraph {
             },
         },
         documentation: Some("Logger interface".to_string()),
+        detail: None,
     };
 
     let console_logger = Symbol {
@@ -41,6 +40,7 @@ fn create_test_graph() -> CodeGraph {
             },
         },
         documentation: Some("Console logger implementation".to_string()),
+        detail: None,
     };
 
     let file_logger = Symbol {
@@ -59,6 +59,7 @@ fn create_test_graph() -> CodeGraph {
             },
         },
         documentation: Some("File logger implementation".to_string()),
+        detail: None,
     };
 
     let log_function = Symbol {
@@ -77,6 +78,7 @@ fn create_test_graph() -> CodeGraph {
             },
         },
         documentation: Some("Log function".to_string()),
+        detail: None,
     };
 
     let logger_var = Symbol {
@@ -95,6 +97,7 @@ fn create_test_graph() -> CodeGraph {
             },
         },
         documentation: Some("Logger instance".to_string()),
+        detail: None,
     };
 
     let config = Symbol {
@@ -113,6 +116,7 @@ fn create_test_graph() -> CodeGraph {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     // Add symbols to graph

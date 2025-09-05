@@ -1,4 +1,4 @@
-use core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
+use lsif_core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
 use std::time::Instant;
 
 fn main() {

@@ -1,7 +1,5 @@
-use lsif_core::{
-    format_query_results, CodeGraph, EdgeKind, Position, QueryEngine, QueryParser, QueryPattern,
-    Range, Symbol, SymbolKind,
-};
+use lsif_core::{CodeGraph, EdgeKind, Position, QueryPattern, Range, Symbol, SymbolKind};
+use lsif_core::graph_query::{format_query_results, QueryEngine, QueryParser};
 use std::collections::HashSet;
 
 /// Create a complex graph representing a real-world code structure
@@ -25,6 +23,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("Serialization trait".to_string()),
+        detail: None,
     };
 
     // Base model
@@ -44,6 +43,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("Base model class".to_string()),
+        detail: None,
     };
 
     // User model extending base
@@ -63,6 +63,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("User model".to_string()),
+        detail: None,
     };
 
     // Admin model extending user
@@ -82,6 +83,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("Admin model".to_string()),
+        detail: None,
     };
 
     // Service using the models
@@ -101,6 +103,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("User service".to_string()),
+        detail: None,
     };
 
     // Functions
@@ -120,6 +123,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("Create user function".to_string()),
+        detail: None,
     };
 
     let validate_user = Symbol {
@@ -138,6 +142,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("Validate user function".to_string()),
+        detail: None,
     };
 
     let save_to_db = Symbol {
@@ -156,6 +161,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("Save to database".to_string()),
+        detail: None,
     };
 
     // Variables
@@ -175,6 +181,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("Current user variable".to_string()),
+        detail: None,
     };
 
     let admin_user = Symbol {
@@ -193,6 +200,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("Admin user variable".to_string()),
+        detail: None,
     };
 
     // Methods
@@ -212,6 +220,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("Save method".to_string()),
+        detail: None,
     };
 
     let validate_method = Symbol {
@@ -230,6 +239,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("Validate method".to_string()),
+        detail: None,
     };
 
     // Add all symbols
@@ -346,6 +356,7 @@ fn test_circular_reference_detection() {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     let b = Symbol {
@@ -364,6 +375,7 @@ fn test_circular_reference_detection() {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     let c = Symbol {
@@ -382,6 +394,7 @@ fn test_circular_reference_detection() {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     let a_idx = graph.add_symbol(a);
@@ -553,6 +566,7 @@ fn test_large_graph_performance() {
                 },
             },
             documentation: None,
+            detail: None,
         };
         symbols.push(graph.add_symbol(symbol));
     }

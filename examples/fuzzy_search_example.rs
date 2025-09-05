@@ -1,6 +1,8 @@
-use lsif_indexer::cli::fuzzy_search::{fuzzy_search_paths, fuzzy_search_strings};
+// use lsif_core::fuzzy_search::{fuzzy_search_paths, fuzzy_search_strings};
 
 fn main() {
+    println!("Fuzzy search example is currently disabled - functions not implemented");
+    /*
     // 例1: 汎用的な文字列検索
     println!("=== 文字列の曖昧検索 ===");
     let commands = vec![
@@ -53,4 +55,5 @@ fn main() {
     for result in results {
         println!("  {} (スコア: {:.2})", result.text, result.score);
     }
+    */
 }

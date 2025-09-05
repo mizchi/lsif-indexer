@@ -113,7 +113,7 @@ struct L1MemoryCache {
 /// L2ディスクキャッシュ（workspace/symbol結果用）
 struct L2DiskCache {
     workspace_symbols: HashMap<String, CachedEntry<Vec<WorkspaceSymbol>>>,
-    cache_dir: PathBuf,
+    _cache_dir: PathBuf,
     current_size_bytes: usize,
     max_size_bytes: usize,
 }
@@ -170,7 +170,7 @@ impl HierarchicalCache {
             })),
             l2_disk: Arc::new(RwLock::new(L2DiskCache {
                 workspace_symbols: HashMap::new(),
-                cache_dir: cache_dir.clone(),
+                _cache_dir: cache_dir.clone(),
                 current_size_bytes: 0,
                 max_size_bytes: config.l2_max_size_bytes,
             })),

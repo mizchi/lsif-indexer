@@ -73,12 +73,16 @@ fn test_lsif_stats_command() -> Result<()> {
 #[test]
 fn test_lsif_indexer_help() -> Result<()> {
     let output = Command::new("cargo")
-        .args(["run", "--bin", "lsif-indexer", "--", "--help"])
+        .args(["run", "-p", "cli", "--bin", "lsif", "--", "--help"])
         .output()?;
 
+    if !output.status.success() {
+        eprintln!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+        eprintln!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+    }
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Language-neutral code index tool"));
+    assert!(stdout.contains("Fast code indexer") || stdout.contains("Language-neutral code index tool"));
 
     Ok(())
 }

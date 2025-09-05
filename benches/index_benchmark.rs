@@ -325,7 +325,7 @@ fn benchmark_edge_operations(c: &mut Criterion) {
                         },
                     },
                     documentation: None,
-                    detail: None,
+        detail: None,
                 };
                 indices.push(graph.add_symbol(symbol));
             }
@@ -362,7 +362,7 @@ fn benchmark_edge_operations(c: &mut Criterion) {
                         },
                     },
                     documentation: None,
-                    detail: None,
+        detail: None,
                 };
                 indices.push(graph.add_symbol(symbol));
             }
@@ -534,7 +534,7 @@ fn benchmark_incremental_updates(c: &mut Criterion) {
                         },
                     },
                     documentation: None,
-                    detail: None,
+        detail: None,
                 })
                 .unwrap();
         }

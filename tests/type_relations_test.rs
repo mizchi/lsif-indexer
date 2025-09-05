@@ -1,7 +1,5 @@
-use lsif_core::{
-    format_type_relations, CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind,
-    TypeRelationsAnalyzer,
-};
+use lsif_core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
+use lsif_core::type_relations::{format_type_relations, TypeRelationsAnalyzer};
 
 /// Create a complex type hierarchy for testing
 fn create_type_hierarchy_graph() -> CodeGraph {
@@ -24,6 +22,7 @@ fn create_type_hierarchy_graph() -> CodeGraph {
             },
         },
         documentation: Some("Base serialization interface".to_string()),
+        detail: None,
     };
 
     // Base class implementing interface
@@ -43,6 +42,7 @@ fn create_type_hierarchy_graph() -> CodeGraph {
             },
         },
         documentation: Some("Base model class".to_string()),
+        detail: None,
     };
 
     // Derived classes
@@ -62,6 +62,7 @@ fn create_type_hierarchy_graph() -> CodeGraph {
             },
         },
         documentation: Some("User model extending BaseModel".to_string()),
+        detail: None,
     };
 
     let admin_model = Symbol {
@@ -80,6 +81,7 @@ fn create_type_hierarchy_graph() -> CodeGraph {
             },
         },
         documentation: Some("Admin model extending UserModel".to_string()),
+        detail: None,
     };
 
     // Variables using the types
@@ -99,6 +101,7 @@ fn create_type_hierarchy_graph() -> CodeGraph {
             },
         },
         documentation: Some("let currentUser: UserModel".to_string()),
+        detail: None,
     };
 
     let admin_user = Symbol {
@@ -117,6 +120,7 @@ fn create_type_hierarchy_graph() -> CodeGraph {
             },
         },
         documentation: Some("let adminUser: AdminModel".to_string()),
+        detail: None,
     };
 
     // Methods
@@ -136,6 +140,7 @@ fn create_type_hierarchy_graph() -> CodeGraph {
             },
         },
         documentation: Some("fn getUser() -> UserModel".to_string()),
+        detail: None,
     };
 
     let save_method = Symbol {
@@ -154,6 +159,7 @@ fn create_type_hierarchy_graph() -> CodeGraph {
             },
         },
         documentation: Some("Method of BaseModel".to_string()),
+        detail: None,
     };
 
     let validate_method = Symbol {
@@ -172,6 +178,7 @@ fn create_type_hierarchy_graph() -> CodeGraph {
             },
         },
         documentation: Some("Method of UserModel".to_string()),
+        detail: None,
     };
 
     // Fields
@@ -191,6 +198,7 @@ fn create_type_hierarchy_graph() -> CodeGraph {
             },
         },
         documentation: Some("id: String".to_string()),
+        detail: None,
     };
 
     let username_field = Symbol {
@@ -209,6 +217,7 @@ fn create_type_hierarchy_graph() -> CodeGraph {
             },
         },
         documentation: Some("username: String".to_string()),
+        detail: None,
     };
 
     // Add all symbols to graph
@@ -273,6 +282,7 @@ fn create_complex_type_graph() -> CodeGraph {
             },
         },
         documentation: Some("Generic container type".to_string()),
+        detail: None,
     };
 
     // Specific instantiation
@@ -292,6 +302,7 @@ fn create_complex_type_graph() -> CodeGraph {
             },
         },
         documentation: Some("type StringContainer = Container<String>".to_string()),
+        detail: None,
     };
 
     // Multiple variables using the container
@@ -311,6 +322,7 @@ fn create_complex_type_graph() -> CodeGraph {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     let data2 = Symbol {
@@ -329,6 +341,7 @@ fn create_complex_type_graph() -> CodeGraph {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     let data3 = Symbol {
@@ -347,6 +360,7 @@ fn create_complex_type_graph() -> CodeGraph {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     // Functions working with the type
@@ -366,6 +380,7 @@ fn create_complex_type_graph() -> CodeGraph {
             },
         },
         documentation: Some("fn createContainer() -> StringContainer".to_string()),
+        detail: None,
     };
 
     let process_container = Symbol {
@@ -384,6 +399,7 @@ fn create_complex_type_graph() -> CodeGraph {
             },
         },
         documentation: Some("fn processContainer(c: StringContainer)".to_string()),
+        detail: None,
     };
 
     // Add to graph

@@ -184,6 +184,7 @@ impl GenericLspClient {
         use tracing::{debug, info};
 
         debug!("Sending initialize request for {}", self.language_id);
+        #[allow(deprecated)]
         debug!("Root URI: {:?}", params.root_uri);
 
         // 初期化用のタイムアウトを取得

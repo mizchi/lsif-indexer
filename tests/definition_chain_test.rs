@@ -1,7 +1,5 @@
-use lsif_core::{
-    format_definition_chain, CodeGraph, DefinitionChainAnalyzer, EdgeKind, Position, Range, Symbol,
-    SymbolKind,
-};
+use lsif_core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
+use lsif_core::definition_chain::{format_definition_chain, DefinitionChainAnalyzer};
 
 /// Create a complex code graph simulating real code relationships
 fn create_complex_graph() -> CodeGraph {
@@ -28,6 +26,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("type MyString = String".to_string()),
+        detail: None,
     };
 
     let string_type = Symbol {
@@ -46,6 +45,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("Standard String type".to_string()),
+        detail: None,
     };
 
     let user_name = Symbol {
@@ -64,6 +64,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("type UserName = MyString".to_string()),
+        detail: None,
     };
 
     let admin_name = Symbol {
@@ -82,6 +83,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("type AdminName = UserName".to_string()),
+        detail: None,
     };
 
     // Add symbols to graph
@@ -112,6 +114,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("let admin_user: AdminName".to_string()),
+        detail: None,
     };
 
     let admin_var_idx = graph.add_symbol(admin_var);
@@ -134,6 +137,7 @@ fn create_complex_graph() -> CodeGraph {
             },
         },
         documentation: Some("fn get_admin() -> AdminName".to_string()),
+        detail: None,
     };
 
     let get_admin_idx = graph.add_symbol(get_admin);
@@ -167,6 +171,7 @@ fn create_cyclic_graph() -> CodeGraph {
             },
         },
         documentation: Some("Recursive node structure".to_string()),
+        detail: None,
     };
 
     let node_ref = Symbol {
@@ -185,6 +190,7 @@ fn create_cyclic_graph() -> CodeGraph {
             },
         },
         documentation: Some("type NodeRef = &Node".to_string()),
+        detail: None,
     };
 
     let node_idx = graph.add_symbol(node_struct.clone());
@@ -211,6 +217,7 @@ fn create_cyclic_graph() -> CodeGraph {
             },
         },
         documentation: Some("List node using Node".to_string()),
+        detail: None,
     };
 
     let list_idx = graph.add_symbol(list_node);
@@ -297,6 +304,7 @@ fn test_multiple_definition_paths() {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     let validated = Symbol {
@@ -315,6 +323,7 @@ fn test_multiple_definition_paths() {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     let raw = Symbol {
@@ -333,6 +342,7 @@ fn test_multiple_definition_paths() {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     let sanitized = Symbol {
@@ -351,6 +361,7 @@ fn test_multiple_definition_paths() {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     let string = Symbol {
@@ -369,6 +380,7 @@ fn test_multiple_definition_paths() {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     let input_idx = graph.add_symbol(user_input);
@@ -435,6 +447,7 @@ fn test_shortest_definition_path() {
                 },
             },
             documentation: None,
+        detail: None,
         })
         .collect();
 

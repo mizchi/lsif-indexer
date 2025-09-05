@@ -1,6 +1,8 @@
 use anyhow::Result;
-use cli::{
-    lsp_adapter::{detect_language, LspAdapter, RustAnalyzerAdapter, TypeScriptAdapter},
+use lsp::{
+    adapter::rust::RustAdapter,
+    adapter::typescript::TypeScriptAdapter,
+    adapter::language::LanguageAdapter,
     lsp_client::LspClient,
     lsp_features::{DependencyGraph, LspClient as FeatureClient, LspCodeAnalyzer},
     lsp_integration::LspIntegration,
@@ -14,16 +16,16 @@ use tempfile::TempDir;
 #[test]
 #[ignore] // Requires rust-analyzer to be installed
 fn test_lsp_client_basic() -> Result<()> {
-    let adapter = Box::new(RustAnalyzerAdapter);
-    let client = LspClient::new(adapter)?;
+    let adapter = Box::new(RustAdapter::new());
+    let mut client = LspClient::new(adapter)?;
 
     // Test basic functionality
     let test_file = PathBuf::from("src/lib.rs");
     if test_file.exists() {
-        let content = fs::read_to_string(&test_file)?;
+        let _content = fs::read_to_string(&test_file)?;
         let uri = lsp_types::Url::from_file_path(&test_file).unwrap();
 
-        client.open_document(uri.clone(), content, "rust".to_string())?;
+        client.open_document(&test_file)?;
 
         // Test hover
         let hover = client.hover(
@@ -45,6 +47,7 @@ fn test_lsp_client_basic() -> Result<()> {
 
 #[test]
 fn test_language_detection() {
+    use lsp::detect_language;
     assert!(detect_language("main.rs").is_some());
     assert!(detect_language("index.ts").is_some());
     assert!(detect_language("app.js").is_some());
@@ -178,8 +181,8 @@ mod edge_case_tests {
         let empty_file = temp_dir.path().join("empty.rs");
         fs::write(&empty_file, "").unwrap();
 
-        let adapter = Box::new(RustAnalyzerAdapter);
-        if let Ok(client) = LspClient::new(adapter) {
+        let adapter = RustAdapter::new();
+        if let Ok(mut client) = LspClient::new(Box::new(adapter) as Box<dyn LanguageAdapter>) {
             let uri = Url::from_file_path(&empty_file).unwrap();
             let symbols = client.document_symbols(uri);
 
@@ -203,8 +206,8 @@ fn broken_function(
         )
         .unwrap();
 
-        let adapter = Box::new(RustAnalyzerAdapter);
-        if let Ok(client) = LspClient::new(adapter) {
+        let adapter = RustAdapter::new();
+        if let Ok(mut client) = LspClient::new(Box::new(adapter) as Box<dyn LanguageAdapter>) {
             let uri = Url::from_file_path(&invalid_file).unwrap();
 
             // 構文エラーがあっても診断情報を取得できることを確認
@@ -232,8 +235,8 @@ fn こんにちは() {
         )
         .unwrap();
 
-        let adapter = Box::new(RustAnalyzerAdapter);
-        if let Ok(client) = LspClient::new(adapter) {
+        let adapter = RustAdapter::new();
+        if let Ok(mut client) = LspClient::new(Box::new(adapter) as Box<dyn LanguageAdapter>) {
             let uri = Url::from_file_path(&unicode_file).unwrap();
             let symbols = client.document_symbols(uri);
 
@@ -273,8 +276,8 @@ fn function_{}() -> i32 {{
         }
         fs::write(&large_file, content).unwrap();
 
-        let adapter = Box::new(RustAnalyzerAdapter);
-        if let Ok(client) = LspClient::new(adapter) {
+        let adapter = RustAdapter::new();
+        if let Ok(mut client) = LspClient::new(Box::new(adapter) as Box<dyn LanguageAdapter>) {
             let uri = Url::from_file_path(&large_file).unwrap();
             let start = Instant::now();
             let symbols = client.document_symbols(uri);
@@ -351,7 +354,7 @@ fn main() {
         .unwrap();
 
         // LSPクライアントを初期化
-        let adapter = Box::new(RustAnalyzerAdapter);
+        let adapter = Box::new(RustAdapter::new());
         if let Ok(client) = FeatureClient::new(adapter) {
             let analyzer = LspCodeAnalyzer::new(Arc::new(client));
             let uri = Url::from_file_path(&project_file).unwrap();
@@ -387,12 +390,12 @@ fn main() {
         for (file, adapter) in [
             (
                 rust_file,
-                Box::new(RustAnalyzerAdapter) as Box<dyn LspAdapter>,
+                Box::new(RustAdapter::new()) as Box<dyn LanguageAdapter>,
             ),
-            (ts_file, Box::new(TypeScriptAdapter) as Box<dyn LspAdapter>),
-            (js_file, Box::new(TypeScriptAdapter) as Box<dyn LspAdapter>), // JS も TypeScript adapter で処理
+            (ts_file, Box::new(TypeScriptAdapter::new()) as Box<dyn LanguageAdapter>),
+            (js_file, Box::new(TypeScriptAdapter::new()) as Box<dyn LanguageAdapter>), // JS も TypeScript adapter で処理
         ] {
-            if let Ok(client) = LspClient::new(adapter) {
+            if let Ok(mut client) = LspClient::new(adapter) {
                 let uri = Url::from_file_path(&file).unwrap();
                 let symbols = client.document_symbols(uri);
 

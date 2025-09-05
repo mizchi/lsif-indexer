@@ -1,5 +1,6 @@
 use lsif_core::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
-use lsif_lsif_core::{calculate_file_hash, FileUpdate, IncrementalIndex, UpdateResult};
+use lsif_core::{IncrementalIndex};
+use lsif_core::incremental::{calculate_file_hash, FileUpdate, UpdateResult};
 use std::path::{Path, PathBuf};
 
 fn create_test_symbol(id: &str, name: &str, kind: SymbolKind, file_path: &str) -> Symbol {
@@ -19,6 +20,7 @@ fn create_test_symbol(id: &str, name: &str, kind: SymbolKind, file_path: &str) -
             },
         },
         documentation: None,
+        detail: None,
     }
 }
 
@@ -39,6 +41,7 @@ fn create_public_symbol(id: &str, file_path: &str) -> Symbol {
             },
         },
         documentation: None,
+        detail: None,
     }
 }
 

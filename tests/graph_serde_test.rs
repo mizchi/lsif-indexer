@@ -17,6 +17,7 @@ fn create_test_symbol(id: &str, name: &str, kind: SymbolKind, file_path: &str) -
             },
         },
         documentation: None,
+        detail: None,
     }
 }
 
@@ -165,10 +166,10 @@ fn test_complex_graph_serialization() {
 
     // Fooに含まれる要素を確認（Contains関係はfind_referencesでは取得できない）
     // エッジが正しくデシリアライズされているか確認
-    let iface_refs = deserialized.find_references("IFoo");
+    let iface_refs = deserialized.find_references("IFoo").unwrap();
     assert_eq!(iface_refs.len(), 0, "IFooへのReferenceエッジはない");
 
-    let m2_refs = deserialized.find_references("Foo::method2");
+    let m2_refs = deserialized.find_references("Foo::method2").unwrap();
     assert_eq!(m2_refs.len(), 1, "method2はmethod1から参照されている");
     assert_eq!(m2_refs[0].id, "Foo::method1");
 }
@@ -220,7 +221,7 @@ fn test_all_edge_kinds() {
     ];
 
     for (i, kind) in edge_kinds.iter().enumerate() {
-        graph.add_edge(symbols[i], symbols[i + 1], kind.clone());
+        graph.add_edge(symbols[i], symbols[i + 1], *kind);
     }
 
     let json = serde_json::to_string(&graph).unwrap();

@@ -7,7 +7,7 @@ fn test_call_hierarchy_with_sample_code() {
     let graph = create_sample_graph();
 
     // Import the call hierarchy analyzer
-    use lsif_core::{format_hierarchy, CallHierarchyAnalyzer};
+    use lsif_core::call_hierarchy::{format_hierarchy, CallHierarchyAnalyzer};
 
     let analyzer = CallHierarchyAnalyzer::new(&graph);
 
@@ -110,6 +110,7 @@ fn create_sample_graph() -> CodeGraph {
                 },
             },
             documentation: None,
+        detail: None,
         };
         let idx = graph.add_symbol(symbol);
         indices.insert(name.to_string(), idx);

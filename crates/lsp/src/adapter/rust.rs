@@ -1,5 +1,9 @@
 use super::common::CommonAdapter;
+use super::language::{LanguageAdapter, DefinitionPattern, PatternType};
+use super::lsp::LspAdapter;
 use lsp_types::SymbolKind;
+use anyhow::Result;
+use std::process::{Child, Command, Stdio};
 
 /// Rust言語用のLSPアダプタ
 pub struct RustAdapter {
@@ -70,6 +74,129 @@ impl RustAdapter {
         } else {
             SymbolKind::VARIABLE
         }
+    }
+}
+
+impl LanguageAdapter for RustAdapter {
+    fn language_id(&self) -> &str {
+        &self.common.language_id
+    }
+
+    fn supported_extensions(&self) -> Vec<&str> {
+        vec!["rs"]
+    }
+
+    fn spawn_lsp_command(&self) -> Result<Child> {
+        Command::new("rust-analyzer")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| anyhow::anyhow!("Failed to spawn rust-analyzer: {}", e))
+    }
+
+    fn definition_patterns(&self) -> Vec<DefinitionPattern> {
+        vec![
+            DefinitionPattern {
+                keywords: vec!["fn".to_string()],
+                pattern_type: PatternType::FunctionDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["struct".to_string()],
+                pattern_type: PatternType::ClassDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["enum".to_string()],
+                pattern_type: PatternType::EnumDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["trait".to_string()],
+                pattern_type: PatternType::InterfaceDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["type".to_string()],
+                pattern_type: PatternType::TypeDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["const".to_string()],
+                pattern_type: PatternType::VariableDef,
+                requires_name_after: true,
+            },
+            DefinitionPattern {
+                keywords: vec!["mod".to_string()],
+                pattern_type: PatternType::ModuleDef,
+                requires_name_after: true,
+            },
+        ]
+    }
+
+    fn build_reference_pattern(&self, name: &str, _kind: &lsif_core::SymbolKind) -> String {
+        format!(r"\b{}\b", regex::escape(name))
+    }
+
+    fn is_definition_context(&self, line: &str, position: usize) -> bool {
+        // Check if position is after a definition keyword
+        let keywords = self.get_definition_keywords();
+        for keyword in keywords {
+            if let Some(idx) = line.find(keyword) {
+                if position > idx {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn is_in_string_or_comment(&self, line: &str, position: usize) -> bool {
+        // Simple check for comments and strings
+        let before_pos = &line[..position.min(line.len())];
+        
+        // Check for line comment
+        if before_pos.contains("//") {
+            return true;
+        }
+        
+        // Check for string literals (simple check)
+        let mut in_string = false;
+        let mut escape_next = false;
+        for (i, ch) in before_pos.chars().enumerate() {
+            if escape_next {
+                escape_next = false;
+                continue;
+            }
+            if ch == '\\' {
+                escape_next = true;
+                continue;
+            }
+            if ch == '"' {
+                in_string = !in_string;
+            }
+            if i == position && in_string {
+                return true;
+            }
+        }
+        
+        false
+    }
+}
+
+impl LspAdapter for RustAdapter {
+    fn spawn_command(&self) -> Result<Child> {
+        Command::new("rust-analyzer")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| anyhow::anyhow!("Failed to spawn rust-analyzer: {}", e))
+    }
+
+    fn language_id(&self) -> &str {
+        LanguageAdapter::language_id(self)
     }
 }
 

@@ -60,6 +60,7 @@ impl LspBenchmark {
     pub fn initialize(&mut self) -> Result<BenchmarkResult> {
         let start = Instant::now();
 
+        #[allow(deprecated)]
         let init_params = InitializeParams {
             process_id: Some(std::process::id()),
             root_path: None,

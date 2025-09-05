@@ -190,7 +190,7 @@ impl SymbolExtractionStrategy for WorkspaceSymbolExtractionStrategy {
         }
     }
 
-    fn extract(&self, path: &Path) -> Result<Vec<Symbol>> {
+    fn extract(&self, _path: &Path) -> Result<Vec<Symbol>> {
         // 初回呼び出し時にワークスペース全体のシンボルを取得
         if let Ok(processed) = self.processed_files.lock() {
             if processed.is_empty() {

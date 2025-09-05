@@ -1,7 +1,8 @@
 use anyhow::Result;
 use cli::storage::IndexStorage;
 use lsif_core::CodeGraph;
-use lsp::adapter::lsp::{RustAnalyzerAdapter, TypeScriptAdapter};
+use lsp::adapter::rust::RustAdapter;
+use lsp::adapter::typescript::TypeScriptAdapter;
 use lsp::lsp_client::LspClient;
 use lsp::lsp_indexer::LspIndexer;
 use lsp_types::*;
@@ -80,19 +81,19 @@ fn test_function() {
         let (_temp_dir, project_path) = setup_rust_project_with_references()?;
 
         // LSPクライアントの初期化
-        let adapter = Box::new(RustAnalyzerAdapter);
-        let client = LspClient::new(adapter)?;
+        let adapter = Box::new(RustAdapter::new());
+        let mut client = LspClient::new(adapter)?;
 
         // lib.rsのシンボル取得
         let lib_uri = Url::from_file_path(project_path.join("lib.rs")).unwrap();
         let lib_content = fs::read_to_string(project_path.join("lib.rs"))?;
-        client.open_document(lib_uri.clone(), lib_content, "rust".to_string())?;
+        client.open_document(&project_path.join("lib.rs"))?;
         let lib_symbols = client.document_symbols(lib_uri.clone())?;
 
         // main.rsのシンボル取得
         let main_uri = Url::from_file_path(project_path.join("main.rs")).unwrap();
         let main_content = fs::read_to_string(project_path.join("main.rs"))?;
-        client.open_document(main_uri.clone(), main_content, "rust".to_string())?;
+        client.open_document(&project_path.join("main.rs"))?;
         let main_symbols = client.document_symbols(main_uri.clone())?;
 
         // グラフの構築
@@ -116,12 +117,11 @@ fn test_function() {
 
         // Config構造体への参照を検索
         let config_refs = client.find_references(
-            lib_uri,
+            &project_path.join("lib.rs"),
             Position {
                 line: 1,
                 character: 11,
             }, // Config構造体の位置
-            false,
         )?;
 
         {
@@ -149,19 +149,18 @@ fn test_function() {
     fn test_find_function_references_with_lsp() -> Result<()> {
         let (_temp_dir, project_path) = setup_rust_project_with_references()?;
 
-        let adapter = Box::new(RustAnalyzerAdapter);
-        let client = LspClient::new(adapter)?;
+        let adapter = Box::new(RustAdapter::new());
+        let mut client = LspClient::new(adapter)?;
 
         let lib_uri = Url::from_file_path(project_path.join("lib.rs")).unwrap();
 
         // create_default_config関数への参照を検索
         let func_refs = client.find_references(
-            lib_uri,
+            &project_path.join("lib.rs"),
             Position {
                 line: 20,
                 character: 7,
             }, // create_default_config関数の位置
-            false,
         )?;
 
         assert!(
@@ -277,21 +276,20 @@ app.setLogger(customLogger);
     fn test_find_interface_implementations_with_lsp() -> Result<()> {
         let (_temp_dir, project_path) = setup_typescript_project_with_references()?;
 
-        let adapter = Box::new(TypeScriptAdapter);
-        let client = LspClient::new(adapter)?;
+        let adapter = Box::new(TypeScriptAdapter::new());
+        let mut client = LspClient::new(adapter)?;
 
         let utils_uri = Url::from_file_path(project_path.join("utils.ts")).unwrap();
         let utils_content = fs::read_to_string(project_path.join("utils.ts"))?;
-        client.open_document(utils_uri.clone(), utils_content, "typescript".to_string())?;
+        client.open_document(&project_path.join("utils.ts"))?;
 
         // ILoggerインターフェースの実装を検索
         let impl_refs = client.find_references(
-            utils_uri,
+            &project_path.join("utils.ts"),
             Position {
                 line: 1,
                 character: 17,
             }, // ILoggerインターフェースの位置
-            false,
         )?;
 
         {
@@ -316,21 +314,20 @@ app.setLogger(customLogger);
     fn test_find_function_imports_with_lsp() -> Result<()> {
         let (_temp_dir, project_path) = setup_typescript_project_with_references()?;
 
-        let adapter = Box::new(TypeScriptAdapter);
-        let client = LspClient::new(adapter)?;
+        let adapter = Box::new(TypeScriptAdapter::new());
+        let mut client = LspClient::new(adapter)?;
 
         let utils_uri = Url::from_file_path(project_path.join("utils.ts")).unwrap();
         let utils_content = fs::read_to_string(project_path.join("utils.ts"))?;
-        client.open_document(utils_uri.clone(), utils_content, "typescript".to_string())?;
+        client.open_document(&project_path.join("utils.ts"))?;
 
         // createLogger関数への参照を検索
         let func_refs = client.find_references(
-            utils_uri,
+            &project_path.join("utils.ts"),
             Position {
                 line: 16,
                 character: 16,
             }, // createLogger関数の位置
-            false,
         )?;
 
         {
@@ -433,11 +430,11 @@ fn main() {
         let graph = CodeGraph::new();
 
         // Data構造体への参照を確認
-        let data_refs = graph.find_references("src/lib.rs#1:Data");
+        let data_refs = graph.find_references("src/lib.rs#1:Data").unwrap();
         assert!(!data_refs.is_empty(), "Data構造体への参照が見つかるべき");
 
         // process()メソッドへの参照を確認
-        let process_refs = graph.find_references("src/lib.rs#10:process");
+        let process_refs = graph.find_references("src/lib.rs#10:process").unwrap();
         assert!(
             !process_refs.is_empty(),
             "process()メソッドへの参照が見つかるべき"

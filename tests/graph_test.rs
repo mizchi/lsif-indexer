@@ -17,6 +17,7 @@ fn create_test_symbol(id: &str, name: &str, kind: SymbolKind) -> Symbol {
             },
         },
         documentation: None,
+        detail: None,
     }
 }
 
@@ -76,7 +77,7 @@ fn test_add_edge() {
     graph.add_edge(var_idx, func_idx, EdgeKind::Reference);
 
     // func1への参照を探す
-    let references = graph.find_references("func1");
+    let references = graph.find_references("func1").unwrap();
     assert_eq!(references.len(), 1);
     assert_eq!(references[0].id, "var1");
 }
@@ -103,7 +104,7 @@ fn test_find_references() {
     graph.add_edge(caller3_idx, target_idx, EdgeKind::Reference);
 
     // targetへの参照を探す
-    let references = graph.find_references("target");
+    let references = graph.find_references("target").unwrap();
     assert_eq!(references.len(), 3);
 
     let ref_ids: Vec<&str> = references.iter().map(|s| s.id.as_str()).collect();
@@ -115,7 +116,7 @@ fn test_find_references() {
 #[test]
 fn test_find_references_nonexistent_symbol() {
     let graph = CodeGraph::new();
-    let references = graph.find_references("nonexistent");
+    let references = graph.find_references("nonexistent").unwrap();
     assert_eq!(references.len(), 0);
 }
 
@@ -247,17 +248,17 @@ fn test_complex_graph_scenario() {
     assert_eq!(graph.symbol_count(), 5);
 
     // helperへの参照を探す（mainから参照されている）
-    let helper_refs = graph.find_references("helper");
+    let helper_refs = graph.find_references("helper").unwrap();
     assert_eq!(helper_refs.len(), 1);
     assert_eq!(helper_refs[0].id, "main");
 
     // varへの参照を探す（mainから参照されている）
-    let var_refs = graph.find_references("global_var");
+    let var_refs = graph.find_references("global_var").unwrap();
     assert_eq!(var_refs.len(), 1);
     assert_eq!(var_refs[0].id, "main");
 
     // methodへの参照を探す（helperから参照され、classに含まれる）
-    let method_refs = graph.find_references("MyClass::method");
+    let method_refs = graph.find_references("MyClass::method").unwrap();
     // Referenceエッジのみをカウント（Containsは含まない）
     assert_eq!(method_refs.len(), 1);
     assert_eq!(method_refs[0].id, "helper");

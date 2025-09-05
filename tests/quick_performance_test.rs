@@ -1,7 +1,7 @@
-use cli::python_adapter::PythonAdapter;
-use cli::typescript_adapter::TypeScriptAdapter;
+use lsp::adapter::python::PythonAdapter;
+use lsp::adapter::typescript::TypeScriptAdapter;
 use lsp::adapter::go::GoAdapter;
-use lsp::lsp_minimal_client::MinimalLspClient;
+use lsp::lsp_client::LspClient;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -19,7 +19,7 @@ fn quick_performance_check() {
         let adapter = Box::new(GoAdapter);
         let start = Instant::now();
 
-        if let Ok(mut client) = MinimalLspClient::new(adapter) {
+        if let Ok(mut client) = LspClient::new(adapter) {
             if client.initialize(&go_project).is_ok() {
                 let main_file = go_project.join("main.go");
                 if let Ok(symbols) = client.get_document_symbols(&main_file) {
@@ -43,7 +43,7 @@ fn quick_performance_check() {
         let adapter = Box::new(PythonAdapter::new());
         let start = Instant::now();
 
-        if let Ok(mut client) = MinimalLspClient::new(adapter) {
+        if let Ok(mut client) = LspClient::new(adapter) {
             if client.initialize(&python_project).is_ok() {
                 let calc_file = python_project.join("calculator.py");
                 if let Ok(symbols) = client.get_document_symbols(&calc_file) {
@@ -67,7 +67,7 @@ fn quick_performance_check() {
         let adapter = Box::new(TypeScriptAdapter::new());
         let start = Instant::now();
 
-        if let Ok(mut client) = MinimalLspClient::new(adapter) {
+        if let Ok(mut client) = LspClient::new(adapter) {
             if client.initialize(&ts_project).is_ok() {
                 let calc_file = ts_project.join("calculator.ts");
                 if let Ok(symbols) = client.get_document_symbols(&calc_file) {

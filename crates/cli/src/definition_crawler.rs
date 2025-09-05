@@ -229,7 +229,7 @@ impl DefinitionCrawler {
         let symbol_count = symbols.len();
 
         // シンボルを保存
-        for symbol in &symbols {
+        for _symbol in &symbols {
             // add_symbolメソッドがない場合は、グラフに追加する方法を使用
             // self.storage.save_data("symbols", &symbols)?;
         }
@@ -282,7 +282,7 @@ impl DefinitionCrawler {
     /// LSPを使ってシンボルを抽出
     fn extract_symbols(
         &self,
-        client: &mut GenericLspClient,
+        _client: &mut GenericLspClient,
         file_path: &Path,
     ) -> Result<Vec<Symbol>> {
         // 簡易実装：フォールバックインデクサーを使用
@@ -327,17 +327,17 @@ impl DefinitionCrawler {
     /// 定義元を取得
     fn get_definitions(
         &self,
-        client: &mut GenericLspClient,
+        _client: &mut GenericLspClient,
         file_path: &Path,
         position: &Position,
     ) -> Result<Vec<PathBuf>> {
-        let lsp_position = lsp_types::Position {
+        let _lsp_position = lsp_types::Position {
             line: position.line,
             character: position.character,
         };
 
         // get_definitionメソッドがない場合は、send_requestを使用
-        let file_uri = format!("file://{}", file_path.display());
+        let _file_uri = format!("file://{}", file_path.display());
         // TODO: 実際のLSP定義ジャンプAPIを呼び出す
         let locations: Vec<lsp_types::Location> = Vec::new();
 

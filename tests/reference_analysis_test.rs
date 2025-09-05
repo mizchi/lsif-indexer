@@ -85,6 +85,7 @@ mod tests {
                 },
             },
             documentation: Some("Calculator struct".to_string()),
+            detail: None,
         };
         let _calc_idx = graph.add_symbol(calc_symbol);
 
@@ -105,6 +106,7 @@ mod tests {
                 },
             },
             documentation: Some("Constructor".to_string()),
+            detail: None,
         };
         let new_idx = graph.add_symbol(new_symbol);
 
@@ -125,6 +127,7 @@ mod tests {
                 },
             },
             documentation: None,
+        detail: None,
         };
         let ref1_idx = graph.add_symbol(ref1_symbol);
 
@@ -145,6 +148,7 @@ mod tests {
                 },
             },
             documentation: None,
+        detail: None,
         };
         let ref2_idx = graph.add_symbol(ref2_symbol);
 
@@ -153,7 +157,7 @@ mod tests {
         graph.add_edge(ref2_idx, new_idx, EdgeKind::Reference);
 
         // 参照を検索
-        let references = graph.find_references(&format!("{test_file}#7:new"));
+        let references = graph.find_references(&format!("{test_file}#7:new")).unwrap();
         assert_eq!(
             references.len(),
             2,
@@ -201,6 +205,7 @@ mod tests {
                 },
             },
             documentation: Some("Add method".to_string()),
+            detail: None,
         };
         let add_idx = graph.add_symbol(add_method);
 
@@ -221,6 +226,7 @@ mod tests {
                 },
             },
             documentation: Some("Get value method".to_string()),
+            detail: None,
         };
         let get_value_idx = graph.add_symbol(get_value_method);
 
@@ -241,6 +247,7 @@ mod tests {
                 },
             },
             documentation: None,
+        detail: None,
         };
         let add_call_idx = graph.add_symbol(add_call);
         graph.add_edge(add_call_idx, add_idx, EdgeKind::Reference);
@@ -262,6 +269,7 @@ mod tests {
                 },
             },
             documentation: None,
+        detail: None,
         };
         let get_value_call1_idx = graph.add_symbol(get_value_call1);
         graph.add_edge(get_value_call1_idx, get_value_idx, EdgeKind::Reference);
@@ -282,16 +290,17 @@ mod tests {
                 },
             },
             documentation: None,
+        detail: None,
         };
         let get_value_call2_idx = graph.add_symbol(get_value_call2);
         graph.add_edge(get_value_call2_idx, get_value_idx, EdgeKind::Reference);
 
         // add()メソッドへの参照を検索
-        let add_refs = graph.find_references(&format!("{test_file}#11:add"));
+        let add_refs = graph.find_references(&format!("{test_file}#11:add")).unwrap();
         assert_eq!(add_refs.len(), 1, "add()メソッドへの参照が1つ見つかるべき");
 
         // get_value()メソッドへの参照を検索
-        let get_value_refs = graph.find_references(&format!("{test_file}#16:get_value"));
+        let get_value_refs = graph.find_references(&format!("{test_file}#16:get_value")).unwrap();
         assert_eq!(
             get_value_refs.len(),
             2,
@@ -324,6 +333,7 @@ mod tests {
                 },
             },
             documentation: Some("Factory function".to_string()),
+            detail: None,
         };
         let def_idx = graph.add_symbol(definition.clone());
 
@@ -344,6 +354,7 @@ mod tests {
                 },
             },
             documentation: None,
+        detail: None,
         };
         let ref_idx = graph.add_symbol(reference.clone());
 
@@ -456,6 +467,7 @@ class AdvancedCalculator implements CalculatorInterface {
                 },
             },
             documentation: Some("Calculator class".to_string()),
+            detail: None,
         };
         let calc_idx = graph.add_symbol(calc_class);
 
@@ -476,6 +488,7 @@ class AdvancedCalculator implements CalculatorInterface {
                 },
             },
             documentation: None,
+        detail: None,
         };
         let new_calc1_idx = graph.add_symbol(new_calc1);
         graph.add_edge(new_calc1_idx, calc_idx, EdgeKind::Reference);
@@ -496,12 +509,13 @@ class AdvancedCalculator implements CalculatorInterface {
                 },
             },
             documentation: None,
+        detail: None,
         };
         let new_calc2_idx = graph.add_symbol(new_calc2);
         graph.add_edge(new_calc2_idx, calc_idx, EdgeKind::Reference);
 
         // Calculatorクラスへの参照を検索
-        let refs = graph.find_references(&format!("{test_file}#2:Calculator"));
+        let refs = graph.find_references(&format!("{test_file}#2:Calculator")).unwrap();
         assert_eq!(refs.len(), 2, "Calculatorクラスへの参照が2つ見つかるべき");
 
         Ok(())
@@ -530,6 +544,7 @@ class AdvancedCalculator implements CalculatorInterface {
                 },
             },
             documentation: Some("Calculator interface".to_string()),
+            detail: None,
         };
         let interface_idx = graph.add_symbol(interface);
 
@@ -550,6 +565,7 @@ class AdvancedCalculator implements CalculatorInterface {
                 },
             },
             documentation: None,
+        detail: None,
         };
         let impl_idx = graph.add_symbol(impl_class);
 
@@ -592,6 +608,7 @@ class AdvancedCalculator implements CalculatorInterface {
                 },
             },
             documentation: Some("Interface add method".to_string()),
+            detail: None,
         };
         let interface_add_idx = graph.add_symbol(interface_add);
 
@@ -612,6 +629,7 @@ class AdvancedCalculator implements CalculatorInterface {
                 },
             },
             documentation: None,
+        detail: None,
         };
         let impl_add_idx = graph.add_symbol(impl_add);
 

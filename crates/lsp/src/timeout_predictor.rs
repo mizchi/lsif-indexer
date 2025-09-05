@@ -225,7 +225,7 @@ impl TimeoutPredictor {
         &self,
         operation: LspOperation,
         file_size: usize,
-        line_count: usize,
+        _line_count: usize,
     ) -> Duration {
         // ベースタイムアウトを取得
         let base_timeout = self.get_timeout(operation);

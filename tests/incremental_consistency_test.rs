@@ -1,7 +1,5 @@
-use lsif_core::{
-    calculate_file_hash, EdgeKind, FileUpdate, IncrementalIndex, Position, Range, Symbol,
-    SymbolKind,
-};
+use lsif_core::{EdgeKind, IncrementalIndex, Position, Range, Symbol, SymbolKind};
+use lsif_core::incremental::{calculate_file_hash, FileUpdate, UpdateResult};
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
@@ -23,6 +21,7 @@ fn create_test_symbol(id: &str, name: &str, file: &str) -> Symbol {
             },
         },
         documentation: None,
+        detail: None,
     }
 }
 
@@ -63,7 +62,7 @@ fn test_edge_consistency_after_symbol_removal() {
     assert!(index.graph.find_symbol("sym_b").is_none());
 
     // AからBへのエッジ、BからCへのエッジが削除されていることを確認
-    let a_refs = index.graph.find_references("sym_a");
+    let a_refs = index.graph.find_references("sym_a").unwrap();
     assert_eq!(
         a_refs.len(),
         0,
@@ -164,7 +163,7 @@ fn test_circular_reference_removal() {
 
     // Bへの参照がないことを確認（Bは削除されている）
     // Cはまだ存在するので、Aへの参照はある（C->A）
-    let a_refs = index.graph.find_references("cycle_a");
+    let a_refs = index.graph.find_references("cycle_a").unwrap();
     assert_eq!(a_refs.len(), 1, "CからAへの参照は残っている");
     assert_eq!(a_refs[0].id, "cycle_c");
 }
@@ -197,6 +196,7 @@ fn test_bulk_update_consistency() {
                     },
                 },
                 documentation: None,
+        detail: None,
             });
         }
 
@@ -236,6 +236,7 @@ fn test_bulk_update_consistency() {
                     },
                 },
                 documentation: None,
+        detail: None,
             });
         }
         for sym_idx in 0..symbols_per_file / 2 {
@@ -255,6 +256,7 @@ fn test_bulk_update_consistency() {
                     },
                 },
                 documentation: None,
+        detail: None,
             });
         }
 
@@ -451,6 +453,7 @@ fn test_symbol_to_file_mapping_consistency() {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     // 古いファイルから削除
@@ -500,6 +503,7 @@ fn test_dead_code_detection_consistency() {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     let lib_pub = Symbol {
@@ -518,6 +522,7 @@ fn test_dead_code_detection_consistency() {
             },
         },
         documentation: None,
+        detail: None,
     };
 
     let util1 = create_test_symbol("util1", "utility1", "utils.rs");
@@ -575,7 +580,7 @@ fn test_dead_code_detection_consistency() {
         .add_edge(util2_idx, internal_idx, EdgeKind::Reference);
 
     // デッドコード検出
-    let mut result = lsif_core::UpdateResult::default();
+    let mut result = UpdateResult::default();
     index.detect_dead_code(&mut result);
 
     // orphanのみがデッドコード
@@ -614,7 +619,7 @@ fn test_dead_code_detection_consistency() {
         .add_edge(util1_idx, internal_idx, EdgeKind::Reference);
 
     // 再度デッドコード検出
-    let mut result2 = lsif_core::UpdateResult::default();
+    let mut result2 = UpdateResult::default();
     index.detect_dead_code(&mut result2);
 
     // orphanのみがデッドコード（util1が残っており、internalへの参照も残っている）
@@ -675,6 +680,7 @@ fn unused_internal() {
             },
         },
         documentation: None,
+        detail: None,
     }];
 
     let utils_symbols = vec![
@@ -694,6 +700,7 @@ fn unused_internal() {
                 },
             },
             documentation: None,
+        detail: None,
         },
         Symbol {
             id: format!("{}:unused_internal", utils_path.display()),
@@ -711,6 +718,7 @@ fn unused_internal() {
                 },
             },
             documentation: None,
+        detail: None,
         },
     ];
 
@@ -739,7 +747,7 @@ fn unused_internal() {
         .add_edge(main_idx, helper_idx, EdgeKind::Reference);
 
     // デッドコード検出
-    let mut result = lsif_core::UpdateResult::default();
+    let mut result = UpdateResult::default();
     index.detect_dead_code(&mut result);
 
     // unused_internalのみがデッドコード
@@ -781,6 +789,7 @@ fn unused_internal() {
                 },
             },
             documentation: None,
+        detail: None,
         },
         Symbol {
             id: format!("{}:internal_helper", utils_path.display()),
@@ -798,6 +807,7 @@ fn unused_internal() {
                 },
             },
             documentation: None,
+        detail: None,
         },
         Symbol {
             id: format!("{}:unused_internal", utils_path.display()),
@@ -815,6 +825,7 @@ fn unused_internal() {
                 },
             },
             documentation: None,
+        detail: None,
         },
     ];
 
@@ -845,7 +856,7 @@ fn unused_internal() {
         .add_edge(helper_idx, internal_helper_idx, EdgeKind::Reference);
 
     // 再度デッドコード検出
-    let mut result2 = lsif_core::UpdateResult::default();
+    let mut result2 = UpdateResult::default();
     index.detect_dead_code(&mut result2);
 
     // unused_internalのみがデッドコード

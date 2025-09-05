@@ -239,13 +239,13 @@ impl LspMetricsCollector {
             0.0
         };
 
-        let mut total_success = 0;
+        let mut _total_success = 0;
         let mut total_failure = 0;
         let mut avg_response_time = Duration::ZERO;
         let mut op_count = 0;
 
         for op_metrics in metrics.operation_metrics.values() {
-            total_success += op_metrics.success_count;
+            _total_success += op_metrics.success_count;
             total_failure += op_metrics.failure_count;
             avg_response_time += op_metrics.avg_duration;
             op_count += 1;

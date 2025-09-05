@@ -1,7 +1,9 @@
 use anyhow::Result;
-use cli::{
-    go_adapter::GoAdapter, lsp_minimal_client::MinimalLspClient, python_adapter::PythonAdapter,
-    typescript_adapter::TypeScriptAdapter,
+use lsp::{
+    adapter::go::GoAdapter, 
+    adapter::python::PythonAdapter,
+    adapter::typescript::TypeScriptAdapter,
+    lsp_client::LspClient,
 };
 use lsp_types::Position;
 use std::fs;
@@ -115,7 +117,7 @@ main();
 fn test_go_definition() -> Result<()> {
     let dir = create_test_go_project()?;
     let adapter = Box::new(GoAdapter);
-    let mut client = MinimalLspClient::new(adapter)?;
+    let mut client = LspClient::new(adapter)?;
 
     // 初期化
     client.initialize(dir.path())?;
@@ -141,7 +143,7 @@ fn test_go_definition() -> Result<()> {
 fn test_python_hover() -> Result<()> {
     let dir = create_test_python_project()?;
     let adapter = Box::new(PythonAdapter::new());
-    let mut client = MinimalLspClient::new(adapter)?;
+    let mut client = LspClient::new(adapter)?;
 
     // 初期化
     client.initialize(dir.path())?;
@@ -168,7 +170,7 @@ fn test_python_hover() -> Result<()> {
 fn test_typescript_definition_and_hover() -> Result<()> {
     let dir = create_test_typescript_project()?;
     let adapter = Box::new(TypeScriptAdapter::new());
-    let mut client = MinimalLspClient::new(adapter)?;
+    let mut client = LspClient::new(adapter)?;
 
     // 初期化
     client.initialize(dir.path())?;
@@ -207,7 +209,7 @@ fn test_typescript_definition_and_hover() -> Result<()> {
 fn test_go_hover_type_info() -> Result<()> {
     let dir = create_test_go_project()?;
     let adapter = Box::new(GoAdapter);
-    let mut client = MinimalLspClient::new(adapter)?;
+    let mut client = LspClient::new(adapter)?;
 
     // 初期化
     client.initialize(dir.path())?;

@@ -1,8 +1,9 @@
-use lsp::adapter::lsp::{GenericLspClient, TypeScriptAdapter};
+use lsp::adapter::lsp::GenericLspClient;
+use lsp::adapter::typescript::TypeScriptAdapter;
 use lsp::lsp_indexer::LspIndexer;
 use std::path::PathBuf;
 use std::process::Command;
-use IndexStorage;
+use cli::storage::IndexStorage;
 
 #[test]
 #[ignore] // Run with: cargo test typescript_e2e -- --ignored --nocapture
@@ -27,9 +28,10 @@ fn test_typescript_lsp_indexing() {
     println!("Testing file: {file_uri}");
 
     // Create TypeScript LSP client
-    let adapter = TypeScriptAdapter;
+    let adapter = TypeScriptAdapter::new();
     let mut client =
-        GenericLspClient::new(Box::new(adapter)).expect("Failed to create TypeScript LSP client");
+        GenericLspClient::new(Box::new(adapter) as Box<dyn lsp::adapter::lsp::LspAdapter>)
+            .expect("Failed to create TypeScript LSP client");
 
     // Get document symbols
     println!("Getting document symbols...");
@@ -104,8 +106,8 @@ fn test_typescript_incremental_update() {
     let _db_path = dir.path().join("typescript_test.db");
 
     // Initial indexing
-    let adapter = TypeScriptAdapter;
-    let mut client = GenericLspClient::new(Box::new(adapter)).unwrap();
+    let adapter = TypeScriptAdapter::new();
+    let mut client = GenericLspClient::new(Box::new(adapter) as Box<dyn lsp::adapter::lsp::LspAdapter>).unwrap();
     let symbols = client.get_document_symbols(&file_uri).unwrap();
 
     let mut indexer = LspIndexer::new(test_file.to_str().unwrap().to_string());
