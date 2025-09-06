@@ -24,11 +24,35 @@ pub fn find_symbol_at_location<'a>(
     line: u32,
     column: u32,
 ) -> Option<&'a Symbol> {
-    graph.get_all_symbols().find(|s| {
-        s.file_path == file
-            && s.range.start.line == line
-            && s.range.start.character >= column.saturating_sub(5)
-            && s.range.start.character <= column + 5
+    // ユーザー入力は1ベース、内部表現は0ベース
+    let zero_based_line = line.saturating_sub(1);
+    let zero_based_column = column.saturating_sub(1);
+    
+    // まず正確な位置でシンボルを検索
+    let symbol = graph.get_all_symbols().find(|s| {
+        // ファイルパスの正規化（相対パスと絶対パスの両方に対応）
+        let matches_file = s.file_path == file 
+            || s.file_path.ends_with(file) 
+            || file.ends_with(&s.file_path);
+            
+        matches_file
+            && s.range.start.line <= zero_based_line
+            && s.range.end.line >= zero_based_line
+            && (zero_based_line != s.range.start.line || s.range.start.character <= zero_based_column)
+            && (zero_based_line != s.range.end.line || s.range.end.character >= zero_based_column)
+    });
+    
+    // 見つからない場合は、より緩い条件で検索
+    symbol.or_else(|| {
+        graph.get_all_symbols().find(|s| {
+            let matches_file = s.file_path == file 
+                || s.file_path.ends_with(file) 
+                || file.ends_with(&s.file_path);
+                
+            matches_file
+                && s.range.start.line == zero_based_line
+                && s.range.start.character <= zero_based_column + 10
+        })
     })
 }
 

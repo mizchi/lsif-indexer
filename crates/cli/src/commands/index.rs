@@ -52,7 +52,9 @@ pub fn handle_index(
     let mut indexer = DifferentialIndexer::new(db_path, Path::new(project_root))?;
 
     // フォールバックオンリーモードを設定
-    if fallback_only {
+    // --no-lspフラグまたは--fallback-onlyフラグが設定されている場合
+    let use_fallback = fallback_only || std::env::var("LSIF_FALLBACK_ONLY").is_ok();
+    if use_fallback {
         indexer.set_fallback_only(true);
     }
 

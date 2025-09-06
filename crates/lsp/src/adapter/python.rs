@@ -1,6 +1,8 @@
 use super::common::{is_command_available, spawn_lsp_server};
 use super::language::{DefinitionPattern, LanguageAdapter, PatternType};
+use super::lsp::LspAdapter;
 use anyhow::Result;
+use std::process::{Child, Command, Stdio};
 
 /// Python言語のアダプタ実装
 /// pylspまたはpyrightを使用してPythonコードを解析
@@ -55,6 +57,38 @@ impl PythonAdapter {
 impl Default for PythonAdapter {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl LspAdapter for PythonAdapter {
+    fn spawn_command(&self) -> Result<Child> {
+        match self.lsp_server.as_str() {
+            "pyright" => {
+                Command::new("pyright-langserver")
+                    .args(["--stdio"])
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .spawn()
+                    .map_err(|e| anyhow::anyhow!("Failed to spawn pyright: {}", e))
+            }
+            _ => {
+                Command::new("pylsp")
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .spawn()
+                    .map_err(|e| anyhow::anyhow!("Failed to spawn pylsp: {}", e))
+            }
+        }
+    }
+
+    fn language_id(&self) -> &str {
+        "python"
+    }
+
+    fn supports_workspace_symbol(&self) -> bool {
+        self.lsp_server == "pyright" // pyrightはworkspace/symbolをサポート
     }
 }
 

@@ -848,6 +848,16 @@ pub fn detect_language(file_path: &str) -> Option<Box<dyn LspAdapter>> {
     match extension {
         "rs" => Some(Box::new(RustAnalyzerAdapter)),
         "ts" | "tsx" | "js" | "jsx" => Some(Box::new(TypeScriptAdapter)),
+        "py" => {
+            // PythonAdapterをインポート
+            use super::python::PythonAdapter;
+            Some(Box::new(PythonAdapter::new()))
+        }
+        "go" => {
+            // GoAdapterをインポート
+            use super::go::GoAdapter;
+            Some(Box::new(GoAdapter::new()))
+        }
         _ => None,
     }
 }

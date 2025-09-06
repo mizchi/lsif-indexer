@@ -382,10 +382,12 @@ fn quick_index(db_path: &str, project_root: &str) -> Result<()> {
 
     let mut indexer = DifferentialIndexer::new(db_path, Path::new(project_root))?;
 
-    // 環境変数でフォールバックオンリーモードを制御
-    if std::env::var("LSIF_FALLBACK_ONLY").is_ok() {
-        indexer.set_fallback_only(true);
-    }
+    // デフォルトでフォールバックインデクサーを使用（高速）
+    // LSPを使用したい場合は環境変数 LSIF_USE_LSP=1 を設定
+    // ただし、LSIF_FALLBACK_ONLYが設定されている場合は常にフォールバックを使用
+    let use_lsp = std::env::var("LSIF_USE_LSP").unwrap_or_default() == "1" 
+        && std::env::var("LSIF_FALLBACK_ONLY").is_err();
+    indexer.set_fallback_only(!use_lsp);
 
     let result = indexer.index_differential()?;
 

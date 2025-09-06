@@ -7,6 +7,13 @@ use std::process::{Child, Command, Stdio};
 /// goplsを使用してGo言語のコードを解析
 pub struct GoAdapter;
 
+impl GoAdapter {
+    /// 新しいGoアダプタを作成
+    pub fn new() -> Self {
+        GoAdapter
+    }
+}
+
 impl LspAdapter for GoAdapter {
     fn spawn_command(&self) -> Result<Child> {
         Command::new("gopls")

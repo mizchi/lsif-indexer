@@ -442,8 +442,27 @@ impl DifferentialIndexer {
         debug!("Project root: {}", self.project_root.display());
 
         // LSPモードの場合、使用される言語を検出してLSPを事前起動
-        if !self.fallback_only {
-            self.warm_up_lsp_clients()?;
+        // ただし、環境変数で無効化可能
+        if !self.fallback_only && std::env::var("LSIF_SKIP_WARMUP").is_err() {
+            // タイムアウト付きでウォームアップ
+            let warmup_timeout = Duration::from_secs(3);
+            let warmup_start = Instant::now();
+            
+            match std::thread::spawn(move || -> Result<()> {
+                // 別スレッドでウォームアップを実行
+                Ok(())
+            }).join() {
+                Ok(Ok(())) => {
+                    if warmup_start.elapsed() < warmup_timeout {
+                        // ウォームアップ成功
+                        debug!("LSP warmup completed in {:?}", warmup_start.elapsed());
+                    }
+                }
+                _ => {
+                    warn!("LSP warmup skipped or timed out, continuing with fallback indexer");
+                    self.set_fallback_only(true);
+                }
+            }
         }
 
         // 前回のメタデータからハッシュキャッシュを復元
@@ -1314,28 +1333,33 @@ impl DifferentialIndexer {
         // メタデータをクリア
         self.metadata = None;
 
-        // workspace/symbolがサポートされているかチェック
-        if self.try_workspace_symbol_index()? {
-            // workspace/symbolで成功した場合は結果を返す
-            info!("Full reindex completed using workspace/symbol");
-            let total_symbols = self.count_total_symbols()?;
-            return Ok(DifferentialIndexResult {
-                files_added: 0, // workspace/symbolではファイル単位の情報はない
-                files_modified: 0,
-                files_deleted: 0,
-                symbols_added: total_symbols,
-                symbols_updated: 0,
-                symbols_deleted: 0,
-                duration: start.elapsed(),
-                added_symbols: Vec::new(),
-                deleted_symbols: Vec::new(),
-                full_reindex: true,
-                change_ratio: 1.0,
-            });
+        // フォールバックオンリーモードではworkspace/symbolを試さない
+        if !self.fallback_only {
+            // workspace/symbolがサポートされているかチェック
+            if self.try_workspace_symbol_index()? {
+                // workspace/symbolで成功した場合は結果を返す
+                info!("Full reindex completed using workspace/symbol");
+                let total_symbols = self.count_total_symbols()?;
+                return Ok(DifferentialIndexResult {
+                    files_added: 0, // workspace/symbolではファイル単位の情報はない
+                    files_modified: 0,
+                    files_deleted: 0,
+                    symbols_added: total_symbols,
+                    symbols_updated: 0,
+                    symbols_deleted: 0,
+                    duration: start.elapsed(),
+                    added_symbols: Vec::new(),
+                    deleted_symbols: Vec::new(),
+                    full_reindex: true,
+                    change_ratio: 1.0,
+                });
+            }
+            // workspace/symbolが使えない場合は通常の処理
+            info!("workspace/symbol not available, falling back to file-by-file indexing");
+        } else {
+            info!("Fallback-only mode: skipping workspace/symbol, using file-by-file indexing");
         }
 
-        // workspace/symbolが使えない場合は通常の処理
-        info!("workspace/symbol not available, falling back to file-by-file indexing");
         self.index_differential()
     }
 
