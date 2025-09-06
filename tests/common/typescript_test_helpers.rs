@@ -201,7 +201,7 @@ describe('UserService', () => {
 
 /// TypeScript参照テストの共通ヘルパー
 pub struct TypeScriptReferenceTest {
-    pub temp_dir: TempDir,
+    pub _temp_dir: TempDir,
     pub project_root: PathBuf,
 }
 
@@ -211,7 +211,7 @@ impl TypeScriptReferenceTest {
         let temp_dir = TempDir::new().unwrap();
         let project_root = create_typescript_test_project(&temp_dir);
         Self {
-            temp_dir,
+            _temp_dir: temp_dir,
             project_root,
         }
     }

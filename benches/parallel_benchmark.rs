@@ -447,7 +447,7 @@ fn benchmark_file_hash_calculation(c: &mut Criterion) {
             |b, files| {
                 b.iter(|| {
                     let mut hashes = HashMap::new();
-                    for (path, content) in files {
+                    for (path, _content) in files {
                         // calculate_file_hash not available - using placeholder
                         let hash = format!("hash_{}", path.display());
                         hashes.insert(path.clone(), hash);

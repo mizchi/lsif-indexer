@@ -1048,6 +1048,7 @@ impl DifferentialIndexer {
     }
 
     /// ファイルが変更されているかをハッシュで確認
+    #[allow(dead_code)]
     fn is_file_changed(&self, path: &Path, new_hash: &str) -> Result<bool> {
         if let Some(ref metadata) = self.metadata {
             if let Some(old_hash) = metadata.file_content_hashes.get(path) {

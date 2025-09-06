@@ -71,7 +71,7 @@ pub struct TimeoutPredictor {
     /// 行あたりの予測処理時間（ミリ秒）
     ms_per_line: f64,
     /// 言語別の速度係数
-    language_speed: HashMap<String, f64>,
+    _language_speed: HashMap<String, f64>,
     /// 最大タイムアウト秒数
     max_timeout_secs: u64,
 }
@@ -81,13 +81,13 @@ struct ProcessingRecord {
     file_size: usize,
     line_count: usize,
     duration_ms: u64,
-    success: bool,
+    _success: bool,
 }
 
 #[derive(Debug, Clone)]
 struct AdaptiveTimeout {
     current: Duration,
-    initial: Duration,
+    _initial: Duration,
     normal: Duration,
     max: Duration,
     success_count: u32,
@@ -114,7 +114,7 @@ impl Default for TimeoutPredictor {
                 op,
                 AdaptiveTimeout {
                     current: initial,
-                    initial,
+                    _initial: initial,
                     normal,
                     max,
                     success_count: 0,
@@ -130,7 +130,7 @@ impl Default for TimeoutPredictor {
             operation_timeouts,
             ms_per_byte: 0.001, // 初期値: 1KBあたり1ms
             ms_per_line: 0.5,   // 初期値: 1行あたり0.5ms
-            language_speed: HashMap::new(),
+            _language_speed: HashMap::new(),
             max_timeout_secs: 30,
         }
     }
@@ -156,7 +156,7 @@ impl TimeoutPredictor {
         file_size: usize,
         line_count: usize,
         duration: Duration,
-        success: bool,
+_success: bool,
     ) {
         // 履歴に追加
         let history = self
@@ -172,12 +172,12 @@ impl TimeoutPredictor {
             file_size,
             line_count,
             duration_ms: duration.as_millis() as u64,
-            success,
+            _success,
         });
 
         // タイムアウトを適応的に調整
         if let Some(timeout) = self.operation_timeouts.get_mut(&operation) {
-            if success {
+            if _success {
                 timeout.success_count += 1;
 
                 // 成功が続いたらタイムアウトを短縮
@@ -259,7 +259,7 @@ impl TimeoutPredictor {
             file_size,
             line_count,
             duration_ms,
-            success: true, // デフォルトでtrueとする
+            _success: true, // デフォルトでtrueとする
         });
 
         // 統計を更新

@@ -29,6 +29,7 @@ pub mod language_optimization;
 pub mod optimized_io;
 pub mod regex_cache;
 pub mod timeout_predictor;
+pub mod tree_sitter_parser;
 
 // テスト用ユーティリティ
 #[cfg(test)]
@@ -52,4 +53,5 @@ pub use lsp_indexer::LspIndexer;
 pub use lsp_manager::{LspServerConfig, LspServerRegistry, ProjectIndex, UnifiedLspManager};
 pub use lsp_rpc_client::LspRpcClient;
 pub use timeout_predictor::{PredictorStatistics, TimeoutPredictor};
+pub use tree_sitter_parser::TreeSitterParser;
 pub use unified_indexer::{IndexResult, UnifiedIndexer};

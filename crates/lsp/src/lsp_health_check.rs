@@ -390,7 +390,7 @@ pub struct HealthStatus {
 
 /// LSP起動の段階的確認
 pub struct LspStartupValidator {
-    max_startup_wait: Duration,
+    _max_startup_wait: Duration,
 }
 
 impl Default for LspStartupValidator {
@@ -402,7 +402,7 @@ impl Default for LspStartupValidator {
 impl LspStartupValidator {
     pub fn new() -> Self {
         Self {
-            max_startup_wait: Duration::from_secs(10),
+            _max_startup_wait: Duration::from_secs(10),
         }
     }
 

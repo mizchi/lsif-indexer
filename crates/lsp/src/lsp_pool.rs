@@ -40,7 +40,7 @@ struct PooledClient {
 
 /// Capabilitiesのサマリー（高速アクセス用）
 #[derive(Clone, Debug)]
-struct CapabilitiesSummary {
+pub struct CapabilitiesSummary {
     /// ドキュメントシンボルのサポート
     pub supports_document_symbol: bool,
     /// 定義へのジャンプのサポート

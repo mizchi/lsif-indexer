@@ -248,7 +248,7 @@ fn benchmark_realistic_project(c: &mut Criterion) {
     let mut group = c.benchmark_group("realistic_project");
 
     // 大規模プロジェクト（1000ファイル、各50シンボル）
-    let total_symbols = 50000;
+    let _total_symbols = 50000;
 
     group.bench_function("large_project_standard", |b| {
         b.iter(|| {

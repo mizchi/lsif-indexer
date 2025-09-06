@@ -67,6 +67,7 @@ impl LspAdapter for MockLspAdapter {
 }
 
 /// テスト用のシンボル生成ヘルパー
+#[allow(deprecated)]
 pub fn create_test_workspace_symbol(
     name: &str,
     kind: SymbolKind,
@@ -92,6 +93,7 @@ pub fn create_test_workspace_symbol(
     }
 }
 
+#[allow(deprecated)]
 pub fn create_test_document_symbol(
     name: &str,
     kind: SymbolKind,

@@ -165,7 +165,7 @@ impl LspIntegration {
 
             // Analyze definitions
             if let Ok(definition_locations) = client.goto_definition(uri.clone(), *position) {
-                for def_loc in definition_locations {
+                if let Some(def_loc) = definition_locations {
                     let _def_id = format!(
                         "{}:{}:{}",
                         def_loc.uri.path(),

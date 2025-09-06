@@ -1,6 +1,5 @@
 use lsp::lsp_performance_benchmark::{analyze_results, run_benchmark_suite};
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 fn main() {
     println!("LSP Performance Benchmark\n");

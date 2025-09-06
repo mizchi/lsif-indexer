@@ -46,7 +46,7 @@ impl Ord for CrawlTarget {
 }
 
 pub struct DefinitionCrawler {
-    storage: IndexStorage,
+    _storage: IndexStorage,
     lsp_pool: LspClientPool,
     project_root: PathBuf,
     max_depth: u32,
@@ -68,7 +68,7 @@ impl DefinitionCrawler {
         let lsp_pool = LspClientPool::with_defaults();
 
         Ok(Self {
-            storage,
+            _storage: storage,
             lsp_pool,
             project_root: project_root.to_path_buf(),
             max_depth,
@@ -354,17 +354,17 @@ impl DefinitionCrawler {
     /// 参照を取得
     fn get_references(
         &self,
-        client: &mut GenericLspClient,
-        file_path: &Path,
-        position: &Position,
+        _client: &mut GenericLspClient,
+        _file_path: &Path,
+        _position: &Position,
     ) -> Result<Vec<PathBuf>> {
-        let lsp_position = lsp_types::Position {
-            line: position.line,
-            character: position.character,
+        let _lsp_position = lsp_types::Position {
+            line: _position.line,
+            character: _position.character,
         };
 
         // get_referencesメソッドがない場合は、send_requestを使用
-        let file_uri = format!("file://{}", file_path.display());
+        let _file_uri = format!("file://{}", _file_path.display());
         // TODO: 実際のLSP参照検索APIを呼び出す
         let locations: Vec<lsp_types::Location> = Vec::new();
 

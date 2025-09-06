@@ -184,8 +184,8 @@ impl GenericLspClient {
         use tracing::{debug, info};
 
         debug!("Sending initialize request for {}", self.language_id);
-        #[allow(deprecated)]
-        debug!("Root URI: {:?}", params.root_uri);
+        // Using workspace_folders instead of deprecated root_uri
+        debug!("Workspace folders: {:?}", params.workspace_folders);
 
         // 初期化用のタイムアウトを取得
         let timeout = timeout.unwrap_or_else(|| {

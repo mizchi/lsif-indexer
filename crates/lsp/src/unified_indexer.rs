@@ -282,6 +282,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(deprecated)]
     async fn test_document_symbol_conversion() {
         let indexer = UnifiedIndexer::new();
 

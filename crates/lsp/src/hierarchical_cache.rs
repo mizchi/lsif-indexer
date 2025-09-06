@@ -122,7 +122,7 @@ struct L2DiskCache {
 struct L3PersistentDb {
     definitions: HashMap<(PathBuf, u32, u32), Vec<Location>>,
     references: HashMap<(PathBuf, u32, u32), Vec<Location>>,
-    db_path: PathBuf,
+    _db_path: PathBuf,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -177,7 +177,7 @@ impl HierarchicalCache {
             l3_db: Arc::new(RwLock::new(L3PersistentDb {
                 definitions: HashMap::new(),
                 references: HashMap::new(),
-                db_path,
+                _db_path: db_path,
             })),
             config,
             metrics: Arc::new(RwLock::new(CacheMetrics::default())),
@@ -451,6 +451,7 @@ mod tests {
     use lsp_types::{DocumentSymbol, SymbolKind};
 
     #[test]
+    #[allow(deprecated)]
     fn test_l1_cache() {
         let cache = HierarchicalCache::new(CacheConfig::default()).unwrap();
 

@@ -1,6 +1,6 @@
 use lsp::{
     hierarchical_cache::{CacheConfig, HierarchicalCache},
-    language_optimization::{LanguageOptimization, OptimizationStrategy},
+    language_optimization::OptimizationStrategy,
     lsp_metrics::{CacheLevel, LspMetricsCollector},
     lsp_pool::{LspClientPool, PoolConfig},
     timeout_predictor::{LspOperation, TimeoutPredictor},
@@ -365,7 +365,7 @@ mod tests {
         let strategy = OptimizationStrategy::new();
 
         // TypeScript最適化戦略を確認
-        let ts_opt = strategy.get_optimization(&Language::TypeScript);
+        let ts_opt = strategy.get_strategy(&Language::TypeScript);
         assert!(ts_opt.is_some());
 
         if let Some(opt) = ts_opt {
@@ -376,7 +376,7 @@ mod tests {
         }
 
         // Rust最適化戦略を確認
-        let rust_opt = strategy.get_optimization(&Language::Rust);
+        let rust_opt = strategy.get_strategy(&Language::Rust);
         assert!(rust_opt.is_some());
 
         if let Some(opt) = rust_opt {
@@ -434,7 +434,7 @@ mod tests {
 
     #[test]
     fn test_adaptive_timeout() {
-        let mut predictor = TimeoutPredictor::new();
+        let predictor = TimeoutPredictor::new();
 
         // 各操作のデフォルトタイムアウトを確認
         let operations = [

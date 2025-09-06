@@ -111,7 +111,7 @@ impl LspMetricsCollector {
         OperationTimer {
             collector: self.clone(),
             operation: operation.to_string(),
-            start_time: now,
+            _start_time: now,
             start_instant: now,
         }
     }
@@ -410,7 +410,7 @@ pub enum CacheLevel {
 pub struct OperationTimer {
     collector: LspMetricsCollector,
     operation: String,
-    start_time: Instant,
+    _start_time: Instant,
     start_instant: Instant, // 追加
 }
 

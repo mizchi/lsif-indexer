@@ -86,13 +86,13 @@ fn test_function() {
 
         // lib.rsのシンボル取得
         let lib_uri = Url::from_file_path(project_path.join("lib.rs")).unwrap();
-        let lib_content = fs::read_to_string(project_path.join("lib.rs"))?;
+        let _lib_content = fs::read_to_string(project_path.join("lib.rs"))?;
         client.open_document(&project_path.join("lib.rs"))?;
         let lib_symbols = client.document_symbols(lib_uri.clone())?;
 
         // main.rsのシンボル取得
         let main_uri = Url::from_file_path(project_path.join("main.rs")).unwrap();
-        let main_content = fs::read_to_string(project_path.join("main.rs"))?;
+        let _main_content = fs::read_to_string(project_path.join("main.rs"))?;
         client.open_document(&project_path.join("main.rs"))?;
         let main_symbols = client.document_symbols(main_uri.clone())?;
 
@@ -152,7 +152,7 @@ fn test_function() {
         let adapter = Box::new(RustAdapter::new());
         let mut client = LspClient::new(adapter)?;
 
-        let lib_uri = Url::from_file_path(project_path.join("lib.rs")).unwrap();
+        let _lib_uri = Url::from_file_path(project_path.join("lib.rs")).unwrap();
 
         // create_default_config関数への参照を検索
         let func_refs = client.find_references(
@@ -279,8 +279,8 @@ app.setLogger(customLogger);
         let adapter = Box::new(TypeScriptAdapter::new());
         let mut client = LspClient::new(adapter)?;
 
-        let utils_uri = Url::from_file_path(project_path.join("utils.ts")).unwrap();
-        let utils_content = fs::read_to_string(project_path.join("utils.ts"))?;
+        let _utils_uri = Url::from_file_path(project_path.join("utils.ts")).unwrap();
+        let _utils_content = fs::read_to_string(project_path.join("utils.ts"))?;
         client.open_document(&project_path.join("utils.ts"))?;
 
         // ILoggerインターフェースの実装を検索
@@ -317,8 +317,8 @@ app.setLogger(customLogger);
         let adapter = Box::new(TypeScriptAdapter::new());
         let mut client = LspClient::new(adapter)?;
 
-        let utils_uri = Url::from_file_path(project_path.join("utils.ts")).unwrap();
-        let utils_content = fs::read_to_string(project_path.join("utils.ts"))?;
+        let _utils_uri = Url::from_file_path(project_path.join("utils.ts")).unwrap();
+        let _utils_content = fs::read_to_string(project_path.join("utils.ts"))?;
         client.open_document(&project_path.join("utils.ts"))?;
 
         // createLogger関数への参照を検索

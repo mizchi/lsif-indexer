@@ -200,8 +200,9 @@ mod tests {
 
     #[test]
     fn test_typescript_adapter_basic_info() {
+        use super::LanguageAdapter;
         let adapter = TypeScriptAdapter::new();
-        assert_eq!(adapter.language_id(), "typescript");
+        assert_eq!(LanguageAdapter::language_id(&adapter), "typescript");
         assert!(adapter.supported_extensions().contains(&"ts"));
         assert!(adapter.supported_extensions().contains(&"tsx"));
         assert!(adapter.supported_extensions().contains(&"js"));
@@ -209,8 +210,9 @@ mod tests {
 
     #[test]
     fn test_javascript_adapter_basic_info() {
+        use super::LanguageAdapter;
         let adapter = TypeScriptAdapter::javascript_only();
-        assert_eq!(adapter.language_id(), "javascript");
+        assert_eq!(LanguageAdapter::language_id(&adapter), "javascript");
         assert!(adapter.supported_extensions().contains(&"js"));
         assert!(adapter.supported_extensions().contains(&"jsx"));
         assert!(!adapter.supported_extensions().contains(&"ts"));

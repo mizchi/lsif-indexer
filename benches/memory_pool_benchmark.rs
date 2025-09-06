@@ -177,13 +177,13 @@ fn benchmark_symbol_operations(c: &mut Criterion) {
     // 参照検索のベンチマーク
     group.bench_function("standard_find_references", |b| {
         b.iter(|| {
-            black_box(standard_graph.find_references("symbol_5000"));
+            let _ = black_box(standard_graph.find_references("symbol_5000"));
         })
     });
 
     group.bench_function("optimized_find_references", |b| {
         b.iter(|| {
-            black_box(optimized_graph.find_references("symbol_5000"));
+            let _ = black_box(optimized_graph.find_references("symbol_5000"));
         })
     });
 

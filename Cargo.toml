@@ -84,6 +84,14 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 
+# Parsing
+tree-sitter = "0.20"
+tree-sitter-rust = "0.20"
+tree-sitter-python = "0.20"
+tree-sitter-go = "0.20"
+tree-sitter-typescript = "0.20"
+tree-sitter-javascript = "0.20"
+
 # Dev dependencies
 tempfile = "3.8"
 criterion = "0.5"

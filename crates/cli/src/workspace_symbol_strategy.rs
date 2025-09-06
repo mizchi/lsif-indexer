@@ -449,6 +449,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_document_symbols_to_core_conversion() {
         use lsp_types::{DocumentSymbol, Position, Range, SymbolKind};
 
@@ -519,6 +520,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_workspace_symbol_conversion() {
         use lsp_types::{Location, Position, Range, SymbolInformation, SymbolKind, Url};
 

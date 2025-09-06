@@ -246,7 +246,7 @@ fn test_error_handling() -> Result<()> {
     
 
     // 存在しないディレクトリでのシンボル取得を試みる
-    let non_existent = "/this/path/does/not/exist";
+    let _non_existent = "/this/path/does/not/exist";
 
     // Note: 実際のテストではモックアダプタを使用
     // ここではエラーハンドリングのロジックのみを確認

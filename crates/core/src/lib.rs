@@ -3,6 +3,7 @@
 //! This crate provides the core logic for code indexing and graph operations.
 
 pub mod call_hierarchy;
+pub mod complexity;
 pub mod definition_chain;
 pub mod fuzzy_search;
 pub mod graph;
@@ -12,6 +13,7 @@ pub mod graph_serde;
 pub mod incremental;
 pub mod lsif;
 pub mod parallel;
+pub mod public_api;
 pub mod test_fixtures;
 pub mod type_relations;
 
@@ -27,6 +29,7 @@ pub mod string_interner;
 
 // Re-export main types
 pub use call_hierarchy::CallHierarchy;
+pub use complexity::{ComplexityAnalyzer, ComplexityMetrics};
 pub use fuzzy_search::{FuzzySearchIndex, MatchType, SearchResult};
 pub use graph::{CodeGraph, EdgeKind, Position, Range, Symbol, SymbolKind};
 pub use graph_builder::GraphBuilder;
@@ -35,6 +38,7 @@ pub use graph_query::{
 };
 pub use incremental::IncrementalIndex;
 pub use lsif::LsifGenerator;
+pub use public_api::{ApiInfo, PublicApiAnalyzer, Visibility};
 pub use type_relations::TypeRelations;
 
 // Utility functions
