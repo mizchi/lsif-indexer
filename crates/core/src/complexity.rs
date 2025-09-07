@@ -490,4 +490,112 @@ mod tests {
             assert!(rankings[i].1.cyclomatic_complexity >= rankings[i + 1].1.cyclomatic_complexity);
         }
     }
+
+    #[test]
+    fn test_empty_graph_complexity() {
+        let graph = CodeGraph::new();
+        let analyzer = ComplexityAnalyzer::new(&graph);
+        
+        // 存在しないシンボルのcomplexity
+        assert_eq!(analyzer.calculate_cyclomatic_complexity("nonexistent"), None);
+        assert_eq!(analyzer.calculate_cognitive_complexity("nonexistent"), None);
+        let (fan_in, fan_out) = analyzer.calculate_fan_metrics("nonexistent");
+        assert_eq!(fan_in, 0);
+        assert_eq!(fan_out, 0);
+    }
+
+    #[test]
+    fn test_single_function_complexity() {
+        let mut graph = CodeGraph::new();
+        let func = Symbol {
+            id: "func1".to_string(),
+            kind: SymbolKind::Function,
+            name: "single_func".to_string(),
+            file_path: "test.rs".to_string(),
+            range: Range {
+                start: Position { line: 0, character: 0 },
+                end: Position { line: 10, character: 0 },
+            },
+            documentation: None,
+            detail: None,
+        };
+        graph.add_symbol(func);
+        
+        let analyzer = ComplexityAnalyzer::new(&graph);
+        
+        // 単一関数の基本的な複雑度は2（E-N+2P where E=0, N=0, P=1 => 2）
+        assert_eq!(analyzer.calculate_cyclomatic_complexity("func1"), Some(2));
+        assert_eq!(analyzer.calculate_cognitive_complexity("func1"), Some(0));
+        let (fan_in, fan_out) = analyzer.calculate_fan_metrics("func1");
+        assert_eq!(fan_in, 0);
+        assert_eq!(fan_out, 0);
+    }
+
+    #[test]
+    fn test_calculate_maintainability_index() {
+        let mut graph = CodeGraph::new();
+        
+        // シンプルな関数
+        let simple = Symbol {
+            id: "simple".to_string(),
+            kind: SymbolKind::Function,
+            name: "simple".to_string(),
+            file_path: "test.rs".to_string(),
+            range: Range {
+                start: Position { line: 0, character: 0 },
+                end: Position { line: 5, character: 0 },
+            },
+            documentation: None,
+            detail: None,
+        };
+        
+        let _simple_node = graph.add_symbol(simple);
+        
+        // 複雑な関数
+        let complex = Symbol {
+            id: "complex".to_string(),
+            kind: SymbolKind::Function,
+            name: "complex".to_string(),
+            file_path: "test.rs".to_string(),
+            range: Range {
+                start: Position { line: 10, character: 0 },
+                end: Position { line: 50, character: 0 },
+            },
+            documentation: None,
+            detail: None,
+        };
+        
+        let complex_node = graph.add_symbol(complex);
+        
+        // complexに複雑度を追加
+        for i in 0..5 {
+            let var = Symbol {
+                id: format!("var_{}", i),
+                kind: SymbolKind::Variable,
+                name: format!("var_{}", i),
+                file_path: "test.rs".to_string(),
+                range: Range {
+                    start: Position { line: 0, character: 0 },
+                    end: Position { line: 0, character: 0 },
+                },
+                documentation: None,
+                detail: None,
+            };
+            let var_node = graph.add_symbol(var);
+            graph.add_edge(complex_node, var_node, EdgeKind::Contains);
+        }
+        
+        let analyzer = ComplexityAnalyzer::new(&graph);
+        
+        // 複雑度メトリクスの比較
+        let simple_cyclo = analyzer.calculate_cyclomatic_complexity("simple");
+        let complex_cyclo = analyzer.calculate_cyclomatic_complexity("complex");
+        
+        assert!(simple_cyclo.is_some());
+        assert!(complex_cyclo.is_some());
+        
+        // complexの方が高い複雑度を持つはず（Contains edgeが多いため）
+        // 注：実装によっては同じ値になる可能性もある
+        assert!(complex_cyclo.unwrap() >= simple_cyclo.unwrap());
+    }
 }

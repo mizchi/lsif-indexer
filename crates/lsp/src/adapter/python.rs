@@ -159,8 +159,9 @@ mod tests {
 
     #[test]
     fn test_python_adapter_basic_info() {
+        use super::LanguageAdapter;
         let adapter = PythonAdapter::new();
-        assert_eq!(adapter.language_id(), "python");
+        assert_eq!(LanguageAdapter::language_id(&adapter), "python");
         assert_eq!(adapter.supported_extensions(), vec!["py", "pyi"]);
     }
 

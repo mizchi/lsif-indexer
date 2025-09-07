@@ -376,4 +376,166 @@ mod tests {
         assert_eq!(entry_points.len(), 1);
         assert_eq!(entry_points[0].name, "main");
     }
+
+    #[test]
+    fn test_analyze_public_apis() {
+        let mut graph = CodeGraph::new();
+        
+        // Public function
+        let pub_func = create_test_symbol(
+            "public_func", 
+            SymbolKind::Function,
+            Some("pub fn public_func()".to_string())
+        );
+        let pub_node = graph.add_symbol(pub_func.clone());
+        
+        // Private function
+        let priv_func = create_test_symbol(
+            "private_func",
+            SymbolKind::Function,
+            Some("fn private_func()".to_string())
+        );
+        graph.add_symbol(priv_func);
+        
+        // Public struct
+        let pub_struct = create_test_symbol(
+            "PublicStruct",
+            SymbolKind::Class,
+            Some("pub struct PublicStruct".to_string())
+        );
+        let struct_node = graph.add_symbol(pub_struct.clone());
+        
+        // Mark as exported
+        graph.add_edge(pub_node, pub_node, EdgeKind::Export);
+        graph.add_edge(struct_node, struct_node, EdgeKind::Export);
+        
+        let analyzer = PublicApiAnalyzer::new(graph);
+        
+        // Public function should be detected as public
+        assert_eq!(analyzer.determine_rust_visibility(&pub_func), Visibility::Public);
+        assert_eq!(analyzer.determine_rust_visibility(&pub_struct), Visibility::Public);
+        
+        // Should be marked as exported
+        assert!(analyzer.is_exported(pub_node));
+        assert!(analyzer.is_exported(struct_node));
+    }
+
+    #[test]
+    fn test_typescript_visibility() {
+        let analyzer = PublicApiAnalyzer::new(CodeGraph::new());
+        
+        // Export
+        let exported = create_test_symbol(
+            "exportedFunc",
+            SymbolKind::Function,
+            Some("export function exportedFunc()".to_string())
+        );
+        assert_eq!(
+            analyzer.determine_typescript_visibility(&exported),
+            Visibility::Public
+        );
+        
+        // Export default
+        let default_export = create_test_symbol(
+            "default",
+            SymbolKind::Function,
+            Some("export default function()".to_string())
+        );
+        assert_eq!(
+            analyzer.determine_typescript_visibility(&default_export),
+            Visibility::Public
+        );
+        
+        // Internal (not exported)
+        let internal = create_test_symbol(
+            "internalFunc",
+            SymbolKind::Function,
+            Some("function internalFunc()".to_string())
+        );
+        assert_eq!(
+            analyzer.determine_typescript_visibility(&internal),
+            Visibility::Internal
+        );
+    }
+
+    #[test]
+    fn test_count_references() {
+        let mut graph = CodeGraph::new();
+        
+        let func1 = create_test_symbol("func1", SymbolKind::Function, None);
+        let func2 = create_test_symbol("func2", SymbolKind::Function, None);
+        let func3 = create_test_symbol("func3", SymbolKind::Function, None);
+        
+        let node1 = graph.add_symbol(func1);
+        let node2 = graph.add_symbol(func2);
+        let node3 = graph.add_symbol(func3);
+        
+        // func1 -> func2, func3 -> func2
+        graph.add_edge(node1, node2, EdgeKind::Reference);
+        graph.add_edge(node3, node2, EdgeKind::Reference);
+        
+        let analyzer = PublicApiAnalyzer::new(graph);
+        
+        // func2 has 2 incoming references
+        assert_eq!(analyzer.count_references(node2), 2);
+        // func1 and func3 have 0 incoming references
+        assert_eq!(analyzer.count_references(node1), 0);
+        assert_eq!(analyzer.count_references(node3), 0);
+    }
+
+    #[test]
+    fn test_is_exported() {
+        let mut graph = CodeGraph::new();
+        
+        let exported = create_test_symbol("exported", SymbolKind::Function, None);
+        let internal = create_test_symbol("internal", SymbolKind::Function, None);
+        
+        let exp_node = graph.add_symbol(exported);
+        let int_node = graph.add_symbol(internal);
+        
+        // Mark one as exported
+        graph.add_edge(exp_node, exp_node, EdgeKind::Export);
+        
+        let analyzer = PublicApiAnalyzer::new(graph);
+        
+        assert!(analyzer.is_exported(exp_node));
+        assert!(!analyzer.is_exported(int_node));
+    }
+
+    #[test]
+    fn test_determine_visibility_by_language() {
+        let analyzer = PublicApiAnalyzer::new(CodeGraph::new());
+        
+        // Test Rust visibility
+        let rust_pub = create_test_symbol(
+            "rust_pub",
+            SymbolKind::Function,
+            Some("pub fn rust_pub()".to_string())
+        );
+        assert_eq!(analyzer.determine_visibility(&rust_pub, "rust"), Visibility::Public);
+        
+        // Test Python visibility
+        let python_private = create_test_symbol(
+            "_private",
+            SymbolKind::Function,
+            None
+        );
+        assert_eq!(analyzer.determine_visibility(&python_private, "python"), Visibility::Protected);
+        
+        // Test TypeScript visibility
+        let ts_export = create_test_symbol(
+            "exported",
+            SymbolKind::Function,
+            Some("export const exported".to_string())
+        );
+        assert_eq!(analyzer.determine_visibility(&ts_export, "typescript"), Visibility::Public);
+        
+        // Test Go visibility
+        let go_public = create_test_symbol(
+            "PublicFunc",
+            SymbolKind::Function,
+            None
+        );
+        assert_eq!(analyzer.determine_visibility(&go_public, "go"), Visibility::Public);
+    }
 }

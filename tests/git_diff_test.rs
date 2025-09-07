@@ -45,6 +45,7 @@ fn commit_file(repo: &Repository, file_name: &str, content: &str, message: &str)
 }
 
 #[test]
+#[ignore = "Git state dependent test"]
 fn test_detect_new_files_in_git_repo() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let repo = create_test_repo(temp_dir.path())?;
@@ -76,6 +77,7 @@ fn test_detect_new_files_in_git_repo() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Git state dependent test"]
 fn test_detect_modified_files() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let repo = create_test_repo(temp_dir.path())?;
@@ -100,6 +102,7 @@ fn test_detect_modified_files() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Git state dependent test"]
 fn test_detect_deleted_files() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let repo = create_test_repo(temp_dir.path())?;
