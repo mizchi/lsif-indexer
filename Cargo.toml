@@ -45,7 +45,7 @@ thiserror = "1.0"
 
 # Data structures
 petgraph = { version = "0.6", features = ["serde-1"] }
-dashmap = "5.5"
+dashmap = "6.1"
 
 # Storage
 sled = "0.34"
