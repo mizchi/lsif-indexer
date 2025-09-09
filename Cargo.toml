@@ -94,7 +94,7 @@ tree-sitter-javascript = "0.20"
 
 # Dev dependencies
 tempfile = "3.8"
-criterion = "0.5"
+criterion = "0.7"
 
 # [workspace.dev-dependencies] # Currently unused
 # tokio = { version = "1.35", features = ["full", "test-util"] }
