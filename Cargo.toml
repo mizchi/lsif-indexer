@@ -65,7 +65,7 @@ lsp-types = "0.95"
 # CLI
 clap = { version = "4.4", features = ["derive"] }
 colored = "2.0"
-indicatif = "0.17"
+indicatif = "0.18"
 
 # File operations
 walkdir = "2.4"
