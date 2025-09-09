@@ -75,7 +75,7 @@ regex = "1.10"
 notify = "6.1"
 
 # VCS
-git2 = "0.18"
+git2 = "0.20"
 
 # Utils
 rayon = "1.10"
